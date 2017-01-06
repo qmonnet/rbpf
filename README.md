@@ -13,10 +13,132 @@ tcpdump so as to avoid useless copies to user-space. It was ported to Linux,
 where it evolved into eBPF (_extended_ BPF), a faster version with more
 features. While BPF programs are originally intended to run in the kernel, the
 virtual machine of this crate enables running it in user-space applications;
-it contains an interpreter as well as a JIT-compiler for eBPF programs.
+it contains an interpreter as well as a x86_64 JIT-compiler for eBPF programs.
 
 It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
 which does nearly the same, but is written in C.
+
+## API
+
+The process to run eBPF programs with rbpf is the following:
+
+1. Create a virtual machine. There are several kinds of machines, we will come
+   back on this later. When creating the VM, pass the eBPF program as an
+   argument to the constructor.
+2. If you want to use some helper functions, register them into the virtual
+   machine.
+3. If you want a JIT-compiled program, compile it.
+4. Execute your program: either run the interpreter or call the JIT-compiled
+   function.
+
+eBPF has been initially designed to filter packets (now it has some other hooks
+in the Linux kernel, such as kprobes, but this is not covered by rbpf). As a
+consequence, most of the load and store instructions of the program are
+performed on a memory area representing the packet data. However, in the Linux
+kernel, the eBPF program does not immediately access this data area: initially,
+it has access to a C `struct sk_buff` instead, which is a buffer containing
+metadata about the packet—including memory addresses of the beginning and of
+the end of the packet data area. So the program first loads those pointers from
+the `sk_buff`, and then can access the packet data.
+
+This behavior can be replicated with rbpf, but it is not mandatory. For this
+reason, we have several structs representing different kinds of virtual
+machines:
+
+* `struct EbpfVmMbuffer` mimics the kernel. When the program is run, the
+  address provided to its first eBPF register will be the address of a metadata
+  buffer provided by the user, and that is expected to contains pointers to the
+  start and the end of the packet data memory area.
+
+* `struct EbpfVmFixedMbuff` has one purpose: enabling the execution of programs
+  created to be compatible with the kernel, while saving the effort to manually
+  handle the metadata buffer for the user. In fact, this struct has a static
+  internal buffer that is passed to the program. The user has to indicate the
+  offset values at which the eBPF program expects to find the start and the end
+  of packet data in the buffer. On calling the function that runs the program
+  (JITted or not), the struct automatically updates the addresses in this
+  static buffer, at the appointed offsets, for the start and the end of the
+  packet data the program is called upon.
+
+* `struct EbpfVmRaw` is for programs that want to run directly on packet data.
+  No metadata buffer is involved, the eBPF program directly receives the
+  address of the packet data in its first register. This is the behavior of
+  uBPF.
+
+* `struct EbpfVmNoData` does not take any data. The eBPF program takes no
+  argument whatsoever, and its return value is deterministic. Not so sure there
+  is a valid use case for that, but if nothing else, this is very useful for
+  unit tests.
+
+All these structs implement the same public functions:
+
+```rust
+pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a>
+```
+
+This is used to create a new instance of a VM. The return type is dependent of
+the struct from which the function is called. For instance,
+`rbpf::EbpfVmRaw::new(my_program)` would return an instance of `struct
+rbpf::EbpfVmRaw` instead. When a program is loaded, it is checked with a very
+simple verifier (nothing close to the one for Linux kernel).
+
+```rust
+pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>)
+```
+
+You can use this function to change the loaded program after the VM instance
+creation. This program is checked with the verifier.
+
+```rust
+pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64)
+```
+
+This function is used to register a helper function. The VM stores its
+registers in a hashmap, so the key can be any `u32` value you want. It may be
+useful for programs that should be compatible with the Linux kernel, and
+therefore must use specific helper numbers.
+
+```rust
+// for struct EbpfVmMbuff
+pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64
+
+// for struct EbpfVmFixedMbuff and struct EbpfVmRaw
+pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
+
+// for struct EbpfVmNoData
+pub fn prog_exec(&self) -> u64
+```
+
+Interprets the loaded program. The function takes a reference to the packet
+data and the metadata buffer, or only to the packet data, or nothing at all,
+depending on the kind of the VM used. The value returned is the result of the
+eBPF program.
+
+```rust
+pub fn jit_compile(&mut self)
+```
+
+JIT-compile the loaded program, for x86_64 architecture. If the program is to
+use helper functions, they must be registered into the VM before this function
+is called. The generated assembly function is internally stored in the VM.
+
+```rust
+// for struct EbpfVmMbuff
+pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64
+
+// for struct EbpfVmFixedMbuff and struct EbpfVmRaw
+pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
+
+// for struct EbpfVmNoData
+pub fn prog_exec_jit(&self) -> u64
+```
+
+Calls the JIT-compiled program. The arguments to provide are the same as for
+`prog_exec()`, again depending on the kind of VM that is used. The result of
+the JIT-compiled program should be the same as with the interpreter, but it
+should run faster. Note that if errors occur during the program execution, the
+JIT-compiled version does not handle it as well as the interpreter, and the
+program may crash.
 
 ## Example uses
 
@@ -212,14 +334,6 @@ fn main() {
 }
 ```
 
-### API
-
-Most of the API is displayed in the above examples.
-
-```
-TBD
-```
-
 ## Feedback welcome!
 
 This is the author's first try at writing Rust code. He learned a lot in the
@@ -230,6 +344,11 @@ better advantage of Rust features.
 
 ## Questions / Answers
 
+### What Rust version is needed?
+
+This crate is known to be compatible with Rust version 1.14.0. Older versions
+of Rust have not been tested.
+
 ### Why implementing an eBPF virtual machine in Rust?
 
 As of this writing, there is no particular use case for this crate at the best
@@ -237,12 +356,56 @@ of the author's knowledge. The author happens to work with BPF on Linux and to
 know how uBPF works, and he wanted to learn and experiment with Rust—no more
 than that.
 
+### What are the differences with uBPF?
+
+Other than the language, obviously? Well, there are some differences:
+
+* Some constants, such as the maximum length for programs or the length for the
+  stack, differs between uBPF and rbpf. The latter uses the same values as the
+  Linux kernel, while uBPF has its own values.
+
+* When an error occur while a program is run by uBPF, the function running the
+  program silently returns the maximum value as an error code, while rbpf
+  `panic!()`.
+
+* The registration of helper functions, that can be called from within an eBPF
+  program, is not handled in the same way.
+
+* The distinct structs permitting to run program either on packet data, or with
+  a metadata buffer (simulated or not) is a specificity of rbpf.
+
+* As for performance: theoretically the JIT programs are expected to run at the
+  same speed, while the C interpreter of uBPF should go slightly faster than
+  rbpf. But this has not been asserted yet. Benchmarking both programs would be
+  an interesting thing to do.
+
 ### Can I use it with the “classic” BPF (a.k.a cBPF) version?
 
 No. This crate only works with extended BPF (eBPF) programs. For CBPF programs,
 such as used by tcpdump (as of today) for example, you may be interested in the
 [bpfjit crate](https://crates.io/crates/bpfjit) written by Alexander Polakov
 instead.
+
+### What functionalities are implemented?
+
+Running and JIT-compiling eBPF programs works. There is also a mechanism to
+register user-defined helper functions. The eBPF implementation of the Linux
+kernel comes with [some additional
+features](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md):
+a high number of helpers, several kind of maps, tail calls.
+
+* Additional helpers should be easy to add, but very few of the existing Linux
+  helpers have been replicated in rbpf so far.
+
+* Tail calls (“long jumps” from an eBPF program into another) are not
+  implemented. This is probably not trivial to design and implement.
+
+* The interaction with maps is done through the use of specific helpers, so
+  this should not be difficult to add. The maps themselves can reuse the maps
+  in the kernel (if on Linux), to communicate with in-kernel eBPF programs for
+  instance; or they can be handled in user space. Rust has arrays and hashmaps,
+  so their implementation should be pretty straightforward (and may be added to
+  rbpf in the future).
 
 ### What about program validation?
 
@@ -266,9 +429,20 @@ could be a good idea to test your program with the interpreter first.
 Oh, and if your program has infinite loops, even with the interpreter, you're
 on your own.
 
-### Where is the documentation?
+## Caveats
 
-Comments and Rust documentation in the source code.
+* The JIT compiler produces an unsafe program: memory access are not tested at
+  runtime (yet). Use with caution.
+
+* Contrary to the interpreter, if a division by 0 is attempted, the JIT program
+  returns `0xffffffffffffffff` and exits cleanly (no `panic!()`). This is
+  because the author has not found how to make `panic!()` work from the
+  generated assembly so far.
+
+* A very little number of eBPF instructions have not been implemented yet. This
+  should not be a problem for the majority of eBPF programs.
+
+* Beware of turnips. Turnips are disgusting.
 
 ## License
 
