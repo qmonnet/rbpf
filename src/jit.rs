@@ -451,7 +451,7 @@ impl<'a> JitMemory<'a> {
         }
     }
 
-    fn jit_compile(&mut self, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
+    fn jit_compile(&mut self, prog: &std::vec::Vec<u8>, use_mbuff: bool, update_data_ptr: bool,
                    helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>) {
         emit_push(self, RBP);
         emit_push(self, RBX);
@@ -506,7 +506,7 @@ impl<'a> JitMemory<'a> {
 
         let mut insn_ptr:usize = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
-            let insn = get_insn(prog, insn_ptr);
+            let insn = ebpf::get_insn(prog, insn_ptr);
 
             self.pc_locs[insn_ptr] = self.offset;
 
@@ -529,7 +529,7 @@ impl<'a> JitMemory<'a> {
                 // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
                     insn_ptr += 1;
-                    let second_part = get_insn(prog, insn_ptr).imm as u64;
+                    let second_part = ebpf::get_insn(prog, insn_ptr).imm as u64;
                     let imm = (insn.imm as u32) as u64 | second_part.wrapping_shl(32);
                     emit_load_imm(self, dst, imm as i64);
                 },
@@ -815,19 +815,6 @@ impl<'a> IndexMut<usize> for JitMemory<'a> {
         //unsafe {&mut *self.contents.offset(_index as isize) }
         &mut self.contents[_index]
     }
-}
-
-// TODO: get rid of one of the two get_insn. They're the same except one takes vector, while this
-// one takes a slice. Can we use slices everywhere for the programs?
-fn get_insn(prog: &[u8], idx: usize) -> ebpf::Insn {
-    let insn = ebpf::Insn {
-        opc:  prog[ebpf::INSN_SIZE * idx],
-        dst:  prog[ebpf::INSN_SIZE * idx + 1] & 0x0f,
-        src: (prog[ebpf::INSN_SIZE * idx + 1] & 0xf0) >> 4,
-        off: unsafe { let x = prog.as_ptr().offset((ebpf::INSN_SIZE * idx + 2) as isize) as *const i16; *x },
-        imm: unsafe { let x = prog.as_ptr().offset((ebpf::INSN_SIZE * idx + 4) as isize) as *const i32; *x },
-    };
-    insn
 }
 
 impl<'a> std::fmt::Debug for JitMemory<'a> {
