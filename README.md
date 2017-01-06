@@ -1,6 +1,6 @@
 # rbpf
 
-![](rbpf_256.png)
+![](misc/rbpf_256.png)
 
 Rust (user-space) virtual machine for eBPF
 
