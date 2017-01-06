@@ -62,7 +62,7 @@ impl<'a> EbpfVm<'a> {
         self.helpers.insert(key, function);
     }
 
-    fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut MetaBuff) -> u64 {
+    fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         const U32MAX: u64 = u32::MAX as u64;
 
         let stack = vec![0u8;ebpf::STACK_SIZE];
@@ -71,18 +71,18 @@ impl<'a> EbpfVm<'a> {
         let mut reg: [u64;11] = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
         ];
-        if mbuff.buffer.len() > 0 {
-            reg[1] = mbuff.buffer.as_ptr() as u64;
+        if mbuff.len() > 0 {
+            reg[1] = mbuff.as_ptr() as u64;
         }
         else if mem.len() > 0 {
             reg[1] = mem.as_ptr() as u64;
         }
 
         let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVm::check_mem(addr, len, "load", insn_ptr, &mbuff.buffer, &mem, &stack);
+            EbpfVm::check_mem(addr, len, "load", insn_ptr, &mbuff, &mem, &stack);
         };
         let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVm::check_mem(addr, len, "store", insn_ptr, &mbuff.buffer, &mem, &stack);
+            EbpfVm::check_mem(addr, len, "store", insn_ptr, &mbuff, &mem, &stack);
         };
 
         // Loop on instructions
@@ -334,7 +334,7 @@ impl<'a> EbpfVm<'a> {
     // fn jit_compile(&mut self) {
     // }
 
-    fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut MetaBuff) -> u64 {
+    fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -343,8 +343,10 @@ impl<'a> EbpfVm<'a> {
             0 => 0 as *mut u8,
             _ => mem.as_ptr() as *mut u8
         };
-        (self.jit)(mbuff.buffer.as_ptr() as *mut u8, mbuff.buffer.len(), mem_ptr, mem.len(),
-                   mbuff.data_offset, mbuff.data_end_offset)
+        // The last two arguments are not used in this function. They would be used if there was a
+        // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
+        // should be stored; this is what happens with struct EbpfVmFixedMbuff.
+        (self.jit)(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)
     }
 }
 
@@ -370,26 +372,16 @@ impl<'a> EbpfVmMbuff<'a> {
         self.parent.register_helper(key, function);
     }
 
-    pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>, metadata: std::vec::Vec<u8>) -> u64 {
-        let mut mbuff = MetaBuff {
-            data_offset:     0,
-            data_end_offset: 0,
-            buffer:          metadata,
-        };
-        self.parent.prog_exec(mem, &mut mbuff)
+    pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+        self.parent.prog_exec(mem, mbuff)
     }
 
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, true, false);
     }
 
-    pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>, metadata: std::vec::Vec<u8>) -> u64 {
-        let mut mbuff = MetaBuff {
-            data_offset:     0,
-            data_end_offset: 0,
-            buffer:          metadata,
-        };
-        self.parent.prog_exec_jit(mem, &mut mbuff)
+    pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+        self.parent.prog_exec_jit(mem, mbuff)
     }
 }
 
@@ -437,15 +429,26 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             *data     = mem.as_ptr() as u64;
             *data_end = mem.as_ptr() as u64 + mem.len() as u64;
         }
-        self.parent.prog_exec(mem, &mut self.mbuff)
+        self.parent.prog_exec(mem, &mut self.mbuff.buffer)
     }
 
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, true, true);
     }
 
+    // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
+    // associated with the fixed mbuff.
     pub fn prog_exec_jit(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
-        self.parent.prog_exec_jit(mem, &mut self.mbuff)
+        // If packet data is empty, do not send the address of an empty vector; send a null
+        // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
+        // packet should not happen in the kernel; anyway the verifier would prevent the use of
+        // uninitialized registers). See `mul_loop` test.
+        let mem_ptr = match mem.len() {
+            0 => 0 as *mut u8,
+            _ => mem.as_ptr() as *mut u8
+        };
+        (self.parent.jit)(self.mbuff.buffer.as_ptr() as *mut u8, self.mbuff.buffer.len(),
+                          mem_ptr, mem.len(), self.mbuff.data_offset, self.mbuff.data_end_offset)
     }
 }
 
@@ -472,11 +475,7 @@ impl<'a> EbpfVmRaw<'a> {
     }
 
     pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
-        let mut mbuff = MetaBuff {
-            data_offset:     0,
-            data_end_offset: 0,
-            buffer:          vec![]
-        };
+        let mut mbuff = vec![];
         self.parent.prog_exec(mem, &mut mbuff)
     }
 
@@ -485,11 +484,7 @@ impl<'a> EbpfVmRaw<'a> {
     }
 
     pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
-        let mut mbuff = MetaBuff {
-            data_offset:     0,
-            data_end_offset: 0,
-            buffer:          vec![]
-        };
+        let mut mbuff = vec![];
         //println!("{:?}", &mbuff.buffer);
         //println!("{:?}", &mem);
         //println!("{:?}", mem.as_ptr() as *const u64);

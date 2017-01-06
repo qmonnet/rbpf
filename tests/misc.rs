@@ -265,7 +265,7 @@ fn test_vm_mbuff() {
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
-    let mbuff = vec![0u8; 32];
+    let mut mbuff = vec![0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -274,7 +274,7 @@ fn test_vm_mbuff() {
     }
 
     let vm = rbpf::EbpfVmMbuff::new(&prog);
-    assert_eq!(vm.prog_exec(&mut mem, mbuff), 0x2211);
+    assert_eq!(vm.prog_exec(&mut mem, &mut mbuff), 0x2211);
 }
 
 // Program and memory come from uBPF test ldxh.
@@ -291,7 +291,7 @@ fn test_jit_mbuff() {
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
-    let mbuff = vec![0u8; 32];
+    let mut mbuff = vec![0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -301,5 +301,5 @@ fn test_jit_mbuff() {
 
     let mut vm = rbpf::EbpfVmMbuff::new(&prog);
     vm.jit_compile();
-    assert_eq!(vm.prog_exec_jit(&mut mem, mbuff), 0x2211);
+    assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
 }

@@ -100,7 +100,7 @@ fn main() {
 
     // Just for the example we create our metadata buffer from scratch, and
     // we store the pointers to packet data start and end in it.
-    let mbuff = vec![0u8; 32];
+    let mut mbuff = vec![0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -116,7 +116,7 @@ fn main() {
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    assert_eq!(vm.prog_exec_jit(&mut mem, mbuff), 0x2211);
+    assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
 }
 ```
 
