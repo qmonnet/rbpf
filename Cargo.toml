@@ -1,0 +1,7 @@
+[project]
+name = "rbpf"
+version = "0.0.1"
+authors = ["Quentin Monnet <quentin.monnet@6wind.com>"]
+
+[dependencies]
+libc = "0.2.0"

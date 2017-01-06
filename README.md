@@ -1,0 +1,308 @@
+# rbpf
+
+![](rbpf_256.png)
+
+Rust (user-space) virtual machine for eBPF
+
+## Description
+
+This crate contains a virtual machine for eBPF program execution. BPF, as in
+_Berkeley Packet Filter_, is an assembly-like language initially developed for
+BSD systems, in order to filter packets in the kernel with tools such as
+tcpdump so as to avoid useless copies to user-space. It was ported to Linux,
+where it evolved into eBPF (_extended_ BPF), a faster version with more
+features. While BPF programs are originally intended to run in the kernel, the
+virtual machine of this crate enables running it in user-space applications;
+it contains an interpreter as well as a JIT-compiler for eBPF programs.
+
+It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
+which does nearly the same, but is written in C.
+
+## Example uses
+
+### Simple example
+
+This comes from the unit test `test_vm_add`.
+
+```rust
+extern crate rbpf;
+
+fn main() {
+
+    // This is the eBPF program, in the form of bytecode instructions.
+    let prog = vec![
+        0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
+        0xb4, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov32 r1, 2
+        0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // add32 r0, 1
+        0x0c, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // add32 r0, r1
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    ];
+
+    // Instantiate a struct EbpfVmNoData. This is an eBPF VM for programs that
+    // takes no packet data in argument.
+    // The eBPF program is passed to the constructor.
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+
+    // Execute (interpret) the program. No argument required for this VM.
+    assert_eq!(vm.prog_exec(), 0x3);
+}
+```
+
+### With JIT, on packet data
+
+This comes from the unit test `test_jit_ldxh`.
+
+```rust
+extern crate rbpf;
+
+fn main() {
+    let prog = vec![
+        0x71, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxh r0, [r1+2]
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    ];
+
+    // Let's use some data.
+    let mut mem = vec![
+        0xaa, 0xbb, 0x11, 0xcc, 0xdd
+    ];
+
+    // This is an eBPF VM for programs reading from a given memory area (it
+    // directly reads from packet data)
+    let mut vm = rbpf::EbpfVmRaw::new(&prog);
+
+    // This time we JIT-compile the program.
+    vm.jit_compile();
+
+    // Then we execute it. For this kind of VM, a reference to the packet data
+    // must be passed to the function that executes the program.
+    assert_eq!(vm.prog_exec_jit(&mut mem), 0x11);
+}
+```
+### Using a metadata buffer
+
+This comes from the unit test `test_jit_mbuff` and derives from the unit test
+`test_jit_ldxh`.
+
+```rust
+extern crate rbpf;
+
+fn main() {
+    let prog = vec![
+        // Load mem from mbuff at offset 8 into R1
+        0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // ldhx r1[2], r0
+        0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ];
+    let mut mem = vec![
+        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    ];
+
+    // Just for the example we create our metadata buffer from scratch, and
+    // we store the pointers to packet data start and end in it.
+    let mbuff = vec![0u8; 32];
+    unsafe {
+        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        *data     = mem.as_ptr() as u64;
+        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    }
+
+    // This eBPF VM is for program that use a metadata buffer.
+    let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+
+    // Here again we JIT-compile the program.
+    vm.jit_compile();
+
+    // Here we must provide both a reference to the packet data, and to the
+    // metadata buffer we use.
+    assert_eq!(vm.prog_exec_jit(&mut mem, mbuff), 0x2211);
+}
+```
+
+### Loading code from an object file; and using a virtual metadata buffer
+
+This comes from unit test `test_vm_block_port`.
+
+This example requires the following additional crates, you may have to add them
+to your `Cargo.toml` file.
+
+```toml
+[dependencies]
+…
+byteorder = "0.5.3"
+elf = "0.0.10"
+```
+
+It also uses a kind of VM that uses an internal buffer used to simulate the
+`sk_buff` used by eBPF programs in the kernel, without having to manually
+create a new buffer for each packet. It may be useful for programs compiled for
+the kernel and that assumes the data they receive is a `sk_buff` pointing to
+the packet data start and end addresses. So here we just provide the offsets at
+which the eBPF program expects to find those pointers, and the VM handles takes
+in charger the buffer update so that we only have to provide a reference to the
+packet data for each run of the program.
+
+```rust
+extern crate byteorder;
+extern crate elf;
+use std::path::PathBuf;
+
+extern crate rbpf;
+use rbpf::helpers;
+
+fn main() {
+    // Load a program from an ELF file, e.g. compiled from C to eBPF with
+    // clang/LLVM. Some minor modification to the bytecode may be required.
+    let filename = "my_ebpf_object_file.o";
+
+    let path = PathBuf::from(filename);
+    let file = match elf::File::open_path(&path) {
+        Ok(f) => f,
+        Err(e) => panic!("Error: {:?}", e),
+    };
+
+    // Here we assume the eBPF program is in the ELF section called
+    // ".classifier".
+    let text_scn = match file.get_section(".classifier") {
+        Some(s) => s,
+        None => panic!("Failed to look up .classifier section"),
+    };
+
+    let ref prog = &text_scn.data;
+
+    // This is our data: a real packet, starting with Ethernet header
+    let mut packet = vec![
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
+        0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
+        0x08, 0x00, // ethertype
+        0x45, 0x00, 0x00, 0x3b, // start ip_hdr
+        0xa6, 0xab, 0x40, 0x00,
+        0x40, 0x06, 0x96, 0x0f,
+        0x7f, 0x00, 0x00, 0x01,
+        0x7f, 0x00, 0x00, 0x01,
+        0x99, 0x99, 0xc6, 0xcc, // start tcp_hdr
+        0xd1, 0xe5, 0xc4, 0x9d,
+        0xd4, 0x30, 0xb5, 0xd2,
+        0x80, 0x18, 0x01, 0x56,
+        0xfe, 0x2f, 0x00, 0x00,
+        0x01, 0x01, 0x08, 0x0a, // start data
+        0x00, 0x23, 0x75, 0x89,
+        0x00, 0x23, 0x63, 0x2d,
+        0x71, 0x64, 0x66, 0x73,
+        0x64, 0x66, 0x0a
+    ];
+
+    // This is an eBPF VM for programs using a virtual metadata buffer, similar
+    // to the sk_buff that eBPF programs use with tc and in Linux kernel.
+    // We must provide the offsets at which the pointers to packet data start
+    // and end must be stored: these are the offsets at which the program will
+    // load the packet data from the metadata buffer.
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+
+    // We register a helper function, that can be called by the program, into
+    // the VM.
+    vm.register_helper(helpers::BPF_TRACE_PRINTF_IDX, helpers::bpf_trace_printf);
+
+    // This kind of VM takes a reference to the packet data, but does not need
+    // any reference to the metadata buffer: a fixed buffer is handled 
+    // internally by the VM.
+    let res = vm.prog_exec(&mut packet);
+    println!("Program returned: {:?} ({:#x})", res, res);
+}
+```
+
+### API
+
+Most of the API is displayed in the above examples.
+
+```
+TBD
+```
+
+## Feedback welcome!
+
+This is the author's first try at writing Rust code. He learned a lot in the
+process, but there remains a feeling that this crate has a kind of C-ish style
+in some places instead of the Rusty look the author would like it to have. So
+feedback (or PRs) are welcome, including about ways you might see to take
+better advantage of Rust features.
+
+## Questions / Answers
+
+### Why implementing an eBPF virtual machine in Rust?
+
+As of this writing, there is no particular use case for this crate at the best
+of the author's knowledge. The author happens to work with BPF on Linux and to
+know how uBPF works, and he wanted to learn and experiment with Rust—no more
+than that.
+
+### Can I use it with the “classic” BPF (a.k.a cBPF) version?
+
+No. This crate only works with extended BPF (eBPF) programs. For CBPF programs,
+such as used by tcpdump (as of today) for example, you may be interested in the
+[bpfjit crate](https://crates.io/crates/bpfjit) written by Alexander Polakov
+instead.
+
+### What about program validation?
+
+The ”verifier” of this crate is very short and has nothing to do with the
+kernel verifier, which means that it accepts programs that may not be safe. On
+the other hand, you probably do not run this in a kernel here, so it will not
+crash your system. Implementing a verifier similar to the one in the kernel is
+not trivial, and we cannot “copy” it since it is under GPL license.
+
+### What about safety then?
+
+Rust has a strong emphasize on safety. Yet to have the eBPF VM work, some
+“unsafe” blocks of code are used. The VM, taken as an eBPF interpreter, can
+`panic!()` but should not crash. Please file an issue otherwise.
+
+As for the JIT-compiler, it is a different story, since runtime memory checks
+are more complicated to implement in assembly. It _will_ crash if your
+JIT-compiled program tries to perform unauthorized memory accesses. Usually, it
+could be a good idea to test your program with the interpreter first.
+
+Oh, and if your program has infinite loops, even with the interpreter, you're
+on your own.
+
+### Where is the documentation?
+
+Comments and Rust documentation in the source code.
+
+## License
+
+Following the effort of the Rust language project itself in order to ease
+integration with other projects, the rbpf crate is distributed under the terms
+of both the MIT license and the Apache License (Version 2.0).
+
+See
+[LICENSE-APACHE](https://github.com/qmonnet/rbpf/blob/master/LICENSE-APACHE)
+and [LICENSE-MIT](https://github.com/qmonnet/rbpf/blob/master/LICENSE-MIT) for
+details.
+
+## Inspired by
+
+* [uBPF](https://github.com/iovisor/ubpf), a C user-space implementation of an
+  eBPF virtual machine, with a JIT-compiler (and also including assembler and
+  disassembler from and to the human-readable form of the instructions, such as
+  in `mov r0, 0x1337`), by Rich Lane for Big Switch Networks (2015)
+
+* [_Building a simple JIT in
+  Rust_](http://www.jonathanturner.org/2015/12/building-a-simple-jit-in-rust.html),
+  by Jonathan Turner (2015)
+
+* [bpfjit](https://github.com/polachok/bpfjit) (also [on
+  crates.io](https://crates.io/crates/bpfjit)), a Rust crate exporting the cBPF
+  JIT compiler from FreeBSD 10 tree to Rust, by Alexander Polakov (2016)
+
+## Other resources
+
+* Kernel documentation about BPF: [Documentation/networking/filter.txt
+  file](https://www.kernel.org/doc/Documentation/networking/filter.txt)
+
+* [_Dive into BPF: a list of reading
+  material_](https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf),
+  a blog article listing documentation for BPF and related technologies (2016)
+
+* [The Rust programming language](https://www.rust-lang.org)
