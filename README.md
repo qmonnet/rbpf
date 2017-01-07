@@ -18,9 +18,33 @@ it contains an interpreter as well as a x86_64 JIT-compiler for eBPF programs.
 It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
 which does nearly the same, but is written in C.
 
+## Link to the crate
+
+As of this writing, the crate has not been pushed to <https://crates.io> yet,
+so you have to indicate the path of the repository in your `Cargo.toml` file:
+
+```toml
+[dependencies]
+rbpf = { git = "https://github.com/qmonnet/rbpf" }
+```
+
+Of course, if you prefer, you can clone it locally, possibly hack the crate,
+and then indicate the path of your local version in `Cargo.toml`:
+
+```toml
+[dependencies]
+rbpf = { path = "path/to/rbpf" }
+```
+
+Then indicate in your source code that you want to use the crate:
+
+```rust
+extern crate rbpf;
+```
+
 ## API
 
-The process to run eBPF programs with rbpf is the following:
+Here are the steps to follow to run an eBPF program with rbpf:
 
 1. Create a virtual machine. There are several kinds of machines, we will come
    back on this later. When creating the VM, pass the eBPF program as an
