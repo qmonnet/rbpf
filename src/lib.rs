@@ -28,16 +28,16 @@ struct MetaBuff {
     buffer:          std::vec::Vec<u8>,
 }
 
-struct EbpfVm<'a> {
+pub struct EbpfVmMbuff<'a> {
     prog:    &'a std::vec::Vec<u8>,
     jit:     (fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
     helpers: HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
 }
 
-// Runs on packet + metadata buffer
-impl<'a> EbpfVm<'a> {
+// Runs on packet data, with a metadata buffer
+impl<'a> EbpfVmMbuff<'a> {
 
-    fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVm<'a> {
+    pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a> {
         verifier::check(prog);
 
         #[allow(unused_variables)]
@@ -46,23 +46,23 @@ impl<'a> EbpfVm<'a> {
             panic!("Error: program has not been JIT-compiled");
         }
 
-        EbpfVm {
+        EbpfVmMbuff {
             prog:    prog,
             jit:     no_jit,
             helpers: HashMap::new(),
         }
     }
 
-    fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
+    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
         verifier::check(prog);
         self.prog = prog;
     }
 
-    fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
+    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
         self.helpers.insert(key, function);
     }
 
-    fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         const U32MAX: u64 = u32::MAX as u64;
 
         let stack = vec![0u8;ebpf::STACK_SIZE];
@@ -79,10 +79,10 @@ impl<'a> EbpfVm<'a> {
         }
 
         let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVm::check_mem(addr, len, "load", insn_ptr, &mbuff, &mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "load", insn_ptr, &mbuff, &mem, &stack);
         };
         let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVm::check_mem(addr, len, "store", insn_ptr, &mbuff, &mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "store", insn_ptr, &mbuff, &mem, &stack);
         };
 
         // Loop on instructions
@@ -330,11 +330,11 @@ impl<'a> EbpfVm<'a> {
         );
     }
 
-    // Not used by “child” structs. Make it a trait?
-    // fn jit_compile(&mut self) {
-    // }
+    pub fn jit_compile(&mut self) {
+        self.jit = jit::compile(&self.prog, &self.helpers, true, false);
+    }
 
-    fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -350,51 +350,16 @@ impl<'a> EbpfVm<'a> {
     }
 }
 
-// Runs on packet data, with a metadata buffer
-pub struct EbpfVmMbuff<'a> {
-    parent: EbpfVm<'a>,
-}
-
-impl<'a> EbpfVmMbuff<'a> {
-
-    pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a> {
-        let parent = EbpfVm::new(prog);
-        EbpfVmMbuff {
-            parent: parent,
-        }
-    }
-
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
-        self.parent.set_prog(prog)
-    }
-
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
-        self.parent.register_helper(key, function);
-    }
-
-    pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
-        self.parent.prog_exec(mem, mbuff)
-    }
-
-    pub fn jit_compile(&mut self) {
-        self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, true, false);
-    }
-
-    pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
-        self.parent.prog_exec_jit(mem, mbuff)
-    }
-}
-
 // Runs on packet data, simulates a metadata buffer
 pub struct EbpfVmFixedMbuff<'a> {
-    parent: EbpfVm<'a>,
+    parent: EbpfVmMbuff<'a>,
     mbuff:  MetaBuff,
 }
 
 impl<'a> EbpfVmFixedMbuff<'a> {
 
     pub fn new(prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
-        let parent = EbpfVm::new(prog);
+        let parent = EbpfVmMbuff::new(prog);
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         let mbuff = MetaBuff {
@@ -454,13 +419,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 
 // Runs on a packet, no metadata buffer
 pub struct EbpfVmRaw<'a> {
-    parent: EbpfVm<'a>,
+    parent: EbpfVmMbuff<'a>,
 }
 
 impl<'a> EbpfVmRaw<'a> {
 
     pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a> {
-        let parent = EbpfVm::new(prog);
+        let parent = EbpfVmMbuff::new(prog);
         EbpfVmRaw {
             parent: parent,
         }
