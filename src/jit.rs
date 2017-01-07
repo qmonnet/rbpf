@@ -805,14 +805,12 @@ impl<'a> Index<usize> for JitMemory<'a> {
     type Output = u8;
 
     fn index(&self, _index: usize) -> &u8 {
-        //unsafe {&*self.contents.offset(_index as isize) }
         &self.contents[_index]
     }
 }
 
 impl<'a> IndexMut<usize> for JitMemory<'a> {
     fn index_mut(&mut self, _index: usize) -> &mut u8 {
-        //unsafe {&mut *self.contents.offset(_index as isize) }
         &mut self.contents[_index]
     }
 }
@@ -820,10 +818,8 @@ impl<'a> IndexMut<usize> for JitMemory<'a> {
 impl<'a> std::fmt::Debug for JitMemory<'a> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         fmt.write_str("JIT contents: [")?;
-        let mut j = 0;// XXX XXX
         for i in self.contents as &[u8] {
             fmt.write_fmt(format_args!(" {:#04x},", i))?;
-            j += 1; if j > 100 { break; }
         };
         fmt.write_str(" ] | ")?;
         fmt.debug_struct("JIT state")
@@ -841,6 +837,8 @@ pub fn compile(prog: &std::vec::Vec<u8>,
                use_mbuff: bool, update_data_ptr: bool)
     -> (fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {
 
+    // TODO: check how long the page must be to be sure to support an eBPF program of maximum
+    // possible length
     let mut jit = JitMemory::new(1);
     jit.jit_compile(prog, use_mbuff, update_data_ptr, helpers);
     jit.resolve_jumps();

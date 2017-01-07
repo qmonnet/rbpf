@@ -90,9 +90,6 @@ impl<'a> EbpfVmMbuff<'a> {
         while insn_ptr * ebpf::INSN_SIZE < self.prog.len() {
             let insn = ebpf::get_insn(self.prog, insn_ptr);
             insn_ptr += 1;
-            // println!("R0: {:#x} R1: {:#x} R2: {:#x} R3: {:#x} R4: {:#x} R5: {:#x} R6: {:#x} R7: {:#x} R8: {:#x} R9: {:#x} R10: {:#x}",
-            //          reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7], reg[8], reg[9], reg[10]);
-            // println!("{:02x} {:x} {:x} {:04x} {:08x}", insn.opc, insn.dst, insn.src, insn.off, insn.imm);
             let _dst    = insn.dst as usize;
             let _src    = insn.src as usize;
 
@@ -450,9 +447,6 @@ impl<'a> EbpfVmRaw<'a> {
 
     pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let mut mbuff = vec![];
-        //println!("{:?}", &mbuff.buffer);
-        //println!("{:?}", &mem);
-        //println!("{:?}", mem.as_ptr() as *const u64);
         self.parent.prog_exec_jit(mem, &mut mbuff)
     }
 }
