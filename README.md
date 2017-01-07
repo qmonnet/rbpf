@@ -73,21 +73,39 @@ machines:
 All these structs implement the same public functions:
 
 ```rust
+// called with EbpfVmMbuff:: prefix
 pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a>
+
+// called with EbpfVmFixedMbuff:: prefix
+pub fn new(prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a>
+
+// called with EbpfVmRaw:: prefix
+pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a>
+
+// called with EbpfVmNoData:: prefix
+pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmNoData<'a>
 ```
 
 This is used to create a new instance of a VM. The return type is dependent of
 the struct from which the function is called. For instance,
 `rbpf::EbpfVmRaw::new(my_program)` would return an instance of `struct
-rbpf::EbpfVmRaw` instead. When a program is loaded, it is checked with a very
-simple verifier (nothing close to the one for Linux kernel).
+rbpf::EbpfVmRaw`. When a program is loaded, it is checked with a very simple
+verifier (nothing close to the one for Linux kernel).
+
+For `struct EbpfVmFixedMbuff`, two additional arguments must be passed to the
+constructor: `data_offset` and `data_end_offset`. They are the offset (byte
+number) at which the pointers to the beginning and to the end, respectively, of
+the memory area of packet data are to be stored in the internal metadata buffer
+each time the program is executed. Other structs do not use this mechanism and
+do not need those offsets.
 
 ```rust
 pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>)
 ```
 
-You can use this function to change the loaded program after the VM instance
-creation. This program is checked with the verifier.
+You can use for example `my_vm.set_prog(my_program);` to change the loaded
+program after the VM instance creation. This program is checked with the
+verifier.
 
 ```rust
 pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64)
@@ -297,7 +315,7 @@ fn main() {
     let mut packet = vec![
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
-        0x08, 0x00, // ethertype
+        0x08, 0x00,             // ethertype
         0x45, 0x00, 0x00, 0x3b, // start ip_hdr
         0xa6, 0xab, 0x40, 0x00,
         0x40, 0x06, 0x96, 0x0f,
@@ -431,6 +449,8 @@ on your own.
 
 ## Caveats
 
+* This create is **under development** and the API may be subject to change.
+
 * The JIT compiler produces an unsafe program: memory access are not tested at
   runtime (yet). Use with caution.
 
@@ -443,6 +463,20 @@ on your own.
   should not be a problem for the majority of eBPF programs.
 
 * Beware of turnips. Turnips are disgusting.
+
+## _To do_ list
+
+* Complete internal and API documentation.
+* Implement some traits (`Clone`, `Drop`, `Debug` are good candidate).
+* Provide built-in support for user-space array and hash BPF maps.
+* Improve safety of JIT-compiled programs with runtime memory checks.
+* Replace `panic!()` by cleaner error handling.
+* Add helpers (some of those supported in the kernel, such as checksum update, could be helpful).
+* Improve verifier. Could we find a way to directly support programs compiled with clang?
+* Maybe one day, tail calls?
+* JIT-compilers for other architectures?
+* eBPF assembler _à la_ uBPF, to have more readable unit tests?
+* …
 
 ## License
 
