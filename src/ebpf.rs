@@ -244,13 +244,19 @@ pub struct Insn {
 /// assert_eq!(insn.opc, 0x95);
 /// ```
 pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
-    // TODO panic if size problem? Should be checked by verifier, though
+    // TODO panic if size problem? Should have been checked by verifier, though.
+    // Update: this function is publicly available and user can call it with any idx, so we should
+    // definitely add a guard here.
     let insn = Insn {
         opc:  prog[INSN_SIZE * idx],
         dst:  prog[INSN_SIZE * idx + 1] & 0x0f,
         src: (prog[INSN_SIZE * idx + 1] & 0xf0) >> 4,
-        off: unsafe { let x = prog.as_ptr().offset((INSN_SIZE * idx + 2) as isize) as *const i16; *x },
-        imm: unsafe { let x = prog.as_ptr().offset((INSN_SIZE * idx + 4) as isize) as *const i32; *x },
+        off: unsafe {
+            let x = prog.as_ptr().offset((INSN_SIZE * idx + 2) as isize) as *const i16; *x
+        },
+        imm: unsafe {
+            let x = prog.as_ptr().offset((INSN_SIZE * idx + 4) as isize) as *const i32; *x
+        },
     };
     insn
 }

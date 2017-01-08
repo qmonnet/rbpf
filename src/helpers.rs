@@ -120,7 +120,6 @@ pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) ->
     0
 }
 
-
 // TODO: Try again when asm!() is available in stable Rust.
 // #![feature(asm)]
 // #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
