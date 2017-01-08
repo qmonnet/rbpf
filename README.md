@@ -490,7 +490,6 @@ on your own.
 
 ## _To do_ list
 
-* Complete internal and API documentation.
 * Implement some traits (`Clone`, `Drop`, `Debug` are good candidate).
 * Provide built-in support for user-space array and hash BPF maps.
 * Improve safety of JIT-compiled programs with runtime memory checks.

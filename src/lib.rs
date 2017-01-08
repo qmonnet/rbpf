@@ -13,8 +13,7 @@
 #![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/rbpf.png",
        html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/rbpf.ico")]
 
-// One day we'll uncomment this!
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
 
 use std::u32;
 use std::collections::HashMap;
