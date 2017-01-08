@@ -13,7 +13,11 @@ keywords = ["BPF", "eBPF", "interpreter", "JIT", "filtering"]
 license = "Apache-2.0/MIT"
 
 # Packaging directives
-exclude = ["misc/*"]
+include = [
+    "**/*.rs",
+    "LICENSE*",
+    "Cargo.toml",
+]
 
 [dependencies]
 
