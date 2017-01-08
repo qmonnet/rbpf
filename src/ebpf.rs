@@ -5,11 +5,27 @@
 // copied, modified, or distributed except according to those terms.
 
 
+//! This module contains all the definitions related to eBPF.
+//!
+//! The number of bytes in an instruction, the maximum number of instructions in a program, and
+//! also all operation codes are defined here as constants.
+//!
+//! The structure for an instruction used by this crate, as well as the function to extract it from
+//! a program, is also defined in the module.
+//!
+//! To learn more about these instructions, see the Linux kernel documentation:
+//! <https://www.kernel.org/doc/Documentation/networking/filter.txt>, or for a shorter version of
+//! the list of the operation codes: <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
+
 use std;
 
+/// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 4096;
+/// Size of an eBPF instructions, in bytes.
 pub const INSN_SIZE: usize = 8;
+/// Maximum size of an eBPF program, in bytes.
 pub const PROG_MAX_SIZE: usize = PROG_MAX_INSNS * INSN_SIZE;
+/// Stack for the eBPF stack, in bytes.
 pub const STACK_SIZE: usize = 512;
 
 // eBPF op codes.
@@ -195,17 +211,38 @@ pub const EXIT       : u8 = BPF_JMP   | BPF_EXIT;
 pub const BPF_CLS_MASK    : u8 = 0x07;
 pub const BPF_ALU_OP_MASK : u8 = 0xf0;
 
+/// An eBPF instruction. See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for
+/// the Linux kernel documentation about eBPF, or
+/// <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a more concise version.
 #[derive(Debug)]
 pub struct Insn {
+    /// Operation code.
     pub opc: u8,
+    /// Destination register operand.
     pub dst: u8,
+    /// Source register operand.
     pub src: u8,
+    /// Offset operand.
     pub off: i16,
+    /// Immediate value operand.
     pub imm: i32,
 }
 
-// Get the nth instruction of an eBPF program
-// idx is the index (number) of the instruction.
+/// Get the instruction at `idx` of an eBPF program. `idx` is the index (number) of the
+/// instruction (not a byte offset). The first instruction has index 0.
+///
+/// # Examples
+///
+/// ```
+/// use rbpf::ebpf;
+///
+/// let prog = vec![
+///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+///     ];
+/// let insn = ebpf::get_insn(&prog, 1);
+/// assert_eq!(insn.opc, 0x95);
+/// ```
 pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
     // TODO panic if size problem? Should be checked by verifier, though
     let insn = Insn {

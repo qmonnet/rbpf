@@ -9,6 +9,7 @@
 // copied, modified, or distributed except according to those terms.
 
 
+//! Virtual machine and JIT compiler for eBPF programs.
 #![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/rbpf.png",
        html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/rbpf.ico")]
 
@@ -25,12 +26,48 @@ pub mod helpers;
 mod verifier;
 mod jit;
 
+// A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
+// the use of a metadata buffer each time the program is executed, without the user having to
+// actually handle it. The offsets are used to tell the VM where in the buffer the pointers to
+// packet data start and end should be stored each time the program is run on a new packet.
 struct MetaBuff {
     data_offset:     usize,
     data_end_offset: usize,
     buffer:          std::vec::Vec<u8>,
 }
 
+/// A virtual machine to run eBPF program. This kind of VM is used for programs expecting to work
+/// on a metadata buffer containing pointers to packet data.
+///
+/// # Examples
+///
+/// ```
+/// let prog = vec![
+///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff at offset 8 into R1.
+///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+/// ];
+/// let mut mem = vec![
+///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+/// ];
+///
+/// // Just for the example we create our metadata buffer from scratch, and we store the pointers
+/// // to packet data start and end in it.
+/// let mut mbuff = vec![0u8; 32];
+/// unsafe {
+///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+///     *data     = mem.as_ptr() as u64;
+///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+/// }
+///
+/// // Instantiate a VM.
+/// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+///
+/// // Provide both a reference to the packet data, and to the metadata buffer.
+/// let res = vm.prog_exec(&mut mem, &mut mbuff);
+/// assert_eq!(res, 0x2211);
+/// ```
 pub struct EbpfVmMbuff<'a> {
     prog:    &'a std::vec::Vec<u8>,
     jit:     (fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
@@ -40,6 +77,25 @@ pub struct EbpfVmMbuff<'a> {
 // Runs on packet data, with a metadata buffer
 impl<'a> EbpfVmMbuff<'a> {
 
+    /// Create a new virtual machine instance, and load an eBPF program into that instance.
+    /// When attempting to load the program, it passes through a simple verifier.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
+    ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// ```
     pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a> {
         verifier::check(prog);
 
@@ -56,15 +112,115 @@ impl<'a> EbpfVmMbuff<'a> {
         }
     }
 
+    /// Load a new eBPF program into the virtual machine instance.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog1 = vec![
+    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let prog2 = vec![
+    ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
+    ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog1);
+    /// vm.set_prog(&prog2);
+    /// ```
     pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
         verifier::check(prog);
         self.prog = prog;
     }
 
+    /// Register a built-in or user-defined helper function in order to use it later from within
+    /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
+    ///
+    /// If using JIT-compiled eBPF programs, be sure to register all helpers before compiling the
+    /// program. You should be able to change registered helpers after compiling, but not to add
+    /// new ones (i.e. with new keys).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::helpers;
+    ///
+    /// // This program was compiled with clang, from a C program containing the following single
+    /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
+    /// let prog = vec![
+    ///     0x18, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load 0 as u64 into r1 (That would be
+    ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // replaced by tc by the address of
+    ///                                                     // the format string, in the .map
+    ///                                                     // section of the ELF file).
+    ///     0xb7, 0x02, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, // mov r2, 10
+    ///     0xb7, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // mov r3, 1
+    ///     0xb7, 0x04, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov r4, 2
+    ///     0xb7, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // mov r5, 3
+    ///     0x85, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, // call helper with key 6
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    ///
+    /// // Register a helper.
+    /// // On running the program this helper will print the content of registers r3, r4 and r5 to
+    /// // standard output.
+    /// vm.register_helper(6, helpers::bpf_trace_printf);
+    /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
         self.helpers.insert(key, function);
     }
 
+    /// Execute the program loaded, with the given packet data and metadata buffer.
+    ///
+    /// If the program is made to be compatible with Linux kernel, it is expected to load the
+    /// address of the beginning and of the end of the memory area used for packet data from the
+    /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
+    /// pointers are correctly stored in the buffer.
+    ///
+    /// # Panics
+    ///
+    /// This function is currently expected to panic if it encounters any error during the program
+    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
+    /// in the future (we could raise errors instead).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
+    ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    /// ];
+    ///
+    /// // Just for the example we create our metadata buffer from scratch, and we store the
+    /// // pointers to packet data start and end in it.
+    /// let mut mbuff = vec![0u8; 32];
+    /// unsafe {
+    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+    ///     *data     = mem.as_ptr() as u64;
+    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    /// }
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    ///
+    /// // Provide both a reference to the packet data, and to the metadata buffer.
+    /// let res = vm.prog_exec(&mut mem, &mut mbuff);
+    /// assert_eq!(res, 0x2211);
+    /// ```
     pub fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         const U32MAX: u64 = u32::MAX as u64;
 
@@ -271,8 +427,8 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::XOR64_REG  => reg[_dst] ^= reg[_src],
                 ebpf::MOV64_IMM  => reg[_dst] =  insn.imm  as u64,
                 ebpf::MOV64_REG  => reg[_dst] =  reg[_src],
-                ebpf::ARSH64_IMM => reg[_dst] = (reg[_dst] as i64 >> insn.imm as u64) as u64,
-                ebpf::ARSH64_REG => reg[_dst] = (reg[_dst] as i64 >> reg[_src])       as u64,
+                ebpf::ARSH64_IMM => reg[_dst] = (reg[_dst] as i64 >> insn.imm)  as u64,
+                ebpf::ARSH64_REG => reg[_dst] = (reg[_dst] as i64 >> reg[_src]) as u64,
 
                 // BPF_JMP class
                 // TODO: check this actually works as expected for signed / unsigned ops
@@ -330,10 +486,82 @@ impl<'a> EbpfVmMbuff<'a> {
         );
     }
 
+    /// JIT-compile the loaded program. No argument required for this.
+    ///
+    /// If using helper functions, be sure to register them into the VM before calling this
+    /// function.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
+    /// unknown eBPF operation code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
+    ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    ///
+    /// vm.jit_compile();
+    /// ```
     pub fn jit_compile(&mut self) {
         self.jit = jit::compile(&self.prog, &self.helpers, true, false);
     }
 
+    /// Execute the previously JIT-compiled program, with the given packet data and metadata
+    /// buffer, in a manner very similar to `prog_exec()`.
+    ///
+    /// If the program is made to be compatible with Linux kernel, it is expected to load the
+    /// address of the beginning and of the end of the memory area used for packet data from the
+    /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
+    /// pointers are correctly stored in the buffer.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during the execution of the program.
+    ///
+    /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
+    /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
+    /// very bad (program may segfault). It may be wise to check that the program works with the
+    /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into r1.
+    ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    /// ];
+    ///
+    /// // Just for the example we create our metadata buffer from scratch, and we store the
+    /// // pointers to packet data start and end in it.
+    /// let mut mbuff = vec![0u8; 32];
+    /// unsafe {
+    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+    ///     *data     = mem.as_ptr() as u64;
+    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    /// }
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    ///
+    /// vm.jit_compile();
+    ///
+    /// // Provide both a reference to the packet data, and to the metadata buffer.
+    /// let res = vm.prog_exec_jit(&mut mem, &mut mbuff);
+    /// assert_eq!(res, 0x2211);
+    /// ```
     pub fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
@@ -350,7 +578,73 @@ impl<'a> EbpfVmMbuff<'a> {
     }
 }
 
-// Runs on packet data, simulates a metadata buffer
+/// A virtual machine to run eBPF program. This kind of VM is used for programs expecting to work
+/// on a metadata buffer containing pointers to packet data, but it internally handles the buffer
+/// so as to save the effort to manually handle the metadata buffer for the user.
+///
+/// This struct implements a static internal buffer that is passed to the program. The user has to
+/// indicate the offset values at which the eBPF program expects to find the start and the end of
+/// packet data in the buffer. On calling the `prog_exec()` or `prog_exec_jit()` functions, the
+/// struct automatically updates the addresses in this static buffer, at the appointed offsets, for
+/// the start and the end of the packet data the program is called upon.
+///
+/// # Examples
+///
+/// This was compiled with clang from the following program, in C:
+///
+/// ```c
+/// #include <linux/bpf.h>
+/// #include "path/to/linux/samples/bpf/bpf_helpers.h"
+///
+/// SEC(".classifier")
+/// int classifier(struct __sk_buff *skb)
+/// {
+///   void *data = (void *)(long)skb->data;
+///   void *data_end = (void *)(long)skb->data_end;
+///
+///   // Check program is long enough.
+///   if (data + 5 > data_end)
+///     return 0;
+///
+///   return *((char *)data + 5);
+/// }
+/// ```
+///
+/// Some small modifications have been brought to have it work, see comments.
+///
+/// ```
+/// let prog = vec![
+///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+///     // Here opcode 0x61 had to be replace by 0x79 so as to load a 8-bytes long address.
+///     // Also, offset 0x4c had to be replace with e.g. 0x40 so as to prevent the two pointers
+///     // from overlapping in the buffer.
+///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load pointer to mem from r1[0x40] to r2
+///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+///     // Here opcode 0x61 had to be replace by 0x79 so as to load a 8-bytes long address.
+///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load ptr to mem_end from r1[0x50] to r1
+///     0x2d, 0x12, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+///     0x67, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, // r0 >>= 56
+///     0xc7, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, // r0 <<= 56 (arsh) extend byte sign to u64
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+/// ];
+/// let mut mem1 = vec![
+///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+/// ];
+/// let mut mem2 = vec![
+///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
+/// ];
+///
+/// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
+/// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+///
+/// // Provide only a reference to the packet data. We do not manage the metadata buffer.
+/// let res = vm.prog_exec(&mut mem1);
+/// assert_eq!(res, 0xffffffffffffffdd);
+///
+/// let res = vm.prog_exec(&mut mem2);
+/// assert_eq!(res, 0x27);
+/// ```
 pub struct EbpfVmFixedMbuff<'a> {
     parent: EbpfVmMbuff<'a>,
     mbuff:  MetaBuff,
@@ -358,6 +652,29 @@ pub struct EbpfVmFixedMbuff<'a> {
 
 impl<'a> EbpfVmFixedMbuff<'a> {
 
+    /// Create a new virtual machine instance, and load an eBPF program into that instance.
+    /// When attempting to load the program, it passes through a simple verifier.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+    ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// ```
     pub fn new(prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
         let parent = EbpfVmMbuff::new(prog);
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
@@ -373,14 +690,132 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         }
     }
 
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
+    /// Load a new eBPF program into the virtual machine instance.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog1 = vec![
+    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let prog2 = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+    ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog1, 0, 0);
+    /// vm.set_prog(&prog2, 0x40, 0x50);
+    ///
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 0x27);
+    /// ```
+    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) {
+        let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
+        let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
+        self.mbuff.buffer = buffer;
+        self.mbuff.data_offset = data_offset;
+        self.mbuff.data_end_offset = data_end_offset;
         self.parent.set_prog(prog)
     }
 
+    /// Register a built-in or user-defined helper function in order to use it later from within
+    /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
+    ///
+    /// If using JIT-compiled eBPF programs, be sure to register all helpers before compiling the
+    /// program. You should be able to change registered helpers after compiling, but not to add
+    /// new ones (i.e. with new keys).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::helpers;
+    ///
+    /// // This program was compiled with clang, from a C program containing the following single
+    /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 6 instructions
+    ///     0x71, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r1
+    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x09,
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    ///
+    /// // Register a helper.
+    /// // On running the program this helper will print the content of registers r3, r4 and r5 to
+    /// // standard output.
+    /// vm.register_helper(1, helpers::sqrti);
+    ///
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 3);
+    /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
         self.parent.register_helper(key, function);
     }
 
+    /// Execute the program loaded, with the given packet data.
+    ///
+    /// If the program is made to be compatible with Linux kernel, it is expected to load the
+    /// address of the beginning and of the end of the memory area used for packet data from some
+    /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
+    /// the addresses should be placed should have be set at the creation of the VM.
+    ///
+    /// # Panics
+    ///
+    /// This function is currently expected to panic if it encounters any error during the program
+    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
+    /// in the future (we could raise errors instead).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+    ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    /// ];
+    ///
+    /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    ///
+    /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 0xdd);
+    /// ```
     pub fn prog_exec(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let l = self.mbuff.buffer.len();
         // Can this happen? Yes, since MetaBuff is public.
@@ -397,10 +832,80 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.prog_exec(mem, &mut self.mbuff.buffer)
     }
 
+    /// JIT-compile the loaded program. No argument required for this.
+    ///
+    /// If using helper functions, be sure to register them into the VM before calling this
+    /// function.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
+    /// unknown eBPF operation code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+    ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    ///
+    /// vm.jit_compile();
+    /// ```
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, true, true);
     }
 
+    /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
+    /// similar to `prog_exec()`.
+    ///
+    /// If the program is made to be compatible with Linux kernel, it is expected to load the
+    /// address of the beginning and of the end of the memory area used for packet data from some
+    /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
+    /// the addresses should be placed should have be set at the creation of the VM.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during the execution of the program.
+    ///
+    /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
+    /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
+    /// very bad (program may segfault). It may be wise to check that the program works with the
+    /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///     0x2d, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 3 instructions
+    ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    /// ];
+    ///
+    /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    ///
+    /// vm.jit_compile();
+    ///
+    /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
+    /// let res = vm.prog_exec_jit(&mut mem);
+    /// assert_eq!(res, 0xdd);
+    /// ```
     // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
     pub fn prog_exec_jit(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {

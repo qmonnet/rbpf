@@ -9,6 +9,7 @@
 
 
 //! This module implements some built-in helpers that can be called from within an eBPF program.
+//!
 //! These helpers may originate from several places:
 //!
 //! * Some of them mimic the helpers available in the Linux kernel.
@@ -55,7 +56,7 @@ pub const BPF_TRACE_PRINTF_IDX: u32 = 6;
 ///
 /// int main(struct __sk_buff *skb)
 /// {
-///     char *fmt = "bpf_trace_printk %llx %llx %llx\n";
+///     char *fmt = "bpf_trace_printk %lx %lx %lx\n";
 ///     return bpf_trace_printk(fmt, sizeof(fmt), 1, 15, 32);
 /// }
 /// ```
