@@ -466,7 +466,6 @@ impl<'a> EbpfVmMbuff<'a> {
 
     fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
                  mbuff: &std::vec::Vec<u8>, mem: &std::vec::Vec<u8>, stack: &std::vec::Vec<u8>) {
-        // WARNING: untested
         if mbuff.as_ptr() as u64 <= addr && addr + len as u64 <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
             return
         }
@@ -692,6 +691,9 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 
     /// Load a new eBPF program into the virtual machine instance.
     ///
+    /// At the same time, load new offsets for storing pointers to start and end of packet data in
+    /// the internal metadata buffer.
+    ///
     /// # Panics
     ///
     /// The simple verifier may panic if it finds errors in the eBPF program at load time.
@@ -768,9 +770,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
     ///
-    /// // Register a helper.
-    /// // On running the program this helper will print the content of registers r3, r4 and r5 to
-    /// // standard output.
+    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
     /// let res = vm.prog_exec(&mut mem);
@@ -818,7 +818,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     pub fn prog_exec(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let l = self.mbuff.buffer.len();
-        // Can this happen? Yes, since MetaBuff is public.
+        // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
             panic!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset);
@@ -922,13 +922,55 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     }
 }
 
-// Runs on a packet, no metadata buffer
+/// A virtual machine to run eBPF program. This kind of VM is used for programs expecting to work
+/// directly on the memory area representing packet data.
+///
+/// # Examples
+///
+/// ```
+/// let prog = vec![
+///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+/// ];
+/// let mut mem = vec![
+///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+/// ];
+///
+/// // Instantiate a VM.
+/// let vm = rbpf::EbpfVmRaw::new(&prog);
+///
+/// // Provide only a reference to the packet data.
+/// let res = vm.prog_exec(&mut mem);
+/// assert_eq!(res, 0x22cc);
+/// ```
 pub struct EbpfVmRaw<'a> {
     parent: EbpfVmMbuff<'a>,
 }
 
 impl<'a> EbpfVmRaw<'a> {
 
+    /// Create a new virtual machine instance, and load an eBPF program into that instance.
+    /// When attempting to load the program, it passes through a simple verifier.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+    ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+    ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let vm = rbpf::EbpfVmRaw::new(&prog);
+    /// ```
     pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a> {
         let parent = EbpfVmMbuff::new(prog);
         EbpfVmRaw {
@@ -936,36 +978,242 @@ impl<'a> EbpfVmRaw<'a> {
         }
     }
 
+    /// Load a new eBPF program into the virtual machine instance.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog1 = vec![
+    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let prog2 = vec![
+    ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+    ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+    ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmRaw::new(&prog1);
+    /// vm.set_prog(&prog2);
+    ///
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 0x22cc);
+    /// ```
     pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
         self.parent.set_prog(prog)
     }
 
+    /// Register a built-in or user-defined helper function in order to use it later from within
+    /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
+    ///
+    /// If using JIT-compiled eBPF programs, be sure to register all helpers before compiling the
+    /// program. You should be able to change registered helpers after compiling, but not to add
+    /// new ones (i.e. with new keys).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::helpers;
+    ///
+    /// let prog = vec![
+    ///     0x79, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r1, r1[0x00]
+    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    ///
+    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
+    /// vm.register_helper(1, helpers::sqrti);
+    ///
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 0x10000000);
+    /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
         self.parent.register_helper(key, function);
     }
 
+    /// Execute the program loaded, with the given packet data.
+    ///
+    /// # Panics
+    ///
+    /// This function is currently expected to panic if it encounters any error during the program
+    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
+    /// in the future (we could raise errors instead).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+    ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+    ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    ///
+    /// let res = vm.prog_exec(&mut mem);
+    /// assert_eq!(res, 0x22cc);
+    /// ```
     pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let mut mbuff = vec![];
         self.parent.prog_exec(mem, &mut mbuff)
     }
 
+    /// JIT-compile the loaded program. No argument required for this.
+    ///
+    /// If using helper functions, be sure to register them into the VM before calling this
+    /// function.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
+    /// unknown eBPF operation code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+    ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+    ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    ///
+    /// vm.jit_compile();
+    /// ```
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, false, false);
     }
 
+    /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
+    /// similar to `prog_exec()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during the execution of the program.
+    ///
+    /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
+    /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
+    /// very bad (program may segfault). It may be wise to check that the program works with the
+    /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
+    ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
+    ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut mem = vec![
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    ///
+    /// vm.jit_compile();
+    ///
+    /// let res = vm.prog_exec_jit(&mut mem);
+    /// assert_eq!(res, 0x22cc);
+    /// ```
     pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let mut mbuff = vec![];
         self.parent.prog_exec_jit(mem, &mut mbuff)
     }
 }
 
-// Runs without data -- no packet, no metadata buffer
+/// A virtual machine to run eBPF program. This kind of VM is used for programs that do not work
+/// with any memory area—no metadata buffer, no packet data either.
+///
+/// # Examples
+///
+/// ```
+/// let prog = vec![
+///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+///     0xb7, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // mov r1, 1
+///     0xb7, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov r2, 2
+///     0xb7, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // mov r3, 3
+///     0xb7, 0x04, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, // mov r4, 4
+///     0xb7, 0x05, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // mov r5, 5
+///     0xb7, 0x06, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, // mov r6, 6
+///     0xb7, 0x07, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, // mov r7, 7
+///     0xb7, 0x08, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, // mov r8, 8
+///     0x4f, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // or r0, r5
+///     0x47, 0x00, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00, // or r0, 0xa0
+///     0x57, 0x00, 0x00, 0x00, 0xa3, 0x00, 0x00, 0x00, // and r0, 0xa3
+///     0xb7, 0x09, 0x00, 0x00, 0x91, 0x00, 0x00, 0x00, // mov r9, 0x91
+///     0x5f, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // and r0, r9
+///     0x67, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, // lsh r0, 32
+///     0x67, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, // lsh r0, 22
+///     0x6f, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // lsh r0, r8
+///     0x77, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, // rsh r0, 32
+///     0x77, 0x00, 0x00, 0x00, 0x13, 0x00, 0x00, 0x00, // rsh r0, 19
+///     0x7f, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // rsh r0, r7
+///     0xa7, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // xor r0, 0x03
+///     0xaf, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // xor r0, r2
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+/// ];
+///
+/// // Instantiate a VM.
+/// let vm = rbpf::EbpfVmNoData::new(&prog);
+///
+/// // Provide only a reference to the packet data.
+/// let res = vm.prog_exec();
+/// assert_eq!(res, 0x11);
+/// ```
 pub struct EbpfVmNoData<'a> {
     parent: EbpfVmRaw<'a>,
 }
 
 impl<'a> EbpfVmNoData<'a> {
 
+    /// Create a new virtual machine instance, and load an eBPF program into that instance.
+    /// When attempting to load the program, it passes through a simple verifier.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let vm = rbpf::EbpfVmNoData::new(&prog);
+    /// ```
     pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmNoData<'a> {
         let parent = EbpfVmRaw::new(prog);
         EbpfVmNoData {
@@ -973,22 +1221,156 @@ impl<'a> EbpfVmNoData<'a> {
         }
     }
 
+    /// Load a new eBPF program into the virtual machine instance.
+    ///
+    /// # Panics
+    ///
+    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog1 = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let prog2 = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmNoData::new(&prog1);
+    ///
+    /// let res = vm.prog_exec();
+    /// assert_eq!(res, 0x2211);
+    ///
+    /// vm.set_prog(&prog2);
+    ///
+    /// let res = vm.prog_exec();
+    /// assert_eq!(res, 0x1122);
+    /// ```
     pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
         self.parent.set_prog(prog)
     }
 
+    /// Register a built-in or user-defined helper function in order to use it later from within
+    /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
+    ///
+    /// If using JIT-compiled eBPF programs, be sure to register all helpers before compiling the
+    /// program. You should be able to change registered helpers after compiling, but not to add
+    /// new ones (i.e. with new keys).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::helpers;
+    ///
+    /// let prog = vec![
+    ///     0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // mov r1, 0x010000000
+    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    ///
+    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
+    /// vm.register_helper(1, helpers::sqrti);
+    ///
+    /// let res = vm.prog_exec();
+    /// assert_eq!(res, 0x1000);
+    /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
         self.parent.register_helper(key, function);
     }
 
+    /// JIT-compile the loaded program. No argument required for this.
+    ///
+    /// If using helper functions, be sure to register them into the VM before calling this
+    /// function.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
+    /// unknown eBPF operation code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    ///
+    ///
+    /// vm.jit_compile();
+    /// ```
     pub fn jit_compile(&mut self) {
         self.parent.jit_compile();
     }
 
+    /// Execute the program loaded, without providing pointers to any memory area whatsoever.
+    ///
+    /// # Panics
+    ///
+    /// This function is currently expected to panic if it encounters any error during the program
+    /// execution, such as memory accesses or division by zero attempts. This may be changed in the
+    /// future (we could raise errors instead).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let vm = rbpf::EbpfVmNoData::new(&prog);
+    ///
+    /// // For this kind of VM, the `prog_exec()` function needs no argument.
+    /// let res = vm.prog_exec();
+    /// assert_eq!(res, 0x1122);
+    /// ```
     pub fn prog_exec(&self) -> u64 {
         self.parent.prog_exec(&mut vec![])
     }
 
+    /// Execute the previously JIT-compiled program, without providing pointers to any memory area
+    /// whatsoever, in a manner very similar to `prog_exec()`.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if an error occurs during the execution of the program.
+    ///
+    /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
+    /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
+    /// very bad (program may segfault). It may be wise to check that the program works with the
+    /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = vec![
+    ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
+    ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    ///
+    /// vm.jit_compile();
+    ///
+    /// let res = vm.prog_exec_jit();
+    /// assert_eq!(res, 0x1122);
+    /// ```
     pub fn prog_exec_jit(&self) -> u64 {
         self.parent.prog_exec_jit(&mut vec![])
     }
