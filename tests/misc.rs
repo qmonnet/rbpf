@@ -162,7 +162,7 @@ fn test_vm_block_port() {
     ];
 
     let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
-    vm.register_helper(helpers::BPF_TRACE_PRINTF_IDX, helpers::bpf_trace_printf);
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
     let res = vm.prog_exec(&mut packet);
     println!("Program returned: {:?} ({:#x})", res, res);
@@ -243,7 +243,7 @@ fn test_jit_block_port() {
     ];
 
     let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
-    vm.register_helper(helpers::BPF_TRACE_PRINTF_IDX, helpers::bpf_trace_printf);
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
     vm.jit_compile();
 
     let res = vm.prog_exec_jit(&mut packet);
