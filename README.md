@@ -69,7 +69,7 @@ extern crate rbpf;
 
 The API is pretty well documented inside the source code. You should also be
 able to access [an online version of the documentation from
-here](https://docs.rs/releases/search?query=rbpf). Here is a summary of how to
+here](https://docs.rs/rbpf/). Here is a summary of how to
 use it.
 
 Here are the steps to follow to run an eBPF program with rbpf:
