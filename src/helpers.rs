@@ -29,7 +29,7 @@ use std::u64;
 
 /// Index of helper `bpf_trace_printk()`, equivalent to `bpf_trace_printf()`, in Linux kernel, see
 /// <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h>.
-pub const BPF_TRACE_PRINTF_IDX: u32 = 6;
+pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 
 /// Prints its **last three** arguments to standard output. The **first two** arguments are
 /// **unused**. Returns 0.
