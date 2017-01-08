@@ -4,6 +4,8 @@
 
 Rust (user-space) virtual machine for eBPF
 
+[![Build Status](https://travis-ci.org/iovisor/rbpf.svg?branch=master)](https://travis-ci.org/qmonnet/rbpf)
+
 * [Description](#description)
 * [Link to the crate](#link-to-the-crate)
 * [API](#api)
