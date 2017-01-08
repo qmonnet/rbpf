@@ -40,7 +40,7 @@ file:
 
 ```toml
 [dependencies]
-rbpf = "0.0.1"
+rbpf = "0.0.2"
 ```
 
 You can also use the development version from this GitHub repository. This
@@ -321,7 +321,7 @@ to your `Cargo.toml` file.
 
 ```toml
 [dependencies]
-rbpf = "0.0.1"
+rbpf = "0.0.2"
 byteorder = "0.5.3"
 elf = "0.0.10"
 ```
