@@ -4,6 +4,18 @@
 
 Rust (user-space) virtual machine for eBPF
 
+* [Description][]
+* [Link to the crate][]
+* [API][]
+* [Example uses][]
+* [Feedback welcome!][]
+* [Questions / Answers][]
+* [Caveats][]
+* [_To do_ list][]
+* [License][]
+* [Inspired by][]
+* [Other resources][]
+
 ## Description
 
 This crate contains a virtual machine for eBPF program execution. BPF, as in
@@ -20,8 +32,17 @@ which does nearly the same, but is written in C.
 
 ## Link to the crate
 
-As of this writing, the crate has not been pushed to <https://crates.io> yet,
-so you have to indicate the path of the repository in your `Cargo.toml` file:
+This crate is available from [crates.io](https://crates.io/crates/rbpf), so it
+should work out of the box by adding it as a dependency in your `Cargo.toml`
+file:
+
+```toml
+[dependencies]
+rbpf = "0.0.1"
+```
+
+You can also use the development version from this GitHub repository. This
+should be as simple as putting this inside your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -43,6 +64,11 @@ extern crate rbpf;
 ```
 
 ## API
+
+The API is pretty well documented inside the source code. You should also be
+able to access [an online version of the documentation from
+here](https://docs.rs/releases/search?query=rbpf). Here is a summary of how to
+use it.
 
 Here are the steps to follow to run an eBPF program with rbpf:
 
