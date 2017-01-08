@@ -4,17 +4,17 @@
 
 Rust (user-space) virtual machine for eBPF
 
-* [Description][]
-* [Link to the crate][]
-* [API][]
-* [Example uses][]
-* [Feedback welcome!][]
-* [Questions / Answers][]
-* [Caveats][]
-* [_To do_ list][]
-* [License][]
-* [Inspired by][]
-* [Other resources][]
+* [Description](#description)
+* [Link to the crate](#link-to-the-crate)
+* [API](#api)
+* [Example uses](#example-uses)
+* [Feedback welcome!](#feedback-welcome)
+* [Questions / Answers](#questions--answers)
+* [Caveats](#caveats)
+* [_To do_ list](#to-do-list)
+* [License](#license)
+* [Inspired by](#inspired-by)
+* [Other resources](#other-resources)
 
 ## Description
 
@@ -319,7 +319,7 @@ to your `Cargo.toml` file.
 
 ```toml
 [dependencies]
-…
+rbpf = "0.0.1"
 byteorder = "0.5.3"
 elf = "0.0.10"
 ```
