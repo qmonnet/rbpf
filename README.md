@@ -444,21 +444,21 @@ Other than the language, obviously? Well, there are some differences:
 * The distinct structs permitting to run program either on packet data, or with
   a metadata buffer (simulated or not) is a specificity of rbpf.
 
-* As for performance: theoretically the JIT programs are expected to run at the
-  same speed, while the C interpreter of uBPF should go slightly faster than
-  rbpf. But this has not been asserted yet. Benchmarking both programs would be
-  an interesting thing to do.
+* As for performance: theoretically the JITted programs are expected to run at
+  the same speed, while the C interpreter of uBPF should go slightly faster
+  than rbpf. But this has not been asserted yet. Benchmarking both programs
+  would be an interesting thing to do.
 
 ### Can I use it with the “classic” BPF (a.k.a cBPF) version?
 
-No. This crate only works with extended BPF (eBPF) programs. For CBPF programs,
-such as used by tcpdump (as of today) for example, you may be interested in the
-[bpfjit crate](https://crates.io/crates/bpfjit) written by Alexander Polakov
-instead.
+No. This crate only works with extended BPF (eBPF) programs. For cBPF programs,
+such as used by tcpdump (as of this writing) for example, you may be interested
+in the [bpfjit crate](https://crates.io/crates/bpfjit) written by Alexander
+Polakov instead.
 
 ### What functionalities are implemented?
 
-Running and JIT-compiling eBPF programs works. There is also a mechanism to
+Running and JIT-compiling eBPF programs work. There is also a mechanism to
 register user-defined helper functions. The eBPF implementation of the Linux
 kernel comes with [some additional
 features](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md):
@@ -501,7 +501,7 @@ on your own.
 
 ## Caveats
 
-* This create is **under development** and the API may be subject to change.
+* This crate is **under development** and the API may be subject to change.
 
 * The JIT compiler produces an unsafe program: memory access are not tested at
   runtime (yet). Use with caution.
@@ -522,8 +522,10 @@ on your own.
 * Provide built-in support for user-space array and hash BPF maps.
 * Improve safety of JIT-compiled programs with runtime memory checks.
 * Replace `panic!()` by cleaner error handling.
-* Add helpers (some of those supported in the kernel, such as checksum update, could be helpful).
-* Improve verifier. Could we find a way to directly support programs compiled with clang?
+* Add helpers (some of those supported in the kernel, such as checksum update,
+  could be helpful).
+* Improve verifier. Could we find a way to directly support programs compiled
+  with clang?
 * Maybe one day, tail calls?
 * JIT-compilers for other architectures?
 * eBPF assembler _à la_ uBPF, to have more readable unit tests?
