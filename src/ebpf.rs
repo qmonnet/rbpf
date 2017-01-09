@@ -378,6 +378,11 @@ pub struct Insn {
 /// Get the instruction at `idx` of an eBPF program. `idx` is the index (number) of the
 /// instruction (not a byte offset). The first instruction has index 0.
 ///
+/// # Panics
+///
+/// Panics if it is not possible to get the instruction (if idx is too high, or last instruction is
+/// incomplete).
+///
 /// # Examples
 ///
 /// ```
@@ -390,10 +395,26 @@ pub struct Insn {
 /// let insn = ebpf::get_insn(&prog, 1);
 /// assert_eq!(insn.opc, 0x95);
 /// ```
+///
+/// The example below will panic, since the last instruction is not complete and cannot be loaded.
+///
+/// ```rust,should_panic
+/// use rbpf::ebpf;
+///
+/// let prog = vec![
+///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00              // two bytes missing
+///     ];
+/// let insn = ebpf::get_insn(&prog, 1);
+/// ```
 pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
-    // TODO panic if size problem? Should have been checked by verifier, though.
-    // Update: this function is publicly available and user can call it with any idx, so we should
-    // definitely add a guard here.
+    // This guard should not be needed in most cases, since the verifier already checks the program
+    // size, and indexes should be fine in the interpreter/JIT. But this function is publicly
+    // available and user can call it with any `idx`, so we have to check anyway.
+    if (idx + 1) * INSN_SIZE > prog.len() {
+        panic!("Error: cannot reach instruction at index {:?} in program containing {:?} bytes",
+               idx, prog.len());
+    }
     let insn = Insn {
         opc:  prog[INSN_SIZE * idx],
         dst:  prog[INSN_SIZE * idx + 1] & 0x0f,
