@@ -129,7 +129,9 @@ All these structs implement the same public functions:
 pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a>
 
 // called with EbpfVmFixedMbuff:: prefix
-pub fn new(prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a>
+pub fn new(prog: &'a std::vec::Vec<u8>,
+           data_offset: usize,
+           data_end_offset: usize) -> EbpfVmFixedMbuff<'a>
 
 // called with EbpfVmRaw:: prefix
 pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a>
@@ -166,7 +168,9 @@ program after the VM instance creation. This program is checked with the
 verifier.
 
 ```rust
-pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64)
+pub fn register_helper(&mut self,
+                       key: u32,
+                       function: fn (u64, u64, u64, u64, u64) -> u64)
 ```
 
 This function is used to register a helper function. The VM stores its
@@ -176,10 +180,13 @@ therefore must use specific helper numbers.
 
 ```rust
 // for struct EbpfVmMbuff
-pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64
+pub fn prog_exec(&self,
+                 mem: &'a mut std::vec::Vec<u8>,
+                 mbuff: &'a mut std::vec::Vec<u8>) -> u64
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
+pub fn prog_exec(&self,
+                 mem: &'a mut std::vec::Vec<u8>) -> u64
 
 // for struct EbpfVmNoData
 pub fn prog_exec(&self) -> u64
@@ -200,13 +207,14 @@ is called. The generated assembly function is internally stored in the VM.
 
 ```rust
 // for struct EbpfVmMbuff
-pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64
+pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>,
+                            mbuff: &'a mut std::vec::Vec<u8>) -> u64
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
+pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
 
 // for struct EbpfVmNoData
-pub fn prog_exec_jit(&self) -> u64
+pub unsafe fn prog_exec_jit(&self) -> u64
 ```
 
 Calls the JIT-compiled program. The arguments to provide are the same as for
@@ -214,7 +222,7 @@ Calls the JIT-compiled program. The arguments to provide are the same as for
 the JIT-compiled program should be the same as with the interpreter, but it
 should run faster. Note that if errors occur during the program execution, the
 JIT-compiled version does not handle it as well as the interpreter, and the
-program may crash.
+program may crash. For this reason the functions are marked as `unsafe`.
 
 ## Example uses
 
@@ -273,7 +281,7 @@ fn main() {
 
     // Then we execute it. For this kind of VM, a reference to the packet data
     // must be passed to the function that executes the program.
-    assert_eq!(vm.prog_exec_jit(&mut mem), 0x11);
+    unsafe { assert_eq!(vm.prog_exec_jit(&mut mem), 0x11); }
 }
 ```
 ### Using a metadata buffer
@@ -314,7 +322,7 @@ fn main() {
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
+    unsafe { assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211); }
 }
 ```
 

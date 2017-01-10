@@ -69,7 +69,7 @@ struct MetaBuff {
 /// ```
 pub struct EbpfVmMbuff<'a> {
     prog:    &'a std::vec::Vec<u8>,
-    jit:     (fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
+    jit:     (unsafe fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
     helpers: HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
 }
 
@@ -524,10 +524,14 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// This function panics if an error occurs during the execution of the program.
     ///
+    /// # Safety
+    ///
     /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
     /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
     /// very bad (program may segfault). It may be wise to check that the program works with the
     /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// For this reason the function should be called from within an `unsafe` bloc.
     ///
     /// # Examples
     ///
@@ -557,10 +561,12 @@ impl<'a> EbpfVmMbuff<'a> {
     /// vm.jit_compile();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// let res = vm.prog_exec_jit(&mut mem, &mut mbuff);
-    /// assert_eq!(res, 0x2211);
+    /// unsafe {
+    ///     let res = vm.prog_exec_jit(&mut mem, &mut mbuff);
+    ///     assert_eq!(res, 0x2211);
+    /// }
     /// ```
-    pub fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -875,10 +881,14 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// This function panics if an error occurs during the execution of the program.
     ///
+    /// # Safety
+    ///
     /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
     /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
     /// very bad (program may segfault). It may be wise to check that the program works with the
     /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// For this reason the function should be called from within an `unsafe` bloc.
     ///
     /// # Examples
     ///
@@ -902,12 +912,14 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// vm.jit_compile();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// let res = vm.prog_exec_jit(&mut mem);
-    /// assert_eq!(res, 0xdd);
+    /// unsafe {
+    ///     let res = vm.prog_exec_jit(&mut mem);
+    ///     assert_eq!(res, 0xdd);
+    /// }
     /// ```
     // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    pub fn prog_exec_jit(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -1117,10 +1129,14 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// This function panics if an error occurs during the execution of the program.
     ///
+    /// # Safety
+    ///
     /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
     /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
     /// very bad (program may segfault). It may be wise to check that the program works with the
     /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// For this reason the function should be called from within an `unsafe` bloc.
     ///
     /// # Examples
     ///
@@ -1140,10 +1156,12 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// vm.jit_compile();
     ///
-    /// let res = vm.prog_exec_jit(&mut mem);
-    /// assert_eq!(res, 0x22cc);
+    /// unsafe {
+    ///     let res = vm.prog_exec_jit(&mut mem);
+    ///     assert_eq!(res, 0x22cc);
+    /// }
     /// ```
-    pub fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
         let mut mbuff = vec![];
         self.parent.prog_exec_jit(mem, &mut mbuff)
     }
@@ -1349,10 +1367,14 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// This function panics if an error occurs during the execution of the program.
     ///
+    /// # Safety
+    ///
     /// **WARNING:** JIT-compiled assembly code is not safe, in particular there is no runtime
     /// check for memory access; so if the eBPF program attempts erroneous accesses, this may end
     /// very bad (program may segfault). It may be wise to check that the program works with the
     /// interpreter before running the JIT-compiled version of it.
+    ///
+    /// For this reason the function should be called from within an `unsafe` bloc.
     ///
     /// # Examples
     ///
@@ -1367,10 +1389,12 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// vm.jit_compile();
     ///
-    /// let res = vm.prog_exec_jit();
-    /// assert_eq!(res, 0x1122);
+    /// unsafe {
+    ///     let res = vm.prog_exec_jit();
+    ///     assert_eq!(res, 0x1122);
+    /// }
     /// ```
-    pub fn prog_exec_jit(&self) -> u64 {
+    pub unsafe fn prog_exec_jit(&self) -> u64 {
         self.parent.prog_exec_jit(&mut vec![])
     }
 }

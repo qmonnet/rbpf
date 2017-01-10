@@ -835,7 +835,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 pub fn compile(prog: &std::vec::Vec<u8>,
                helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
                use_mbuff: bool, update_data_ptr: bool)
-    -> (fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {
+    -> (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {
 
     // TODO: check how long the page must be to be sure to support an eBPF program of maximum
     // possible length

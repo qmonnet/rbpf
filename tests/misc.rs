@@ -246,9 +246,11 @@ fn test_jit_block_port() {
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
     vm.jit_compile();
 
-    let res = vm.prog_exec_jit(&mut packet);
-    println!("Program returned: {:?} ({:#x})", res, res);
-    assert_eq!(res, 0xffffffff);
+    unsafe {
+        let res = vm.prog_exec_jit(&mut packet);
+        println!("Program returned: {:?} ({:#x})", res, res);
+        assert_eq!(res, 0xffffffff);
+    }
 }
 
 // Program and memory come from uBPF test ldxh.
@@ -299,7 +301,9 @@ fn test_jit_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let mut vm = rbpf::EbpfVmMbuff::new(&prog);
-    vm.jit_compile();
-    assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
+    unsafe {
+        let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+        vm.jit_compile();
+        assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
+    }
 }
