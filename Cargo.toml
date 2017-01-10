@@ -22,3 +22,8 @@ include = [
 [dependencies]
 
 libc = "0.2.0"
+
+[dev-dependencies]
+
+byteorder = "0.5.3"
+elf = "0.0.10"
