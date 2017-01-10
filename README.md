@@ -5,6 +5,7 @@
 Rust (user-space) virtual machine for eBPF
 
 [![Build Status](https://travis-ci.org/qmonnet/rbpf.svg?branch=master)](https://travis-ci.org/qmonnet/rbpf)
+[![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/rbpf)
 
 * [Description](#description)
 * [Link to the crate](#link-to-the-crate)
