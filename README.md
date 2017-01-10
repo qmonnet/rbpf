@@ -394,10 +394,10 @@ fn main() {
 
     // We register a helper function, that can be called by the program, into
     // the VM.
-    vm.register_helper(helpers::BPF_TRACE_PRINTF_IDX, helpers::bpf_trace_printf);
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
     // This kind of VM takes a reference to the packet data, but does not need
-    // any reference to the metadata buffer: a fixed buffer is handled 
+    // any reference to the metadata buffer: a fixed buffer is handled
     // internally by the VM.
     let res = vm.prog_exec(&mut packet);
     println!("Program returned: {:?} ({:#x})", res, res);
