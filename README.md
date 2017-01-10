@@ -152,7 +152,13 @@ each time the program is executed. Other structs do not use this mechanism and
 do not need those offsets.
 
 ```rust
+// for struct EbpfVmMbuff, struct EbpfVmRaw and struct EbpfVmRawData
 pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>)
+
+// for struct EbpfVmFixedMbuff
+pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>,
+                data_offset: usize,
+                data_end_offset: usize)
 ```
 
 You can use for example `my_vm.set_prog(my_program);` to change the loaded
