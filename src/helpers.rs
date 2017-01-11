@@ -42,13 +42,13 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 /// ```
 /// use rbpf::helpers;
 ///
-/// helpers::bpf_trace_printf(1, 15, 32, 0, 0);
+/// helpers::bpf_trace_printf(0, 0, 1, 15, 32);
 /// ```
 ///
 /// This will print `bpf_trace_printf: 0x1, 0xf, 0x20`.
 ///
-/// The eBPF code produced would be nearly the same as when compiling the following code from C to
-/// eBPF with clang:
+/// The eBPF code needed to perform the call in this example would be nearly identical to the code
+/// obtained by compiling the following code from C to eBPF with clang:
 ///
 /// ```c
 /// #include <linux/bpf.h>
