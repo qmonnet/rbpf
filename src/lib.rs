@@ -73,7 +73,6 @@ pub struct EbpfVmMbuff<'a> {
     helpers: HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
 }
 
-// Runs on packet data, with a metadata buffer
 impl<'a> EbpfVmMbuff<'a> {
 
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
