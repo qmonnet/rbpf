@@ -32,7 +32,7 @@ use std::u64;
 pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 
 /// Prints its **last three** arguments to standard output. The **first two** arguments are
-/// **unused**. Returns 0.
+/// **unused**. Returns the number of bytes written.
 ///
 /// By ignoring the first two arguments, it creates a helper that will have a behavior similar to
 /// the one of the equivalent helper `bpf_trace_printk()` from Linux kernel.
@@ -42,7 +42,8 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 /// ```
 /// use rbpf::helpers;
 ///
-/// helpers::bpf_trace_printf(0, 0, 1, 15, 32);
+/// let res = helpers::bpf_trace_printf(0, 0, 1, 15, 32);
+/// assert_eq!(res as usize, "bpf_trace_printf: 0x1, 0xf, 0x20\n".len());
 /// ```
 ///
 /// This will print `bpf_trace_printf: 0x1, 0xf, 0x20`.
@@ -56,7 +57,9 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 ///
 /// int main(struct __sk_buff *skb)
 /// {
-///     char *fmt = "bpf_trace_printk %lx %lx %lx\n";
+///     // Only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed.
+///     // See <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/kernel/trace/bpf_trace.c>.
+///     char *fmt = "bpf_trace_printk %llx, %llx, %llx\n";
 ///     return bpf_trace_printk(fmt, sizeof(fmt), 1, 15, 32);
 /// }
 /// ```
@@ -67,7 +70,15 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 #[allow(unused_variables)]
 pub fn bpf_trace_printf (unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
     println!("bpf_trace_printf: {:#x}, {:#x}, {:#x}", arg3, arg4, arg5);
-    0
+    let size_arg = | x | {
+        if x == 0 {
+            1
+        } else {
+            (x as f64).log(16.0).floor() as u64 + 1
+        }
+    };
+    "bpf_trace_printf: 0x, 0x, 0x\n".len() as u64
+        + size_arg(arg3) + size_arg(arg4) + size_arg(arg5)
 }
 
 
