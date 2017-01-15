@@ -361,7 +361,7 @@ pub const BPF_ALU_OP_MASK : u8 = 0xf0;
 /// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
 /// documentation about eBPF, or <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a
 /// more concise version.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Insn {
     /// Operation code.
     pub opc: u8,
@@ -427,4 +427,65 @@ pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
         },
     };
     insn
+}
+
+/// Return a vector of `struct Insn` built from a program.
+///
+/// This is provided as a convenience for users wishing to manipulate a vector of instructions, for
+/// example for dumping the program instruction after instruction with a custom format.
+///
+/// Note that the two parts of `LD_DW_IMM` instructions (spanning on 64 bits) are considered as two
+/// distinct instructions.
+///
+/// # Examples
+///
+/// ```
+/// use rbpf::ebpf;
+///
+/// let prog = vec![
+///     0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
+///     0x00, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11,
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+/// ];
+///
+/// let v = ebpf::to_insn_vec(&prog);
+/// assert_eq!(v, vec![
+///     ebpf::Insn {
+///         opc: 0x18,
+///         dst: 0,
+///         src: 0,
+///         off: 0,
+///         imm: 0x55667788
+///     },
+///     ebpf::Insn {
+///         opc: 0,
+///         dst: 0,
+///         src: 0,
+///         off: 0,
+///         imm: 0x11223344
+///     },
+///     ebpf::Insn {
+///         opc: 0x95,
+///         dst: 0,
+///         src: 0,
+///         off: 0,
+///         imm: 0
+///     },
+/// ]);
+/// ```
+pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<Insn> {
+    if prog.len() % INSN_SIZE != 0 {
+        panic!("Error: eBPF program length must be a multiple of {:?} octets",
+               INSN_SIZE);
+    }
+
+    let mut res = vec![];
+    let mut insn_ptr:usize = 0;
+
+    while insn_ptr * INSN_SIZE < prog.len() {
+        let insn = get_insn(prog, insn_ptr);
+        res.push(insn);
+        insn_ptr += 1;
+    };
+    res
 }
