@@ -207,11 +207,6 @@ pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
             },
         };
 
-        if insn.opc == ebpf::LD_DW_IMM {
-            insn_ptr += 1;
-            let next_insn = ebpf::get_insn(prog, insn_ptr);
-            imm = ((insn.imm as u32) as u64 + ((next_insn.imm as u64) << 32)) as i64;
-        }
         let hl_insn = HLInsn {
             opc:  insn.opc,
             name: name.to_string(),
