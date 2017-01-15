@@ -28,7 +28,8 @@ tcpdump so as to avoid useless copies to user-space. It was ported to Linux,
 where it evolved into eBPF (_extended_ BPF), a faster version with more
 features. While BPF programs are originally intended to run in the kernel, the
 virtual machine of this crate enables running it in user-space applications;
-it contains an interpreter as well as a x86_64 JIT-compiler for eBPF programs.
+it contains an interpreter, a x86_64 JIT-compiler for eBPF programs, as well as
+a disassembler.
 
 It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
 which does nearly the same, but is written in C.
@@ -563,9 +564,9 @@ details.
 ## Inspired by
 
 * [uBPF](https://github.com/iovisor/ubpf), a C user-space implementation of an
-  eBPF virtual machine, with a JIT-compiler (and also including assembler and
-  disassembler from and to the human-readable form of the instructions, such as
-  in `mov r0, 0x1337`), by Rich Lane for Big Switch Networks (2015)
+  eBPF virtual machine, with a JIT-compiler and disassembler (and also
+  including the assembler from the human-readable form of the instructions,
+  such as in `mov r0, 0x1337`), by Rich Lane for Big Switch Networks (2015)
 
 * [_Building a simple JIT in
   Rust_](http://www.jonathanturner.org/2015/12/building-a-simple-jit-in-rust.html),
