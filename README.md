@@ -70,8 +70,11 @@ extern crate rbpf;
 
 The API is pretty well documented inside the source code. You should also be
 able to access [an online version of the documentation from
-here](https://docs.rs/rbpf/). Here is a summary of how to
-use it.
+here](https://docs.rs/rbpf/), automatically generated from the
+[crates.io](https://crates.io/crates/rbpf) version (may not be up-to-date with
+master branch). [Examples](../../tree/master/examples) and [unit
+tests](../../tree/master/tests) should also prove helpful. Here is a summary of
+how to use the crate.
 
 Here are the steps to follow to run an eBPF program with rbpf:
 
