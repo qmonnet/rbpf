@@ -14,7 +14,10 @@ license = "Apache-2.0/MIT"
 
 # Packaging directives
 include = [
-    "**/*.rs",
+    "src/**",
+    "examples/**",
+    "tests/**",
+    "bench/**",
     "LICENSE*",
     "Cargo.toml",
 ]
