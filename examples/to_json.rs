@@ -11,8 +11,21 @@ extern crate json;
 extern crate rbpf;
 use rbpf::disassembler;
 
+// Turn a program into a JSON string.
+//
+// Relies on `json` crate.
+//
+// You may copy this function and adapt it according to your needs. For instance, you may want to:
+//
+// * Remove the "desc" (description) attributes from the output.
+// * Print integers as integers, and not as strings containing their hexadecimal representation
+//   (just replace the relevant `format!()` calls by the commented values.
 fn to_json(prog: &std::vec::Vec<u8>) -> String {
 
+    // This call returns a high-level representation of the instructions, with the two parts of
+    // `LD_DW_IMM` instructions merged, and name and descriptions of the instructions.
+    // If you prefer to use a lower-level representation, use `ebpf::to_insn_vec()` function
+    // instead.
     let insns = disassembler::to_insn_vec(&prog);
     let mut json_insns = vec![];
     for insn in insns {
@@ -39,6 +52,7 @@ fn to_json(prog: &std::vec::Vec<u8>) -> String {
         ), 4)
 }
 
+// Print a JSON string representing the program to standard output.
 fn main() {
     let prog = vec![
         0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

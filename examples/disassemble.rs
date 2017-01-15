@@ -8,6 +8,7 @@
 extern crate rbpf;
 use rbpf::disassembler;
 
+// Simply disassemble a program into human-readable instructions.
 fn main() {
     let prog = vec![
         0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
