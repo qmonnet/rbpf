@@ -20,10 +20,50 @@
 //! value. Hence some helpers have unused arguments, or return a 0 value in all cases, in order to
 //! respect this convention.
 
+extern crate libc;
+
 use std::u64;
 
 // Helpers associated to kernel helpers
 // See also linux/include/uapi/linux/bpf.h in Linux kernel sources.
+
+// bpf_ktime_getns()
+
+/// Index of helper `bpf_ktime_getns()`, equivalent to `bpf_time_getns()`, in Linux kernel, see
+/// <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h>.
+pub const BPF_KTIME_GETNS_IDX: u32 = 5;
+
+/// Get monotonic time (since boot time) in nanoseconds. All arguments are unused.
+///
+/// If needed, you may e.g. create a helper returning real time by using the same code, but
+/// replacing `libc::CLOCK_MONOTONIC` with `libc::CLOCK_REALTIME`.
+///
+/// # Examples
+///
+/// ```
+/// use rbpf::helpers;
+///
+/// let t = helpers::bpf_time_getns(0, 0, 0, 0, 0);
+/// let d =  t / 10u64.pow(9)  / 60   / 60  / 24;
+/// let h = (t / 10u64.pow(9)  / 60   / 60) % 24;
+/// let m = (t / 10u64.pow(9)  / 60 ) % 60;
+/// let s = (t / 10u64.pow(9)) % 60;
+/// let ns = t % 10u64.pow(9);
+/// println!("Uptime: {:#x} == {} days {}:{}:{}, {} ns", t, d, h, m, s, ns);
+/// ```
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn bpf_time_getns (unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    unsafe {
+        let mut tp = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0
+        };
+        let tp_ptr: *mut libc::timespec = &mut tp;
+        libc::clock_gettime(libc::CLOCK_MONOTONIC, tp_ptr);
+        ((*tp_ptr).tv_sec as u64) * 10u64.pow(9) + (*tp_ptr).tv_nsec as u64
+    }
+}
 
 // bpf_trace_printk()
 
@@ -206,4 +246,37 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
             (b_val - a_val) as u64
         }
     }
+}
+
+// Some additional helpers
+
+/// Returns a random u64 value comprised between `min` and `max` values (inclusive). Arguments 3 to
+/// 5 are unused.
+///
+/// Relies on `rand()` function from libc, so `libc::srand()` should be called once before this
+/// helper is used.
+///
+/// # Examples
+///
+/// ```
+/// extern crate libc;
+/// extern crate rbpf;
+///
+/// unsafe {
+///     libc::srand(libc::time(std::ptr::null_mut()) as u32);
+/// }
+///
+/// let n = rbpf::helpers::rand(3, 6, 0, 0, 0);
+/// assert!(3 <= n && n <= 6);
+/// ```
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn rand (min: u64, max: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    let mut n = unsafe {
+        (libc::rand() as u64).wrapping_shl(32) + libc::rand() as u64
+    };
+    if min < max {
+        n = n % (max + 1 - min) + min;
+    };
+    n
 }
