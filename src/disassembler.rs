@@ -5,7 +5,8 @@
 // copied, modified, or distributed except according to those terms.
 
 
-//! Disassemble eBPF code into human-readable instructions.
+//! Functions in this module are used to handle eBPF programs with a higher level representation,
+//! for example to disassemble the code into a human-readable format.
 
 use ebpf;
 use std;
@@ -59,16 +60,92 @@ fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     format!("{} r{}, r{}, {:+#x}", name, insn.dst, insn.src, insn.off)
 }
 
+/// High-level representation of an eBPF instruction.
+///
+/// In addition to standard operation code and various operand, this struct has the following
+/// properties:
+///
+/// * It stores a name, corresponding to a mnemonic for the operation code.
+/// * It also stores a description, which is a mnemonic for the full instruction, using the actual
+///   values of the relevant operands, and that can be used for disassembling the eBPF program for
+///   example.
+/// * Immediate values are stored in an `i64` instead of a traditional i32, in order to merge the
+///   two parts of (otherwise double-length) `LD_DW_IMM` instructions.
+///
+/// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
+/// documentation about eBPF, or <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a
+/// more concise version.
+#[derive(Debug, PartialEq)]
 pub struct HLInsn {
+    /// Operation code.
     pub opc:  u8,
+    /// Name (mnemonic). This name is not canon.
     pub name: String,
+    /// Description of the instruction. This is not canon.
     pub desc: String,
+    /// Destination register operand.
     pub dst:  u8,
+    /// Source register operand.
     pub src:  u8,
+    /// Offset operand.
     pub off:  i16,
+    /// Immediate value operand. For `LD_DW_IMM` instructions, contains the whole value merged from
+    /// the two 8-bytes parts of the instruction.
     pub imm:  i64,
 }
 
+/// Return a vector of `struct HLInsn` built from an eBPF program.
+///
+/// This is made public to provide a way to manipulate a program as a vector of instructions, in a
+/// high-level format, for example for dumping the program instruction after instruction with a
+/// custom format.
+///
+/// Note that the two parts of `LD_DW_IMM` instructions (that have the size of two standard
+/// instructions) are considered as making a single immediate value. As a consequence, the number
+/// of instructions stored in the vector may not be equal to the size in bytes of the program
+/// divided by the length of an instructions.
+///
+/// To do so, the immediate value operand is stored as an `i64` instead as an i32, so be careful
+/// when you use it (see example `examples/to_json.rs`).
+///
+/// This is to oppose to `ebpf::to_insn_vec()` function, that treats instructions on a low-level
+/// ground and do not merge the parts of `LD_DW_IMM`. Also, the version in `ebpf` module does not
+/// use names or descriptions when storing the instructions.
+///
+/// # Examples
+///
+/// ```
+/// use rbpf::disassembler;
+///
+/// let prog = vec![
+///     0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
+///     0x00, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11,
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+/// ];
+///
+/// let v = disassembler::to_insn_vec(&prog);
+/// disassembler::disassemble(&prog);
+/// assert_eq!(v, vec![
+///     disassembler::HLInsn {
+///         opc: 0x18,
+///         name: "lddw".to_string(),
+///         desc: "lddw r0, 0x1122334455667788".to_string(),
+///         dst: 0,
+///         src: 0,
+///         off: 0,
+///         imm: 0x1122334455667788
+///     },
+///     disassembler::HLInsn {
+///         opc: 0x95,
+///         name: "exit".to_string(),
+///         desc: "exit".to_string(),
+///         dst: 0,
+///         src: 0,
+///         off: 0,
+///         imm: 0
+///     },
+/// ]);
+/// ```
 pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
@@ -224,6 +301,10 @@ pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
     res
 }
 
+/// Disassemble an eBPF program into human-readable instructions and prints it to standard output.
+///
+/// The program is not checked for errors or inconsistencies.
+///
 /// # Examples
 ///
 /// ```
@@ -237,7 +318,17 @@ pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 /// ];
 /// disassembler::disassemble(&prog);
-/// panic!();
+/// ```
+///
+/// This will produce the following output:
+///
+/// ```test
+/// add64 r1, 0x605
+/// mov64 r2, 0x32
+/// mov64 r1, r0
+/// be16 r0
+/// neg64 r8
+/// exit
 /// ```
 pub fn disassemble(prog: &std::vec::Vec<u8>) {
     if prog.len() % ebpf::INSN_SIZE != 0 {
