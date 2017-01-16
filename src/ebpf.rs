@@ -17,8 +17,6 @@
 //! <https://www.kernel.org/doc/Documentation/networking/filter.txt>, or for a shorter version of
 //! the list of the operation codes: <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
 
-use std;
-
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 4096;
 /// Size of an eBPF instructions, in bytes.
@@ -407,7 +405,7 @@ pub struct Insn {
 ///     ];
 /// let insn = ebpf::get_insn(&prog, 1);
 /// ```
-pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
+pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
     // This guard should not be needed in most cases, since the verifier already checks the program
     // size, and indexes should be fine in the interpreter/JIT. But this function is publicly
     // available and user can call it with any `idx`, so we have to check anyway.
@@ -415,7 +413,7 @@ pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
         panic!("Error: cannot reach instruction at index {:?} in program containing {:?} bytes",
                idx, prog.len());
     }
-    let insn = Insn {
+    Insn {
         opc:  prog[INSN_SIZE * idx],
         dst:  prog[INSN_SIZE * idx + 1] & 0x0f,
         src: (prog[INSN_SIZE * idx + 1] & 0xf0) >> 4,
@@ -425,8 +423,7 @@ pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
         imm: unsafe {
             let x = prog.as_ptr().offset((INSN_SIZE * idx + 4) as isize) as *const i32; *x
         },
-    };
-    insn
+    }
 }
 
 /// Return a vector of `struct Insn` built from a program.
@@ -473,7 +470,7 @@ pub fn get_insn(prog: &std::vec::Vec<u8>, idx: usize) -> Insn {
 ///     },
 /// ]);
 /// ```
-pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<Insn> {
+pub fn to_insn_vec(prog: &[u8]) -> Vec<Insn> {
     if prog.len() % INSN_SIZE != 0 {
         panic!("Error: eBPF program length must be a multiple of {:?} octets",
                INSN_SIZE);

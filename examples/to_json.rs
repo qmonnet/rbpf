@@ -24,13 +24,13 @@ use rbpf::disassembler;
 // * Remove the "desc" (description) attributes from the output.
 // * Print integers as integers, and not as strings containing their hexadecimal representation
 //   (just replace the relevant `format!()` calls by the commented values.
-fn to_json(prog: &std::vec::Vec<u8>) -> String {
+fn to_json(prog: &[u8]) -> String {
 
     // This call returns a high-level representation of the instructions, with the two parts of
     // `LD_DW_IMM` instructions merged, and name and descriptions of the instructions.
     // If you prefer to use a lower-level representation, use `ebpf::to_insn_vec()` function
     // instead.
-    let insns = disassembler::to_insn_vec(&prog);
+    let insns = disassembler::to_insn_vec(prog);
     let mut json_insns = vec![];
     for insn in insns {
         json_insns.push(object!(
@@ -46,7 +46,7 @@ fn to_json(prog: &std::vec::Vec<u8>) -> String {
                 // number is negative. When values takes more than 32 bits with `lddw`, the cast
                 // has no effect and the complete value is printed anyway.
                 "imm"  => format!("{:#x}", insn.imm as i32), // => insn.imm,
-                "desc" => format!("{}",    insn.desc)
+                "desc" => insn.desc
             )
         );
     }
@@ -73,7 +73,7 @@ fn main() {
         None => panic!("Failed to look up .classifier section"),
     };
 
-    let ref prog = &text_scn.data;
+    let prog = &text_scn.data;
 
     println!("{}", to_json(&prog));
 }

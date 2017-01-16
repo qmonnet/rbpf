@@ -65,7 +65,7 @@ fn main() {
         None => panic!("Failed to look up .classifier section"),
     };
 
-    let ref prog = &text_scn.data;
+    let prog = &text_scn.data;
 
     let mut packet1 = vec![
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
@@ -111,7 +111,7 @@ fn main() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
     let res = vm.prog_exec(&mut packet1);

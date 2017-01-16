@@ -380,7 +380,7 @@ fn main() {
         None => panic!("Failed to look up .classifier section"),
     };
 
-    let ref prog = &text_scn.data;
+    let prog = &text_scn.data;
 
     // This is our data: a real packet, starting with Ethernet header
     let mut packet = vec![
@@ -409,7 +409,7 @@ fn main() {
     // We must provide the offsets at which the pointers to packet data start
     // and end must be stored: these are the offsets at which the program will
     // load the packet data from the metadata buffer.
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
 
     // We register a helper function, that can be called by the program, into
     // the VM.
