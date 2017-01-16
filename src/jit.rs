@@ -714,10 +714,10 @@ impl<'a> JitMemory<'a> {
                     // For JIT, helpers in use MUST be registered at compile time. They can be
                     // updated later, but not created after compiling (we need the address of the
                     // helper function in the JIT-compiled program).
-                    if let Some(_) = helpers.get(&(insn.imm as u32)) {
+                    if let Some(helper) = helpers.get(&(insn.imm as u32)) {
                         // We reserve RCX for shifts
                         emit_mov(self, R9, RCX);
-                        emit_call(self, helpers[&(insn.imm as u32)] as i64);
+                        emit_call(self, *helper as i64);
                     } else {
                         panic!("[JIT] Error: unknown helper function (id: {:#x})",
                                insn.imm as u32);

@@ -413,7 +413,7 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
         panic!("Error: cannot reach instruction at index {:?} in program containing {:?} bytes",
                idx, prog.len());
     }
-    let insn = Insn {
+    Insn {
         opc:  prog[INSN_SIZE * idx],
         dst:  prog[INSN_SIZE * idx + 1] & 0x0f,
         src: (prog[INSN_SIZE * idx + 1] & 0xf0) >> 4,
@@ -423,8 +423,7 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
         imm: unsafe {
             let x = prog.as_ptr().offset((INSN_SIZE * idx + 4) as isize) as *const i32; *x
         },
-    };
-    insn
+    }
 }
 
 /// Return a vector of `struct Insn` built from a program.

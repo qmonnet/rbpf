@@ -98,9 +98,8 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a> {
         verifier::check(prog);
 
-        #[allow(unused_variables)]
-        fn no_jit(foo: *mut u8, foo_len: usize, bar: *mut u8, bar_len: usize,
-                  nodata_offset: usize, nodata_end_offset: usize) -> u64 {
+        fn no_jit(_mbuff: *mut u8, _len: usize, _mem: *mut u8, _mem_len: usize,
+                  _nodata_offset: usize, _nodata_end_offset: usize) -> u64 {
             panic!("Error: program has not been JIT-compiled");
         }
 
@@ -237,10 +236,10 @@ impl<'a> EbpfVmMbuff<'a> {
         }
 
         let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVmMbuff::check_mem(addr, len, "load", insn_ptr, &mbuff, &mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack);
         };
         let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVmMbuff::check_mem(addr, len, "store", insn_ptr, &mbuff, &mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack);
         };
 
         // Loop on instructions
@@ -509,7 +508,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// vm.jit_compile();
     /// ```
     pub fn jit_compile(&mut self) {
-        self.jit = jit::compile(&self.prog, &self.helpers, true, false);
+        self.jit = jit::compile(self.prog, &self.helpers, true, false);
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data and metadata
@@ -834,7 +833,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             *data     = mem.as_ptr() as u64;
             *data_end = mem.as_ptr() as u64 + mem.len() as u64;
         }
-        self.parent.prog_exec(mem, &mut self.mbuff.buffer)
+        self.parent.prog_exec(mem, &self.mbuff.buffer)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -866,7 +865,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// vm.jit_compile();
     /// ```
     pub fn jit_compile(&mut self) {
-        self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, true, true);
+        self.parent.jit = jit::compile(self.parent.prog, &self.parent.helpers, true, true);
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
@@ -1090,8 +1089,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// assert_eq!(res, 0x22cc);
     /// ```
     pub fn prog_exec(&self, mem: &'a mut [u8]) -> u64 {
-        let mut mbuff = vec![];
-        self.parent.prog_exec(mem, &mut mbuff)
+        self.parent.prog_exec(mem, &[])
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -1119,7 +1117,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// vm.jit_compile();
     /// ```
     pub fn jit_compile(&mut self) {
-        self.parent.jit = jit::compile(&self.parent.prog, &self.parent.helpers, false, false);
+        self.parent.jit = jit::compile(self.parent.prog, &self.parent.helpers, false, false);
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
@@ -1357,7 +1355,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// assert_eq!(res, 0x1122);
     /// ```
     pub fn prog_exec(&self) -> u64 {
-        self.parent.prog_exec(&mut vec![])
+        self.parent.prog_exec(&mut [])
     }
 
     /// Execute the previously JIT-compiled program, without providing pointers to any memory area
@@ -1395,6 +1393,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// }
     /// ```
     pub unsafe fn prog_exec_jit(&self) -> u64 {
-        self.parent.prog_exec_jit(&mut vec![])
+        self.parent.prog_exec_jit(&mut [])
     }
 }
