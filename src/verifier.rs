@@ -24,9 +24,8 @@
 
 
 use ebpf;
-use std;
 
-fn check_prog_len(prog: &std::vec::Vec<u8>) {
+fn check_prog_len(prog: &[u8]) {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         panic!("[Verifier] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);
@@ -58,7 +57,7 @@ fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) {
     }
 }
 
-fn check_load_dw(prog: &std::vec::Vec<u8>, insn_ptr: usize) {
+fn check_load_dw(prog: &[u8], insn_ptr: usize) {
     // We know we can reach next insn since we enforce an EXIT insn at the end of program, while
     // this function should be called only for LD_DW insn, that cannot be last in program.
     let next_insn = ebpf::get_insn(prog, insn_ptr + 1);
@@ -68,7 +67,7 @@ fn check_load_dw(prog: &std::vec::Vec<u8>, insn_ptr: usize) {
 
 }
 
-fn check_jmp_offset(prog: &std::vec::Vec<u8>, insn_ptr: usize) {
+fn check_jmp_offset(prog: &[u8], insn_ptr: usize) {
     let insn = ebpf::get_insn(prog, insn_ptr);
     if insn.off == -1 {
         panic!("[Verifier] Error: infinite loop (insn #{:?})", insn_ptr);
@@ -102,7 +101,7 @@ fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) {
     }
 }
 
-pub fn check(prog: &std::vec::Vec<u8>) -> bool {
+pub fn check(prog: &[u8]) -> bool {
     check_prog_len(prog);
 
     let mut insn_ptr:usize = 0;

@@ -425,9 +425,9 @@ struct Jump {
 struct JitMemory<'a> {
     contents:        &'a mut [u8],
     offset:          usize,
-    pc_locs:         std::vec::Vec<usize>,
+    pc_locs:         Vec<usize>,
     special_targets: HashMap<isize, usize>,
-    jumps:           std::vec::Vec<Jump>,
+    jumps:           Vec<Jump>,
 }
 
 impl<'a> JitMemory<'a> {
@@ -451,7 +451,7 @@ impl<'a> JitMemory<'a> {
         }
     }
 
-    fn jit_compile(&mut self, prog: &std::vec::Vec<u8>, use_mbuff: bool, update_data_ptr: bool,
+    fn jit_compile(&mut self, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
                    helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>) {
         emit_push(self, RBP);
         emit_push(self, RBX);
@@ -832,7 +832,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 }
 
 // In the end, this is the only thing we export
-pub fn compile(prog: &std::vec::Vec<u8>,
+pub fn compile(prog: &[u8],
                helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
                use_mbuff: bool, update_data_ptr: bool)
     -> (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {

@@ -24,7 +24,7 @@ use rbpf::disassembler;
 // * Remove the "desc" (description) attributes from the output.
 // * Print integers as integers, and not as strings containing their hexadecimal representation
 //   (just replace the relevant `format!()` calls by the commented values.
-fn to_json(prog: &std::vec::Vec<u8>) -> String {
+fn to_json(prog: &[u8]) -> String {
 
     // This call returns a high-level representation of the instructions, with the two parts of
     // `LD_DW_IMM` instructions merged, and name and descriptions of the instructions.

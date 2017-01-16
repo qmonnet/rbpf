@@ -9,7 +9,6 @@
 //! for example to disassemble the code into a human-readable format.
 
 use ebpf;
-use std;
 
 #[inline]
 fn alu_imm_str(name: &str, insn: &ebpf::Insn) -> String {
@@ -146,7 +145,7 @@ pub struct HLInsn {
 ///     },
 /// ]);
 /// ```
-pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
+pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);
@@ -330,7 +329,7 @@ pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
 /// neg64 r8
 /// exit
 /// ```
-pub fn disassemble(prog: &std::vec::Vec<u8>) {
+pub fn disassemble(prog: &[u8]) {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);

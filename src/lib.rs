@@ -33,7 +33,7 @@ pub mod disassembler;
 struct MetaBuff {
     data_offset:     usize,
     data_end_offset: usize,
-    buffer:          std::vec::Vec<u8>,
+    buffer:          Vec<u8>,
 }
 
 /// A virtual machine to run eBPF program. This kind of VM is used for programs expecting to work
@@ -69,7 +69,7 @@ struct MetaBuff {
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
-    prog:    &'a std::vec::Vec<u8>,
+    prog:    &'a [u8],
     jit:     (unsafe fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
     helpers: HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
 }
@@ -95,7 +95,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
     /// ```
-    pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a> {
+    pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a> {
         verifier::check(prog);
 
         #[allow(unused_variables)]
@@ -134,7 +134,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmMbuff::new(&prog1);
     /// vm.set_prog(&prog2);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
+    pub fn set_prog(&mut self, prog: &'a [u8]) {
         verifier::check(prog);
         self.prog = prog;
     }
@@ -220,7 +220,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let res = vm.prog_exec(&mut mem, &mut mbuff);
     /// assert_eq!(res, 0x2211);
     /// ```
-    pub fn prog_exec(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> u64 {
         const U32MAX: u64 = u32::MAX as u64;
 
         let stack = vec![0u8;ebpf::STACK_SIZE];
@@ -464,7 +464,7 @@ impl<'a> EbpfVmMbuff<'a> {
     }
 
     fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
-                 mbuff: &std::vec::Vec<u8>, mem: &std::vec::Vec<u8>, stack: &std::vec::Vec<u8>) {
+                 mbuff: &[u8], mem: &[u8], stack: &[u8]) {
         if mbuff.as_ptr() as u64 <= addr && addr + len as u64 <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
             return
         }
@@ -566,7 +566,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &mut std::vec::Vec<u8>, mbuff: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -679,7 +679,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
     /// ```
-    pub fn new(prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
+    pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
         let parent = EbpfVmMbuff::new(prog);
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
@@ -730,7 +730,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.prog_exec(&mut mem);
     /// assert_eq!(res, 0x27);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>, data_offset: usize, data_end_offset: usize) {
+    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) {
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         self.mbuff.buffer = buffer;
@@ -821,7 +821,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.prog_exec(&mut mem);
     /// assert_eq!(res, 0xdd);
     /// ```
-    pub fn prog_exec(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub fn prog_exec(&mut self, mem: &'a mut [u8]) -> u64 {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
@@ -919,7 +919,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty vector; send a null
         // pointer (zero value) as first argument instead, as this is uBPF's behavior (empty
         // packet should not happen in the kernel; anyway the verifier would prevent the use of
@@ -982,7 +982,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Instantiate a VM.
     /// let vm = rbpf::EbpfVmRaw::new(&prog);
     /// ```
-    pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a> {
+    pub fn new(prog: &'a [u8]) -> EbpfVmRaw<'a> {
         let parent = EbpfVmMbuff::new(prog);
         EbpfVmRaw {
             parent: parent,
@@ -1019,7 +1019,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.prog_exec(&mut mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
+    pub fn set_prog(&mut self, prog: &'a [u8]) {
         self.parent.set_prog(prog)
     }
 
@@ -1089,7 +1089,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.prog_exec(&mut mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn prog_exec(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub fn prog_exec(&self, mem: &'a mut [u8]) -> u64 {
         let mut mbuff = vec![];
         self.parent.prog_exec(mem, &mut mbuff)
     }
@@ -1161,7 +1161,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> u64 {
         let mut mbuff = vec![];
         self.parent.prog_exec_jit(mem, &mut mbuff)
     }
@@ -1231,7 +1231,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Instantiate a VM.
     /// let vm = rbpf::EbpfVmNoData::new(&prog);
     /// ```
-    pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmNoData<'a> {
+    pub fn new(prog: &'a [u8]) -> EbpfVmNoData<'a> {
         let parent = EbpfVmRaw::new(prog);
         EbpfVmNoData {
             parent: parent,
@@ -1267,7 +1267,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>) {
+    pub fn set_prog(&mut self, prog: &'a [u8]) {
         self.parent.set_prog(prog)
     }
 
