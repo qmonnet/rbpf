@@ -241,7 +241,7 @@ extern crate rbpf;
 fn main() {
 
     // This is the eBPF program, in the form of bytecode instructions.
-    let prog = vec![
+    let prog = &[
         0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
         0xb4, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov32 r1, 2
         0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // add32 r0, 1
@@ -252,7 +252,7 @@ fn main() {
     // Instantiate a struct EbpfVmNoData. This is an eBPF VM for programs that
     // takes no packet data in argument.
     // The eBPF program is passed to the constructor.
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
 
     // Execute (interpret) the program. No argument required for this VM.
     assert_eq!(vm.prog_exec(), 0x3);
@@ -267,26 +267,26 @@ This comes from the unit test `test_jit_ldxh`.
 extern crate rbpf;
 
 fn main() {
-    let prog = vec![
+    let prog = &[
         0x71, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxh r0, [r1+2]
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     ];
 
     // Let's use some data.
-    let mut mem = vec![
+    let mem = &mut [
         0xaa, 0xbb, 0x11, 0xcc, 0xdd
     ];
 
     // This is an eBPF VM for programs reading from a given memory area (it
     // directly reads from packet data)
-    let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    let mut vm = rbpf::EbpfVmRaw::new(prog);
 
     // This time we JIT-compile the program.
     vm.jit_compile();
 
     // Then we execute it. For this kind of VM, a reference to the packet data
     // must be passed to the function that executes the program.
-    unsafe { assert_eq!(vm.prog_exec_jit(&mut mem), 0x11); }
+    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11); }
 }
 ```
 ### Using a metadata buffer
@@ -298,20 +298,20 @@ This comes from the unit test `test_jit_mbuff` and derives from the unit test
 extern crate rbpf;
 
 fn main() {
-    let prog = vec![
+    let prog = &[
         // Load mem from mbuff at offset 8 into R1
         0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
         // ldhx r1[2], r0
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mut mem = vec![
+    let mem = &mut [
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
     // Just for the example we create our metadata buffer from scratch, and
     // we store the pointers to packet data start and end in it.
-    let mut mbuff = vec![0u8; 32];
+    let mut mbuff = &mut [0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -320,14 +320,14 @@ fn main() {
     }
 
     // This eBPF VM is for program that use a metadata buffer.
-    let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    let mut vm = rbpf::EbpfVmMbuff::new(prog);
 
     // Here again we JIT-compile the program.
     vm.jit_compile();
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    unsafe { assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211); }
+    unsafe { assert_eq!(vm.prog_exec_jit(mem, &mut mbuff), 0x2211); }
 }
 ```
 
@@ -383,7 +383,7 @@ fn main() {
     let prog = &text_scn.data;
 
     // This is our data: a real packet, starting with Ethernet header
-    let mut packet = vec![
+    let packet = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00,             // ethertype
@@ -418,7 +418,7 @@ fn main() {
     // This kind of VM takes a reference to the packet data, but does not need
     // any reference to the metadata buffer: a fixed buffer is handled
     // internally by the VM.
-    let res = vm.prog_exec(&mut packet);
+    let res = vm.prog_exec(packet);
     println!("Program returned: {:?} ({:#x})", res, res);
 }
 ```

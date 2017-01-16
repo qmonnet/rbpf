@@ -42,18 +42,18 @@ struct MetaBuff {
 /// # Examples
 ///
 /// ```
-/// let prog = vec![
+/// let prog = &[
 ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff at offset 8 into R1.
 ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
 /// ];
-/// let mut mem = vec![
+/// let mem = &mut [
 ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
 /// ];
 ///
 /// // Just for the example we create our metadata buffer from scratch, and we store the pointers
 /// // to packet data start and end in it.
-/// let mut mbuff = vec![0u8; 32];
+/// let mut mbuff = [0u8; 32];
 /// unsafe {
 ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
 ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -62,10 +62,10 @@ struct MetaBuff {
 /// }
 ///
 /// // Instantiate a VM.
-/// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+/// let mut vm = rbpf::EbpfVmMbuff::new(prog);
 ///
 /// // Provide both a reference to the packet data, and to the metadata buffer.
-/// let res = vm.prog_exec(&mut mem, &mut mbuff);
+/// let res = vm.prog_exec(mem, &mut mbuff);
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
@@ -86,14 +86,14 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     /// ```
     pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a> {
         verifier::check(prog);
@@ -119,19 +119,19 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog1 = vec![
+    /// let prog1 = &[
     ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let prog2 = vec![
+    /// let prog2 = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog1);
-    /// vm.set_prog(&prog2);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog1);
+    /// vm.set_prog(prog2);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8]) {
         verifier::check(prog);
@@ -152,7 +152,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// // This program was compiled with clang, from a C program containing the following single
     /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x18, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load 0 as u64 into r1 (That would be
     ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // replaced by tc by the address of
     ///                                                     // the format string, in the .map
@@ -166,7 +166,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     ///
     /// // Register a helper.
     /// // On running the program this helper will print the content of registers r3, r4 and r5 to
@@ -193,18 +193,18 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     /// ];
     ///
     /// // Just for the example we create our metadata buffer from scratch, and we store the
     /// // pointers to packet data start and end in it.
-    /// let mut mbuff = vec![0u8; 32];
+    /// let mut mbuff = [0u8; 32];
     /// unsafe {
     ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
     ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -213,10 +213,10 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// let res = vm.prog_exec(&mut mem, &mut mbuff);
+    /// let res = vm.prog_exec(mem, &mut mbuff);
     /// assert_eq!(res, 0x2211);
     /// ```
     pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> u64 {
@@ -496,14 +496,14 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into R1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     ///
     /// vm.jit_compile();
     /// ```
@@ -535,18 +535,18 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into r1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     /// ];
     ///
     /// // Just for the example we create our metadata buffer from scratch, and we store the
     /// // pointers to packet data start and end in it.
-    /// let mut mbuff = vec![0u8; 32];
+    /// let mut mbuff = [0u8; 32];
     /// unsafe {
     ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
     ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -555,13 +555,13 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     ///
     /// vm.jit_compile();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(&mut mem, &mut mbuff);
+    ///     let res = vm.prog_exec_jit(mem, &mut mbuff);
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
@@ -616,7 +616,7 @@ impl<'a> EbpfVmMbuff<'a> {
 /// Some small modifications have been brought to have it work, see comments.
 ///
 /// ```
-/// let prog = vec![
+/// let prog = &[
 ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
 ///     // Here opcode 0x61 had to be replace by 0x79 so as to load a 8-bytes long address.
 ///     // Also, offset 0x4c had to be replace with e.g. 0x40 so as to prevent the two pointers
@@ -631,21 +631,21 @@ impl<'a> EbpfVmMbuff<'a> {
 ///     0xc7, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, // r0 <<= 56 (arsh) extend byte sign to u64
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
 /// ];
-/// let mut mem1 = vec![
+/// let mem1 = &mut [
 ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
 /// ];
-/// let mut mem2 = vec![
+/// let mem2 = &mut [
 ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
 /// ];
 ///
 /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-/// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+/// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
 ///
 /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-/// let res = vm.prog_exec(&mut mem1);
+/// let res = vm.prog_exec(mem1);
 /// assert_eq!(res, 0xffffffffffffffdd);
 ///
-/// let res = vm.prog_exec(&mut mem2);
+/// let res = vm.prog_exec(mem2);
 /// assert_eq!(res, 0x27);
 /// ```
 pub struct EbpfVmFixedMbuff<'a> {
@@ -665,7 +665,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -676,7 +676,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     /// ```
     pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
         let parent = EbpfVmMbuff::new(prog);
@@ -705,11 +705,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog1 = vec![
+    /// let prog1 = &[
     ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let prog2 = vec![
+    /// let prog2 = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -719,14 +719,14 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog1, 0, 0);
-    /// vm.set_prog(&prog2, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog1, 0, 0);
+    /// vm.set_prog(prog2, 0x40, 0x50);
     ///
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x27);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) {
@@ -752,7 +752,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// // This program was compiled with clang, from a C program containing the following single
     /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -767,17 +767,17 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x09,
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 3);
     /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
@@ -800,7 +800,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -809,15 +809,15 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0xdd);
     /// ```
     pub fn prog_exec(&mut self, mem: &'a mut [u8]) -> u64 {
@@ -849,7 +849,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -860,7 +860,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     ///
     /// vm.jit_compile();
     /// ```
@@ -892,7 +892,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
     ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
@@ -901,18 +901,18 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0x71, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     ///
     /// vm.jit_compile();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(&mut mem);
+    ///     let res = vm.prog_exec_jit(mem);
     ///     assert_eq!(res, 0xdd);
     /// }
     /// ```
@@ -938,21 +938,21 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// # Examples
 ///
 /// ```
-/// let prog = vec![
+/// let prog = &[
 ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
 ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
 ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
 /// ];
-/// let mut mem = vec![
+/// let mem = &mut [
 ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmRaw::new(&prog);
+/// let vm = rbpf::EbpfVmRaw::new(prog);
 ///
 /// // Provide only a reference to the packet data.
-/// let res = vm.prog_exec(&mut mem);
+/// let res = vm.prog_exec(mem);
 /// assert_eq!(res, 0x22cc);
 /// ```
 pub struct EbpfVmRaw<'a> {
@@ -971,7 +971,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
     ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
     ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
@@ -979,7 +979,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmRaw::new(&prog);
+    /// let vm = rbpf::EbpfVmRaw::new(prog);
     /// ```
     pub fn new(prog: &'a [u8]) -> EbpfVmRaw<'a> {
         let parent = EbpfVmMbuff::new(prog);
@@ -997,25 +997,25 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog1 = vec![
+    /// let prog1 = &[
     ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let prog2 = vec![
+    /// let prog2 = &[
     ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
     ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
     ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(&prog1);
-    /// vm.set_prog(&prog2);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog1);
+    /// vm.set_prog(prog2);
     ///
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8]) {
@@ -1034,7 +1034,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ```
     /// use rbpf::helpers;
     ///
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x79, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r1, r1[0x00]
     ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
     ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
@@ -1044,17 +1044,17 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x10000000);
     /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
@@ -1072,20 +1072,20 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
     ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
     ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
     ///
-    /// let res = vm.prog_exec(&mut mem);
+    /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
     pub fn prog_exec(&self, mem: &'a mut [u8]) -> u64 {
@@ -1105,14 +1105,14 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
     ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
     ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
     ///
     /// vm.jit_compile();
     /// ```
@@ -1139,23 +1139,23 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0x71, 0x11, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r1[0x04], r1
     ///     0x07, 0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0x00, // add r1, 0x22
     ///     0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, r1
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut mem = vec![
+    /// let mem = &mut [
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(&prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
     ///
     /// vm.jit_compile();
     ///
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(&mut mem);
+    ///     let res = vm.prog_exec_jit(mem);
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
@@ -1171,7 +1171,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// # Examples
 ///
 /// ```
-/// let prog = vec![
+/// let prog = &[
 ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
 ///     0xb7, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // mov r1, 1
 ///     0xb7, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov r2, 2
@@ -1198,7 +1198,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmNoData::new(&prog);
+/// let vm = rbpf::EbpfVmNoData::new(prog);
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.prog_exec();
@@ -1220,14 +1220,14 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmNoData::new(&prog);
+    /// let vm = rbpf::EbpfVmNoData::new(prog);
     /// ```
     pub fn new(prog: &'a [u8]) -> EbpfVmNoData<'a> {
         let parent = EbpfVmRaw::new(prog);
@@ -1245,22 +1245,22 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog1 = vec![
+    /// let prog1 = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// let prog2 = vec![
+    /// let prog2 = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(&prog1);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog1);
     ///
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x2211);
     ///
-    /// vm.set_prog(&prog2);
+    /// vm.set_prog(prog2);
     ///
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x1122);
@@ -1281,7 +1281,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// ```
     /// use rbpf::helpers;
     ///
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // mov r1, 0x010000000
     ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
     ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
@@ -1291,7 +1291,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -1316,13 +1316,13 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
     ///
     ///
     /// vm.jit_compile();
@@ -1342,13 +1342,13 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let vm = rbpf::EbpfVmNoData::new(&prog);
+    /// let vm = rbpf::EbpfVmNoData::new(prog);
     ///
     /// // For this kind of VM, the `prog_exec()` function needs no argument.
     /// let res = vm.prog_exec();
@@ -1377,13 +1377,13 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// let prog = vec![
+    /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, // mov r0, 0x2211
     ///     0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, // be16 r0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
     ///
     /// vm.jit_compile();
     ///

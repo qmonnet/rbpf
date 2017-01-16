@@ -28,102 +28,102 @@ use rbpf::ebpf;
 #[test]
 #[should_panic(expected = "[Verifier] Error: division by 0 (insn #1)")]
 fn test_verifier_err_div_by_zero_imm() {
-    let prog = vec![
+    let prog = &[
         0xb4, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported argument for LE/BE (insn #0)")]
 fn test_verifier_err_endian_size() {
-    let prog = vec![
+    let prog = &[
         0xdc, 0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: incomplete LD_DW instruction (insn #0)")]
 fn test_verifier_err_incomplete_lddw() { // Note: ubpf has test-err-incomplete-lddw2, which is the same
-    let prog = vec![
+    let prog = &[
         0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: infinite loop")]
 fn test_verifier_err_infinite_loop() {
-    let prog = vec![
+    let prog = &[
         0x05, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: invalid destination register (insn #0)")]
 fn test_verifier_err_invalid_reg_dst() {
-    let prog = vec![
+    let prog = &[
         0xb7, 0x0b, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: invalid source register (insn #0)")]
 fn test_verifier_err_invalid_reg_src() {
-    let prog = vec![
+    let prog = &[
         0xbf, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: jump to middle of LD_DW at #2 (insn #0)")]
 fn test_verifier_err_jmp_lddw() {
-    let prog = vec![
+    let prog = &[
         0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
         0x00, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: jump out of code to #3 (insn #0)")]
 fn test_verifier_err_jmp_out() {
-    let prog = vec![
+    let prog = &[
         0x05, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: program does not end with “EXIT” instruction")]
 fn test_verifier_err_no_exit() {
-    let prog = vec![
+    let prog = &[
         0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
@@ -146,21 +146,21 @@ fn test_verifier_err_too_many_instructions() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: unknown eBPF opcode 0x6 (insn #0)")]
 fn test_verifier_err_unknown_opcode() {
-    let prog = vec![
+    let prog = &[
         0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: cannot write into register r10 (insn #0)")]
 fn test_verifier_err_write_r10() {
-    let prog = vec![
+    let prog = &[
         0xb7, 0x0a, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(prog);
     vm.prog_exec();
 }

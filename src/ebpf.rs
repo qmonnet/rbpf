@@ -389,11 +389,11 @@ pub struct Insn {
 /// ```
 /// use rbpf::ebpf;
 ///
-/// let prog = vec![
+/// let prog = &[
 ///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 ///     ];
-/// let insn = ebpf::get_insn(&prog, 1);
+/// let insn = ebpf::get_insn(prog, 1);
 /// assert_eq!(insn.opc, 0x95);
 /// ```
 ///
@@ -402,11 +402,11 @@ pub struct Insn {
 /// ```rust,should_panic
 /// use rbpf::ebpf;
 ///
-/// let prog = vec![
+/// let prog = &[
 ///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00              // two bytes missing
 ///     ];
-/// let insn = ebpf::get_insn(&prog, 1);
+/// let insn = ebpf::get_insn(prog, 1);
 /// ```
 pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
     // This guard should not be needed in most cases, since the verifier already checks the program
@@ -442,13 +442,13 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
 /// ```
 /// use rbpf::ebpf;
 ///
-/// let prog = vec![
+/// let prog = &[
 ///     0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
 ///     0x00, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11,
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 /// ];
 ///
-/// let v = ebpf::to_insn_vec(&prog);
+/// let v = ebpf::to_insn_vec(prog);
 /// assert_eq!(v, vec![
 ///     ebpf::Insn {
 ///         opc: 0x18,

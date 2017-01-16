@@ -67,7 +67,7 @@ fn main() {
 
     let prog = &text_scn.data;
 
-    let mut packet1 = vec![
+    let packet1 = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00, // ethertype
@@ -89,7 +89,7 @@ fn main() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut packet2 = vec![
+    let mut packet2 = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00, // ethertype
@@ -114,13 +114,13 @@ fn main() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
-    let res = vm.prog_exec(&mut packet1);
+    let res = vm.prog_exec(packet1);
     println!("Packet #1, program returned: {:?} ({:#x})", res, res);
     assert_eq!(res, 0xffffffff);
 
     vm.jit_compile();
     unsafe {
-        let res = vm.prog_exec_jit(&mut packet2);
+        let res = vm.prog_exec_jit(packet2);
         println!("Packet #2, program returned: {:?} ({:#x})", res, res);
         assert_eq!(res, 0);
     }

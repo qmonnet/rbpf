@@ -111,7 +111,7 @@ fn test_vm_block_port() {
     // let prog = &text_scn.data;
     // ---
 
-    let prog = vec![
+    let prog = &[
         0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x79, 0x12, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x79 instead of 0x61
         0x79, 0x11, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x79 instead of 0x61, 0x40 i.o. 0x4c
@@ -139,7 +139,7 @@ fn test_vm_block_port() {
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
 
-    let mut packet = vec![
+    let packet = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00, // ethertype
@@ -161,10 +161,10 @@ fn test_vm_block_port() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
-    let res = vm.prog_exec(&mut packet);
+    let res = vm.prog_exec(packet);
     println!("Program returned: {:?} ({:#x})", res, res);
     assert_eq!(res, 0xffffffff);
 }
@@ -192,7 +192,7 @@ fn test_jit_block_port() {
     // let prog = &text_scn.data;
     // ---
 
-    let prog = vec![
+    let prog = &[
         0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x79, 0x12, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x79 instead of 0x61
         0x79, 0x11, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // 0x79 instead of 0x61, 0x40 i.o. 0x4c
@@ -220,7 +220,7 @@ fn test_jit_block_port() {
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
 
-    let mut packet = vec![
+    let packet = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00, // ethertype
@@ -242,12 +242,12 @@ fn test_jit_block_port() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(&prog, 0x40, 0x50);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
     vm.jit_compile();
 
     unsafe {
-        let res = vm.prog_exec_jit(&mut packet);
+        let res = vm.prog_exec_jit(packet);
         println!("Program returned: {:?} ({:#x})", res, res);
         assert_eq!(res, 0xffffffff);
     }
@@ -256,18 +256,18 @@ fn test_jit_block_port() {
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
-    let prog = vec![
+    let prog = &[
         // Load mem from mbuff into R1
         0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
         // ldhx r1[2], r0
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = vec![
+    let mem = &[
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
-    let mbuff = vec![0u8; 32];
+    let mbuff = [0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -275,25 +275,25 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(&prog);
-    assert_eq!(vm.prog_exec(&mem, &mbuff), 0x2211);
+    let vm = rbpf::EbpfVmMbuff::new(prog);
+    assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_jit_mbuff() {
-    let prog = vec![
+    let prog = &[
         // Load mem from mbuff into R1
         0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
         // ldhx r1[2], r0
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mut mem = vec![
+    let mem = &mut [
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
-    let mut mbuff = vec![0u8; 32];
+    let mut mbuff = [0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -302,8 +302,8 @@ fn test_jit_mbuff() {
     }
 
     unsafe {
-        let mut vm = rbpf::EbpfVmMbuff::new(&prog);
+        let mut vm = rbpf::EbpfVmMbuff::new(prog);
         vm.jit_compile();
-        assert_eq!(vm.prog_exec_jit(&mut mem, &mut mbuff), 0x2211);
+        assert_eq!(vm.prog_exec_jit(mem, &mut mbuff), 0x2211);
     }
 }
