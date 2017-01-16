@@ -55,13 +55,14 @@ fn main() {
     vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns);
 
     vm.jit_compile();
-    let t = unsafe { vm.prog_exec_jit() };
+    let time = unsafe { vm.prog_exec_jit() };
 
-    let d =  t / 10u64.pow(9)  / 60   / 60  / 24;
-    let h = (t / 10u64.pow(9)  / 60   / 60) % 24;
-    let m = (t / 10u64.pow(9)  / 60 ) % 60;
-    let s = (t / 10u64.pow(9)) % 60;
-    let ns = t % 10u64.pow(9);
+    let days    =  time / 10u64.pow(9)  / 60   / 60  / 24;
+    let hours   = (time / 10u64.pow(9)  / 60   / 60) % 24;
+    let minutes = (time / 10u64.pow(9)  / 60 ) % 60;
+    let seconds = (time / 10u64.pow(9)) % 60;
+    let nanosec =  time % 10u64.pow(9);
 
-    println!("Uptime: {:#x} ns == {} days {:02}:{:02}:{:02}, {} ns", t, d, h, m, s, ns);
+    println!("Uptime: {:#x} ns == {} days {:02}:{:02}:{:02}, {} ns",
+             time, days, hours, minutes, seconds, nanosec);
 }

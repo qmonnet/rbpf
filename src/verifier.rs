@@ -92,12 +92,11 @@ fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) {
     }
 
     match (insn.dst, store) {
-        (0 ... 9, _) => {},
-        (10, true)   => {},
-        (10, false)  => panic!("[Verifier] Error: cannot write into register r10 (insn #{:?})",
-                               insn_ptr),
-        (_, _)       => panic!("[Verifier] Error: invalid destination register (insn #{:?})",
-                               insn_ptr)
+        (0 ... 9, _) | (10, true) => {},
+        (10, false) => panic!("[Verifier] Error: cannot write into register r10 (insn #{:?})",
+                              insn_ptr),
+        (_, _)      => panic!("[Verifier] Error: invalid destination register (insn #{:?})",
+                              insn_ptr)
     }
 }
 

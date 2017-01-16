@@ -71,7 +71,7 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog:    &'a [u8],
     jit:     (unsafe fn (*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
-    helpers: HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
+    helpers: HashMap<u32, ebpf::Helper>,
 }
 
 impl<'a> EbpfVmMbuff<'a> {

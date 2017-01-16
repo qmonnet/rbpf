@@ -452,7 +452,7 @@ impl<'a> JitMemory<'a> {
     }
 
     fn jit_compile(&mut self, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
-                   helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>) {
+                   helpers: &HashMap<u32, ebpf::Helper>) {
         emit_push(self, RBP);
         emit_push(self, RBX);
         emit_push(self, R13);
@@ -833,7 +833,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 
 // In the end, this is the only thing we export
 pub fn compile(prog: &[u8],
-               helpers: &HashMap<u32, fn (u64, u64, u64, u64, u64) -> u64>,
+               helpers: &HashMap<u32, ebpf::Helper>,
                use_mbuff: bool, update_data_ptr: bool)
     -> (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {
 

@@ -354,6 +354,9 @@ pub const BPF_CLS_MASK    : u8 = 0x07;
 /// Mask to extract the arithmetic operation code from an instruction operation code.
 pub const BPF_ALU_OP_MASK : u8 = 0xf0;
 
+/// Prototype of an eBPF helper function.
+pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
+
 /// An eBPF instruction.
 ///
 /// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
