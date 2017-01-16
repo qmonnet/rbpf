@@ -459,7 +459,7 @@ impl<'a> EbpfVmMbuff<'a> {
             }
         }
 
-        return 0;
+        unreachable!()
     }
 
     fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
