@@ -330,18 +330,14 @@ pub fn to_insn_vec(prog: &std::vec::Vec<u8>) -> std::vec::Vec<HLInsn> {
 /// neg64 r8
 /// exit
 /// ```
-pub fn disassemble(prog: &std::vec::Vec<u8>) {
+pub fn disassemble(prog: &std::vec::Vec<u8>) -> Vec<HLInsn> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);
     }
     if prog.len() == 0 {
-        return;
+        return vec![];
     }
 
-    let insns = to_insn_vec(prog);
-
-    for insn in insns {
-        println!("{}", insn.desc);
-    }
+    to_insn_vec(prog)
 }
