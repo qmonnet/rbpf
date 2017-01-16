@@ -131,18 +131,18 @@ All these structs implement the same public functions:
 
 ```rust
 // called with EbpfVmMbuff:: prefix
-pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmMbuff<'a>
+pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a>
 
 // called with EbpfVmFixedMbuff:: prefix
-pub fn new(prog: &'a std::vec::Vec<u8>,
+pub fn new(prog: &'a [u8],
            data_offset: usize,
            data_end_offset: usize) -> EbpfVmFixedMbuff<'a>
 
 // called with EbpfVmRaw:: prefix
-pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmRaw<'a>
+pub fn new(prog: &'a [u8]) -> EbpfVmRaw<'a>
 
 // called with EbpfVmNoData:: prefix
-pub fn new(prog: &'a std::vec::Vec<u8>) -> EbpfVmNoData<'a>
+pub fn new(prog: &'a [u8]) -> EbpfVmNoData<'a>
 ```
 
 This is used to create a new instance of a VM. The return type is dependent of
@@ -160,10 +160,10 @@ do not need those offsets.
 
 ```rust
 // for struct EbpfVmMbuff, struct EbpfVmRaw and struct EbpfVmRawData
-pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>)
+pub fn set_prog(&mut self, prog: &'a [u8])
 
 // for struct EbpfVmFixedMbuff
-pub fn set_prog(&mut self, prog: &'a std::vec::Vec<u8>,
+pub fn set_prog(&mut self, prog: &'a [u8],
                 data_offset: usize,
                 data_end_offset: usize)
 ```
@@ -186,12 +186,12 @@ therefore must use specific helper numbers.
 ```rust
 // for struct EbpfVmMbuff
 pub fn prog_exec(&self,
-                 mem: &'a mut std::vec::Vec<u8>,
-                 mbuff: &'a mut std::vec::Vec<u8>) -> u64
+                 mem: &'a mut [u8],
+                 mbuff: &'a mut [u8]) -> u64
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
 pub fn prog_exec(&self,
-                 mem: &'a mut std::vec::Vec<u8>) -> u64
+                 mem: &'a mut [u8]) -> u64
 
 // for struct EbpfVmNoData
 pub fn prog_exec(&self) -> u64
@@ -212,11 +212,11 @@ is called. The generated assembly function is internally stored in the VM.
 
 ```rust
 // for struct EbpfVmMbuff
-pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>,
-                            mbuff: &'a mut std::vec::Vec<u8>) -> u64
+pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8],
+                            mbuff: &'a mut [u8]) -> u64
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub unsafe fn prog_exec_jit(&self, mem: &'a mut std::vec::Vec<u8>) -> u64
+pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> u64
 
 // for struct EbpfVmNoData
 pub unsafe fn prog_exec_jit(&self) -> u64
