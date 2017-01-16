@@ -108,7 +108,7 @@ fn test_vm_block_port() {
     //     None => panic!("Failed to look up .classifier section"),
     // };
     //
-    // let ref prog = &text_scn.data;
+    // let prog = &text_scn.data;
     // ---
 
     let prog = vec![
@@ -189,7 +189,7 @@ fn test_jit_block_port() {
     //     None => panic!("Failed to look up .classifier section"),
     // };
     //
-    // let ref prog = &text_scn.data;
+    // let prog = &text_scn.data;
     // ---
 
     let prog = vec![
@@ -263,11 +263,11 @@ fn test_vm_mbuff() {
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mut mem = vec![
+    let mem = vec![
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
 
-    let mut mbuff = vec![0u8; 32];
+    let mbuff = vec![0u8; 32];
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
@@ -276,7 +276,7 @@ fn test_vm_mbuff() {
     }
 
     let vm = rbpf::EbpfVmMbuff::new(&prog);
-    assert_eq!(vm.prog_exec(&mut mem, &mut mbuff), 0x2211);
+    assert_eq!(vm.prog_exec(&mem, &mbuff), 0x2211);
 }
 
 // Program and memory come from uBPF test ldxh.
