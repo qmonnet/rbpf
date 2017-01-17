@@ -117,7 +117,7 @@ pub const BPF_XOR   : u8 = 0xa0;
 pub const BPF_MOV   : u8 = 0xb0;
 /// BPF ALU/ALU64 operation code: sign extending right shift.
 pub const BPF_ARSH  : u8 = 0xc0;
-/// BPF ALU/ALU64 operation code: endianness convertion.
+/// BPF ALU/ALU64 operation code: endianness conversion.
 pub const BPF_END   : u8 = 0xd0;
 
 // Operation codes -- BPF_JMP class:
