@@ -253,16 +253,20 @@ fn test_jit_block_port() {
     }
 }
 
+extern crate instructions;
+
+use instructions::ProgramCodeBuilder;
+use instructions::MemSize;
+
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
-    let prog = &[
-        // Load mem from mbuff into R1
-        0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // ldhx r1[2], r0
-        0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    ];
+    let mut program = ProgramCodeBuilder::new();
+    program
+        .load_mem(MemSize::Double).dst(0x01).src(0x01).offset(0x00_08).push()
+        .load_mem(MemSize::Half).dst(0x00).src(0x01).offset(0x00_02).push()
+        .exit().push();
+
     let mem = &[
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
@@ -275,7 +279,7 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(prog);
+    let vm = rbpf::EbpfVmMbuff::new(program.as_bytes());
     assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 
