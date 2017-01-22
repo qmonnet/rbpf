@@ -5,7 +5,8 @@
 // copied, modified, or distributed except according to those terms.
 
 
-//! This module contains all the definitions related to eBPF.
+//! This module contains all the definitions related to eBPF, and some functions permitting to
+//! manipulate eBPF instructions.
 //!
 //! The number of bytes in an instruction, the maximum number of instructions in a program, and
 //! also all operation codes are defined here as constants.
@@ -374,6 +375,72 @@ pub struct Insn {
     pub off: i16,
     /// Immediate value operand.
     pub imm: i32,
+}
+
+impl Insn {
+    /// Turn an `Insn` back into an array of bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::ebpf;
+    ///
+    /// let prog: &[u8] = &[
+    ///     0xb7, 0x12, 0x56, 0x34, 0xde, 0xbc, 0x9a, 0x78,
+    ///     ];
+    /// let insn = ebpf::Insn {
+    ///     opc: 0xb7,
+    ///     dst: 2,
+    ///     src: 1,
+    ///     off: 0x3456,
+    ///     imm: 0x789abcde
+    /// };
+    /// assert_eq!(insn.to_array(), prog);
+    /// ```
+    pub fn to_array(&self) -> [u8;INSN_SIZE] {
+        [
+            self.opc,
+            self.src.wrapping_shl(4) | self.dst,
+            (self.off & 0xff) as u8,
+            self.off.wrapping_shr(8) as u8,
+            (self.imm & 0xff) as u8,
+            (self.imm & 0xff_00).wrapping_shr(8) as u8,
+            (self.imm as u32 & 0xff_00_00).wrapping_shr(16) as u8,
+            (self.imm as u32 & 0xff_00_00_00).wrapping_shr(24) as u8,
+        ]
+    }
+
+    /// Turn an `Insn` into an vector of bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::ebpf;
+    ///
+    /// let prog: Vec<u8> = vec![
+    ///     0xb7, 0x12, 0x56, 0x34, 0xde, 0xbc, 0x9a, 0x78,
+    ///     ];
+    /// let insn = ebpf::Insn {
+    ///     opc: 0xb7,
+    ///     dst: 2,
+    ///     src: 1,
+    ///     off: 0x3456,
+    ///     imm: 0x789abcde
+    /// };
+    /// assert_eq!(insn.to_vec(), prog);
+    /// ```
+    pub fn to_vec(&self) -> Vec<u8> {
+        vec![
+            self.opc,
+            self.src.wrapping_shl(4) | self.dst,
+            (self.off & 0xff) as u8,
+            self.off.wrapping_shr(8) as u8,
+            (self.imm & 0xff) as u8,
+            (self.imm & 0xff_00).wrapping_shr(8) as u8,
+            (self.imm as u32 & 0xff_00_00).wrapping_shr(16) as u8,
+            (self.imm as u32 & 0xff_00_00_00).wrapping_shr(24) as u8,
+        ]
+    }
 }
 
 /// Get the instruction at `idx` of an eBPF program. `idx` is the index (number) of the
