@@ -23,6 +23,7 @@ extern crate libc;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
+pub mod patch;
 mod jit;
 mod verifier;
 
