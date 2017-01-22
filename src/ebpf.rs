@@ -362,7 +362,7 @@ pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
 /// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
 /// documentation about eBPF, or <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a
 /// more concise version.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Insn {
     /// Operation code.
     pub opc: u8,
