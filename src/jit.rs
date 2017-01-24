@@ -19,9 +19,6 @@ use ebpf;
 
 extern crate libc;
 
-extern {
-    fn memset(s: *mut libc::c_void, c: libc::uint32_t, n: libc::size_t) -> *mut libc::c_void;
-}
 const PAGE_SIZE: usize = 4096;
 
 // Special values for target_pc in struct Jump
@@ -438,7 +435,7 @@ impl<'a> JitMemory<'a> {
             let mut raw: *mut libc::c_void = mem::uninitialized();
             libc::posix_memalign(&mut raw, PAGE_SIZE, size);
             libc::mprotect(raw, size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
-            memset(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
+            std::ptr::write_bytes(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
             contents = std::slice::from_raw_parts_mut(mem::transmute(raw), num_pages * PAGE_SIZE);
         }
 

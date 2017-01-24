@@ -567,11 +567,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
-        // (zero value) as first argument instead, as this is uBPF's behavior (empty packet should
-        // not happen in the kernel; anyway the verifier would prevent the use of uninitialized
-        // registers). See `mul_loop` test.
+        //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
+        //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
+        //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => 0 as *mut u8,
+            0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
         // The last two arguments are not used in this function. They would be used if there was a
@@ -920,11 +920,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     // associated with the fixed mbuff.
     pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
-        // (zero value) as first argument instead, as this is uBPF's behavior (empty packet should
-        // not happen in the kernel; anyway the verifier would prevent the use of uninitialized
-        // registers). See `mul_loop` test.
+        //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
+        //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
+        //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => 0 as *mut u8,
+            0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
         (self.parent.jit)(self.mbuff.buffer.as_ptr() as *mut u8, self.mbuff.buffer.len(),
