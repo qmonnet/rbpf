@@ -253,14 +253,49 @@ impl<'a> EbpfVmMbuff<'a> {
             match insn.opc {
 
                 // BPF_LD class
-                ebpf::LD_ABS_B   => unimplemented!(),
-                ebpf::LD_ABS_H   => unimplemented!(),
-                ebpf::LD_ABS_W   => unimplemented!(),
-                ebpf::LD_ABS_DW  => unimplemented!(),
-                ebpf::LD_IND_B   => unimplemented!(),
-                ebpf::LD_IND_H   => unimplemented!(),
-                ebpf::LD_IND_W   => unimplemented!(),
-                ebpf::LD_IND_DW  => unimplemented!(),
+                // LD_ABS_* and LD_IND_* are supposed to load pointer to data from metadata buffer.
+                // Since this pointer is constant, and since we already know it (mem), do not
+                // bother re-fetching it, just use mem already.
+                ebpf::LD_ABS_B   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_H   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_W   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_DW  => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_B   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_H   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_W   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_DW  => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
 
                 // BPF_LDX class
                 ebpf::LD_DW_IMM  => {

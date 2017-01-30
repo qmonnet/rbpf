@@ -111,14 +111,14 @@ pub fn check(prog: &[u8]) -> bool {
         match insn.opc {
 
             // BPF_LD class
-            ebpf::LD_ABS_B   => { unimplemented!(); },
-            ebpf::LD_ABS_H   => { unimplemented!(); },
-            ebpf::LD_ABS_W   => { unimplemented!(); },
-            ebpf::LD_ABS_DW  => { unimplemented!(); },
-            ebpf::LD_IND_B   => { unimplemented!(); },
-            ebpf::LD_IND_H   => { unimplemented!(); },
-            ebpf::LD_IND_W   => { unimplemented!(); },
-            ebpf::LD_IND_DW  => { unimplemented!(); },
+            ebpf::LD_ABS_B   => {},
+            ebpf::LD_ABS_H   => {},
+            ebpf::LD_ABS_W   => {},
+            ebpf::LD_ABS_DW  => {},
+            ebpf::LD_IND_B   => {},
+            ebpf::LD_IND_H   => {},
+            ebpf::LD_IND_W   => {},
+            ebpf::LD_IND_DW  => {},
 
             // BPF_LDX class
             ebpf::LD_DW_IMM  => {
