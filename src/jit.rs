@@ -44,8 +44,8 @@ const RSI: u8 = 6;
 const RDI: u8 = 7;
 const R8:  u8 = 8;
 const R9:  u8 = 9;
-//const R10: u8 = 10;
-//const R11: u8 = 11;
+const R10: u8 = 10;
+const R11: u8 = 11;
 //const R12: u8 = 12;
 const R13: u8 = 13;
 const R14: u8 = 14;
@@ -64,6 +64,8 @@ const REGISTER_MAP: [u8;REGISTER_MAP_SIZE] = [
     R14, // 8  callee-saved
     R15, // 9  callee-saved
     RBP, // 10 stack pointer
+    // R10 and R11 are used to compute store a constant pointer to mem and to compute offset for
+    // LD_ABS_* and LD_IND_* operations, so they are not mapped to any eBPF register.
 ];
 
 // Return the x86 register for the given eBPF register
@@ -462,6 +464,7 @@ impl<'a> JitMemory<'a> {
         // RCX: mem_len
         // R8:  mem_offset
         // R9:  mem_end_offset
+        emit_mov(self, RDX, R10);
         match (use_mbuff, update_data_ptr) {
             (false, _) => {
                 // We do not use any mbuff. Move mem pointer into register 1.
@@ -514,14 +517,35 @@ impl<'a> JitMemory<'a> {
             match insn.opc {
 
                 // BPF_LD class
-                ebpf::LD_ABS_B   => unimplemented!(),
-                ebpf::LD_ABS_H   => unimplemented!(),
-                ebpf::LD_ABS_W   => unimplemented!(),
-                ebpf::LD_ABS_DW  => unimplemented!(),
-                ebpf::LD_IND_B   => unimplemented!(),
-                ebpf::LD_IND_H   => unimplemented!(),
-                ebpf::LD_IND_W   => unimplemented!(),
-                ebpf::LD_IND_DW  => unimplemented!(),
+                // R10 is a constant pointer to mem.
+                ebpf::LD_ABS_B   =>
+                    emit_load(self, OperandSize::S8,  R10, RAX, insn.imm),
+                ebpf::LD_ABS_H   =>
+                    emit_load(self, OperandSize::S16, R10, RAX, insn.imm),
+                ebpf::LD_ABS_W   =>
+                    emit_load(self, OperandSize::S32, R10, RAX, insn.imm),
+                ebpf::LD_ABS_DW  =>
+                    emit_load(self, OperandSize::S64, R10, RAX, insn.imm),
+                ebpf::LD_IND_B   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S8,  R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_H   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S16, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_W   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S32, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_DW  => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
 
                 // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
