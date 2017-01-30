@@ -297,12 +297,13 @@ impl<'a> EbpfVmMbuff<'a> {
                     *x as u64
                 },
 
-                // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
                     let next_insn = ebpf::get_insn(self.prog, insn_ptr);
                     insn_ptr += 1;
                     reg[_dst] = ((insn.imm as u32) as u64) + ((next_insn.imm as u64) << 32);
                 },
+
+                // BPF_LDX class
                 ebpf::LD_B_REG   => reg[_dst] = unsafe {
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u8;
                     check_mem_load(x as u64, 1, insn_ptr);

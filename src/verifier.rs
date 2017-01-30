@@ -120,12 +120,13 @@ pub fn check(prog: &[u8]) -> bool {
             ebpf::LD_IND_W   => {},
             ebpf::LD_IND_DW  => {},
 
-            // BPF_LDX class
             ebpf::LD_DW_IMM  => {
                 store = true;
                 check_load_dw(prog, insn_ptr);
                 insn_ptr += 1;
             },
+
+            // BPF_LDX class
             ebpf::LD_B_REG   => {},
             ebpf::LD_H_REG   => {},
             ebpf::LD_W_REG   => {},

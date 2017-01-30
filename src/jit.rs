@@ -547,13 +547,14 @@ impl<'a> JitMemory<'a> {
                     emit_load(self, OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
                 },
 
-                // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
                     insn_ptr += 1;
                     let second_part = ebpf::get_insn(prog, insn_ptr).imm as u64;
                     let imm = (insn.imm as u32) as u64 | second_part.wrapping_shl(32);
                     emit_load_imm(self, dst, imm as i64);
                 },
+
+                // BPF_LDX class
                 ebpf::LD_B_REG   =>
                     emit_load(self, OperandSize::S8,  src, dst, insn.off as i32),
                 ebpf::LD_H_REG   =>
