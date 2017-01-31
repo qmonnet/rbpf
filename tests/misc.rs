@@ -255,17 +255,15 @@ fn test_jit_block_port() {
 
 extern crate instructions;
 
-use instructions::ProgramCodeBuilder;
-use instructions::MemSize;
+use instructions::*;
 
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
-    let mut program = ProgramCodeBuilder::new();
-    program
-        .load_mem(MemSize::Double).dst(0x01).src(0x01).offset(0x00_08).push()
-        .load_mem(MemSize::Half).dst(0x00).src(0x01).offset(0x00_02).push()
-        .exit().push();
+    let mut program = BpfCode::new();
+    program.add(Load::new(MemSize::DoubleWord, Addressing::Undef, AddressSource::Register).dst_reg(0x01).src_reg(0x01).offset_bytes(0x00_08));
+    program.add(Load::new(MemSize::HalfWord, Addressing::Undef, AddressSource::Register).dst_reg(0x00).src_reg(0x01).offset_bytes(0x00_02));
+    program.add(Exit::new());
 
     let mem = &[
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
