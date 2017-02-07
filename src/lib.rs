@@ -19,7 +19,9 @@ use std::u32;
 use std::collections::HashMap;
 
 extern crate libc;
+extern crate combine;
 
+pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
