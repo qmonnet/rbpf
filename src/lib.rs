@@ -21,10 +21,10 @@ use std::collections::HashMap;
 extern crate libc;
 extern crate combine;
 
+pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
-pub mod asm_parser;
 mod jit;
 mod verifier;
 
