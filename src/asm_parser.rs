@@ -89,9 +89,9 @@ fn instruction<I>(input: I) -> ParseResult<Instruction, I>
 fn format_info(info: &Info<char, &str>) -> String {
     match *info {
         Info::Token(x) => format!("{:?}", x),
-        Info::Range(ref x) => format!("{:?}", x),
+        Info::Range(x) => format!("{:?}", x),
         Info::Owned(ref x) => x.clone(),
-        Info::Borrowed(ref x) => x.to_string(),
+        Info::Borrowed(x) => x.to_string(),
     }
 }
 
