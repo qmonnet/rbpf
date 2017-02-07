@@ -63,8 +63,8 @@ fn register<I>(input: I) -> ParseResult<i64, I>
 fn operand<I>(input: I) -> ParseResult<Operand, I>
     where I: Stream<Item = char>
 {
-    let register_operand = parser(register).map(|x: i64| Operand::Register(x));
-    let immediate = parser(integer).map(|x: i64| Operand::Integer(x));
+    let register_operand = parser(register).map(Operand::Register);
+    let immediate = parser(integer).map(Operand::Integer);
     let memory = between(char('['),
                          char(']'),
                          (parser(register), optional(parser(integer))))
