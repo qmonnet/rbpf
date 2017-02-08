@@ -21,6 +21,7 @@ use std::collections::HashMap;
 extern crate libc;
 extern crate combine;
 
+pub mod assembler;
 pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
