@@ -24,6 +24,7 @@
 extern crate rbpf;
 
 use rbpf::helpers;
+use rbpf::assembler::assemble;
 
 #[test]
 fn test_vm_add() {
@@ -731,12 +732,9 @@ fn test_vm_jsgt_reg() {
 
 #[test]
 fn test_vm_lddw() {
-    let prog = &[
-        0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
-        0x00, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11,
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    ];
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let prog = assemble("lddw r0, 0x1122334455667788
+                         exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
     assert_eq!(vm.prog_exec(), 0x1122334455667788);
 }
 
