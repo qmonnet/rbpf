@@ -118,7 +118,7 @@ fn format_parse_error(parse_error: ParseError<State<&str>>) -> String {
 ///
 /// The instructions are not validated and may have invalid names and operand types.
 pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
-    match many(parser(instruction)).skip(eof()).parse(State::new(input)) {
+    match spaces().with(many(parser(instruction)).skip(eof())).parse(State::new(input)) {
         Ok((insts, _)) => Ok(insts),
         Err(err) => Err(format_parse_error(err)),
     }
