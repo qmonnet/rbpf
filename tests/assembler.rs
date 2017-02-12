@@ -4,7 +4,9 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 extern crate rbpf;
+mod common;
 
+use common::{TCP_SACK_ASM, TCP_SACK_BIN};
 use rbpf::assembler::assemble;
 use rbpf::ebpf;
 
@@ -391,6 +393,11 @@ fn test_large_immediate() {
                Ok(vec![insn(ebpf::ADD64_IMM, 1, 0, 0, -1)]));
     assert_eq!(asm("add64 r1, -2147483648"),
                Ok(vec![insn(ebpf::ADD64_IMM, 1, 0, 0, -2147483648)]));
+}
+
+#[test]
+fn test_tcp_sack() {
+    assert_eq!(assemble(&TCP_SACK_ASM), Ok(TCP_SACK_BIN.to_vec()));
 }
 
 #[test]
