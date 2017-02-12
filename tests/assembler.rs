@@ -109,6 +109,19 @@ fn test_lddw() {
                        insn(0, 0, 0, 0, 0xff11ee22u32 as i32)]));
 }
 
+// Example for InstructionType::LoadAbs.
+#[test]
+fn test_ldabsw() {
+    assert_eq!(asm("ldabsw 1"), Ok(vec![insn(ebpf::LD_ABS_W, 0, 0, 0, 1)]));
+}
+
+// Example for InstructionType::LoadInd.
+#[test]
+fn test_ldindw() {
+    assert_eq!(asm("ldindw r1, 2"),
+               Ok(vec![insn(ebpf::LD_IND_W, 0, 1, 0, 2)]));
+}
+
 // Example for InstructionType::LoadReg.
 #[test]
 fn test_ldxdw() {
@@ -295,9 +308,35 @@ fn test_alu_unary() {
                        insn(ebpf::NEG32, 1, 0, 0, 0)]));
 }
 
+// Test all supported LoadAbs mnemonics.
+#[test]
+fn test_load_abs() {
+    assert_eq!(asm("ldabsw 1
+                    ldabsh 1
+                    ldabsb 1
+                    ldabsdw 1"),
+               Ok(vec![insn(ebpf::LD_ABS_W, 0, 0, 0, 1),
+                       insn(ebpf::LD_ABS_H, 0, 0, 0, 1),
+                       insn(ebpf::LD_ABS_B, 0, 0, 0, 1),
+                       insn(ebpf::LD_ABS_DW, 0, 0, 0, 1)]));
+}
+
+// Test all supported LoadInd mnemonics.
+#[test]
+fn test_load_ind() {
+    assert_eq!(asm("ldindw r1, 2
+                    ldindh r1, 2
+                    ldindb r1, 2
+                    ldinddw r1, 2"),
+               Ok(vec![insn(ebpf::LD_IND_W, 0, 1, 0, 2),
+                       insn(ebpf::LD_IND_H, 0, 1, 0, 2),
+                       insn(ebpf::LD_IND_B, 0, 1, 0, 2),
+                       insn(ebpf::LD_IND_DW, 0, 1, 0, 2)]));
+}
+
 // Test all supported LoadReg mnemonics.
 #[test]
-fn test_load() {
+fn test_load_reg() {
     assert_eq!(asm("ldxw r1, [r2+3]
                     ldxh r1, [r2+3]
                     ldxb r1, [r2+3]

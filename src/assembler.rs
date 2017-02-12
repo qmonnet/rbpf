@@ -11,8 +11,8 @@ use asm_parser::{Instruction, Operand, parse};
 use ebpf;
 use ebpf::Insn;
 use std::collections::HashMap;
-use self::InstructionType::{AluBinary, AluUnary, LoadImm, LoadReg, StoreImm, StoreReg,
-                            JumpUnconditional, JumpConditional, Call, Endian, NoOperand};
+use self::InstructionType::{AluBinary, AluUnary, LoadAbs, LoadInd, LoadImm, LoadReg, StoreImm,
+                            StoreReg, JumpUnconditional, JumpConditional, Call, Endian, NoOperand};
 use asm_parser::Operand::{Integer, Memory, Register, Nil};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -20,6 +20,8 @@ enum InstructionType {
     AluBinary,
     AluUnary,
     LoadImm,
+    LoadAbs,
+    LoadInd,
     LoadReg,
     StoreImm,
     StoreReg,
@@ -80,8 +82,14 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
             entry(&format!("{}64", name), AluBinary, ebpf::BPF_ALU64 | opc);
         }
 
-        // Load, StoreImm, and StoreReg.
+        // LoadAbs, LoadInd, LoadReg, StoreImm, and StoreReg.
         for &(suffix, size) in &mem_sizes {
+            entry(&format!("ldabs{}", suffix),
+                  LoadAbs,
+                  ebpf::BPF_ABS | ebpf::BPF_LD | size);
+            entry(&format!("ldind{}", suffix),
+                  LoadInd,
+                  ebpf::BPF_IND | ebpf::BPF_LD | size);
             entry(&format!("ldx{}", suffix),
                   LoadReg,
                   ebpf::BPF_MEM | ebpf::BPF_LDX | size);
@@ -147,6 +155,8 @@ fn encode(inst_type: InstructionType, opc: u8, operands: &[Operand]) -> Result<I
         (AluBinary, Register(dst), Register(src), Nil) => insn(opc | ebpf::BPF_X, dst, src, 0, 0),
         (AluBinary, Register(dst), Integer(imm), Nil) => insn(opc | ebpf::BPF_K, dst, 0, 0, imm),
         (AluUnary, Register(dst), Nil, Nil) => insn(opc, dst, 0, 0, 0),
+        (LoadAbs, Integer(imm), Nil, Nil) => insn(opc, 0, 0, 0, imm),
+        (LoadInd, Register(src), Integer(imm), Nil) => insn(opc, 0, src, 0, imm),
         (LoadReg, Register(dst), Memory(src, off), Nil) |
         (StoreReg, Memory(dst, off), Register(src), Nil) => insn(opc, dst, src, off, 0),
         (StoreImm, Memory(dst, off), Integer(imm), Nil) => insn(opc, dst, 0, off, imm),
