@@ -150,10 +150,9 @@ fn test_verifier_err_unknown_opcode() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: cannot write into register r10 (insn #0)")]
 fn test_verifier_err_write_r10() {
-    let prog = &[
-        0xb7, 0x0a, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    ];
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let prog = assemble("
+        mov r10, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
     vm.prog_exec();
 }
