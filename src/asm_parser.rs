@@ -13,7 +13,7 @@ use combine::{between, eof, many, many1, one_of, optional, Parser, ParseError, P
 use combine::primitives::{Error, Info};
 
 /// Operand of an instruction.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operand {
     /// Register number.
     Register(i64),
@@ -21,6 +21,8 @@ pub enum Operand {
     Integer(i64),
     /// Register number and offset.
     Memory(i64, i64),
+    /// Used for pattern matching.
+    Nil,
 }
 
 /// Parsed instruction.
@@ -47,7 +49,7 @@ fn integer<I>(input: I) -> ParseResult<i64, I>
     });
     let hex = string("0x")
         .with(many1(hex_digit()))
-        .map(|x: String| i64::from_str_radix(&x, 16).unwrap());
+        .map(|x: String| u64::from_str_radix(&x, 16).unwrap() as i64);
     let dec = many1(digit()).map(|x: String| i64::from_str_radix(&x, 10).unwrap());
     (sign, try(hex).or(dec)).map(|(s, x)| s * x).parse_stream(input)
 }
@@ -116,7 +118,7 @@ fn format_parse_error(parse_error: ParseError<State<&str>>) -> String {
 ///
 /// The instructions are not validated and may have invalid names and operand types.
 pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
-    match many(parser(instruction)).skip(eof()).parse(State::new(input)) {
+    match spaces().with(many(parser(instruction)).skip(eof())).parse(State::new(input)) {
         Ok((insts, _)) => Ok(insts),
         Err(err) => Err(format_parse_error(err)),
     }

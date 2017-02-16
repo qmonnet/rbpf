@@ -311,3 +311,13 @@ fn test_error_unexpected_character() {
                Err("Parse error at line 2 column 1: unexpected '^', expected end of input"
                    .to_string()));
 }
+
+#[test]
+fn test_initial_whitespace() {
+    assert_eq!(parse(" 
+                      exit"),
+               Ok(vec![Instruction {
+                           name: "exit".to_string(),
+                           operands: vec![],
+                       }]));
+}
