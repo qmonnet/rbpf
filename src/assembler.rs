@@ -126,7 +126,7 @@ fn insn(opc: u8, dst: i64, src: i64, off: i64, imm: i64) -> Result<Insn, String>
     if off < -32768 || off >= 32768 {
         return Err(format!("Invalid offset {}", off));
     }
-    if imm < -2147483648 || imm >= 4294967296 {
+    if imm < -2147483648 || imm >= 2147483648 {
         return Err(format!("Invalid immediate {}", imm));
     }
     Ok(Insn {

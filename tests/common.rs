@@ -29,7 +29,7 @@ pub const TCP_SACK_ASM: &'static str = "
     rsh r4, 0x2
     and r4, 0x3c
     mov r2, r4
-    add r2, 0xffffffec
+    add r2, -20
     mov r5, 0x15
     mov r3, 0x0
     jgt r5, r4, +20

@@ -428,8 +428,6 @@ fn test_endian() {
 fn test_large_immediate() {
     assert_eq!(asm("add64 r1, 2147483647"),
                Ok(vec![insn(ebpf::ADD64_IMM, 1, 0, 0, 2147483647)]));
-    assert_eq!(asm("add64 r1, 0xffffffff"),
-               Ok(vec![insn(ebpf::ADD64_IMM, 1, 0, 0, -1)]));
     assert_eq!(asm("add64 r1, -2147483648"),
                Ok(vec![insn(ebpf::ADD64_IMM, 1, 0, 0, -2147483648)]));
 }
@@ -469,6 +467,8 @@ fn test_error_operands_out_of_range() {
                Err("Failed to encode ja: Invalid offset 32768".to_string()));
     assert_eq!(asm("add r1, 4294967296"),
                Err("Failed to encode add: Invalid immediate 4294967296".to_string()));
+    assert_eq!(asm("add r1, 2147483648"),
+               Err("Failed to encode add: Invalid immediate 2147483648".to_string()));
     assert_eq!(asm("add r1, -2147483649"),
                Err("Failed to encode add: Invalid immediate -2147483649".to_string()));
 }
