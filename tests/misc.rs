@@ -261,9 +261,10 @@ use instructions::*;
 #[test]
 fn test_vm_mbuff() {
     let mut program = BpfCode::new();
-    program.add(Load::new(MemSize::DoubleWord, Addressing::Undef, AddressSource::Register).dst_reg(0x01).src_reg(0x01).offset_bytes(0x00_08));
-    program.add(Load::new(MemSize::HalfWord, Addressing::Undef, AddressSource::Register).dst_reg(0x00).src_reg(0x01).offset_bytes(0x00_02));
-    program.add(Exit::new());
+    program
+        .load_x(MemSize::DoubleWord).dst_reg(0x01).src_reg(0x01).offset_bytes(0x00_08).push()
+        .load_x(MemSize::HalfWord).dst_reg(0x00).src_reg(0x01).offset_bytes(0x00_02).push()
+        .exit().push();
 
     let mem = &[
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
@@ -277,7 +278,7 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(program.as_bytes());
+    let vm = rbpf::EbpfVmMbuff::new(program.assemble());
     assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 
