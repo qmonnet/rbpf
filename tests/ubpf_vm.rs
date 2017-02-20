@@ -312,7 +312,7 @@ fn test_vm_call_memfrob() {
         //0x4f, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         //0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     //];
-    //let mut vm = rbpf::EbpfVmNoData::new(&prog);
+    //let mut vm = rbpf::EbpfVmNoData::new(prog);
     //vm.register_helper(2, helpers::trash_registers);
     //assert_eq!(vm.prog_exec(), 0x4321);
 //}
@@ -624,12 +624,12 @@ fn test_vm_jset_reg() {
 fn test_vm_jsge_imm() {
     let prog = assemble("
         mov32 r0, 0
-        mov r1, 0xfffffffe
-        jsge r1, 0xffffffff, +5
+        mov r1, -2
+        jsge r1, -1, +5
         jsge r1, 0, +4
         mov32 r0, 1
-        mov r1, 0xffffffff
-        jsge r1, 0xffffffff, +1
+        mov r1, -1
+        jsge r1, -1, +1
         mov32 r0, 2
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(&prog);
@@ -640,8 +640,8 @@ fn test_vm_jsge_imm() {
 fn test_vm_jsge_reg() {
     let prog = assemble("
         mov32 r0, 0
-        mov r1, 0xfffffffe
-        mov r2, 0xffffffff
+        mov r1, -2
+        mov r2, -1
         mov32 r3, 0
         jsge r1, r2, +5
         jsge r1, r3, +4
@@ -658,11 +658,11 @@ fn test_vm_jsge_reg() {
 fn test_vm_jsgt_imm() {
     let prog = assemble("
         mov32 r0, 0
-        mov r1, 0xfffffffe
-        jsgt r1, 0xffffffff, +4
+        mov r1, -2
+        jsgt r1, -1, +4
         mov32 r0, 1
         mov32 r1, 0
-        jsgt r1, 0xffffffff, +1
+        jsgt r1, -1, +1
         mov32 r0, 2
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(&prog);
@@ -673,8 +673,8 @@ fn test_vm_jsgt_imm() {
 fn test_vm_jsgt_reg() {
     let prog = assemble("
         mov32 r0, 0
-        mov r1, 0xfffffffe
-        mov r2, 0xffffffff
+        mov r1, -2
+        mov r2, -1
         jsgt r1, r2, +4
         mov32 r0, 1
         mov32 r1, 0
@@ -1023,7 +1023,7 @@ fn test_vm_mod32() {
 #[test]
 fn test_vm_mod64() {
     let prog = assemble("
-        mov32 r0, 0xb1858436
+        mov32 r0, -1316649930
         lsh r0, 32
         or r0, 0x100dc5c8
         mov32 r1, 0xdde263e
@@ -1109,7 +1109,7 @@ fn test_vm_mul_loop() {
         jeq r1, 0x0, +4
         mov r0, 0x7
         mul r0, 0x7
-        add r1, 0xffffffff
+        add r1, -1
         jne r1, 0x0, -3
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(&prog);
@@ -1273,7 +1273,7 @@ fn test_vm_string_stack() {
         mov r1, 0x79636261
         stxw [r10-16], r1
         mov r1, r10
-        add r1, 0xfffffff8
+        add r1, -8
         mov r2, r1
         call 0x4
         mov r1, r0
@@ -1282,9 +1282,9 @@ fn test_vm_string_stack() {
         rsh r1, 0x20
         jne r1, 0x0, +11
         mov r1, r10
-        add r1, 0xfffffff8
+        add r1, -8
         mov r2, r10
-        add r2, 0xfffffff0
+        add r2, -16
         call 0x4
         mov r1, r0
         lsh r1, 0x20
@@ -1407,7 +1407,7 @@ fn test_vm_stxb_chain() {
 #[test]
 fn test_vm_stxdw() {
     let prog = assemble("
-        mov r2, 0x88776655
+        mov r2, -2005440939
         lsh r2, 32
         or r2, 0x44332211
         stxdw [r1+2], r2
