@@ -25,6 +25,7 @@ pub mod helpers;
 mod verifier;
 mod jit;
 pub mod disassembler;
+pub mod rust_api;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to

@@ -22,13 +22,9 @@ include = [
     "Cargo.toml",
 ]
 
-[workspace]
-members = ["./instructions"]
-
 [dependencies]
 
 libc = "0.2.0"
-instructions = {path = "./instructions", version = "0.0.1"}
 
 [dev-dependencies]
 

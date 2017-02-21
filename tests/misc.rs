@@ -253,13 +253,11 @@ fn test_jit_block_port() {
     }
 }
 
-extern crate instructions;
-
-use instructions::*;
-
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
+    use rbpf::rust_api::*;
+
     let mut program = BpfCode::new();
     program
         .load_x(MemSize::DoubleWord).dst_reg(0x01).src_reg(0x01).offset_bytes(0x00_08).push()
@@ -278,7 +276,7 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(program.assemble());
+    let vm = rbpf::EbpfVmMbuff::new(program.into_bytes());
     assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 

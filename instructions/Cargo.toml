@@ -1,7 +1,0 @@
-[package]
-name = "instructions"
-version = "0.0.1"
-workspace = ".."
-
-[lib]
-name = "instructions"
