@@ -253,9 +253,37 @@ fn test_jit_block_port() {
     }
 }
 
+
+
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
+    let prog = &[
+        // Load mem from mbuff into R1
+        0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // ldhx r1[2], r0
+        0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ];
+    let mem = &[
+        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    ];
+
+    let mbuff = [0u8; 32];
+    unsafe {
+        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        *data     = mem.as_ptr() as u64;
+        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    }
+
+    let vm = rbpf::EbpfVmMbuff::new(prog);
+    assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
+}
+
+// Program and memory come from uBPF test ldxh.
+#[test]
+fn test_vm_mbuff_with_rust_api() {
     use rbpf::rust_api::*;
 
     let mut program = BpfCode::new();
