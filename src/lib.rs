@@ -27,7 +27,6 @@ pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
 mod jit;
-pub mod disassembler;
 mod verifier;
 pub mod rust_api;
 
