@@ -19,12 +19,16 @@ use std::u32;
 use std::collections::HashMap;
 
 extern crate libc;
+extern crate combine;
 
+pub mod assembler;
+pub mod asm_parser;
+pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
-mod verifier;
 mod jit;
 pub mod disassembler;
+mod verifier;
 pub mod rust_api;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
@@ -254,21 +258,57 @@ impl<'a> EbpfVmMbuff<'a> {
             match insn.opc {
 
                 // BPF_LD class
-                ebpf::LD_ABS_B   => unimplemented!(),
-                ebpf::LD_ABS_H   => unimplemented!(),
-                ebpf::LD_ABS_W   => unimplemented!(),
-                ebpf::LD_ABS_DW  => unimplemented!(),
-                ebpf::LD_IND_B   => unimplemented!(),
-                ebpf::LD_IND_H   => unimplemented!(),
-                ebpf::LD_IND_W   => unimplemented!(),
-                ebpf::LD_IND_DW  => unimplemented!(),
+                // LD_ABS_* and LD_IND_* are supposed to load pointer to data from metadata buffer.
+                // Since this pointer is constant, and since we already know it (mem), do not
+                // bother re-fetching it, just use mem already.
+                ebpf::LD_ABS_B   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_H   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_W   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_ABS_DW  => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_B   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_H   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_W   => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
+                ebpf::LD_IND_DW  => reg[0] = unsafe {
+                    let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
+                    check_mem_load(x as u64, 8, insn_ptr);
+                    *x as u64
+                },
 
-                // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
                     let next_insn = ebpf::get_insn(self.prog, insn_ptr);
                     insn_ptr += 1;
                     reg[_dst] = ((insn.imm as u32) as u64) + ((next_insn.imm as u64) << 32);
                 },
+
+                // BPF_LDX class
                 ebpf::LD_B_REG   => reg[_dst] = unsafe {
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u8;
                     check_mem_load(x as u64, 1, insn_ptr);
@@ -568,11 +608,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
-        // (zero value) as first argument instead, as this is uBPF's behavior (empty packet should
-        // not happen in the kernel; anyway the verifier would prevent the use of uninitialized
-        // registers). See `mul_loop` test.
+        //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
+        //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
+        //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => 0 as *mut u8,
+            0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
         // The last two arguments are not used in this function. They would be used if there was a
@@ -921,11 +961,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     // associated with the fixed mbuff.
     pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> u64 {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
-        // (zero value) as first argument instead, as this is uBPF's behavior (empty packet should
-        // not happen in the kernel; anyway the verifier would prevent the use of uninitialized
-        // registers). See `mul_loop` test.
+        //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
+        //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
+        //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => 0 as *mut u8,
+            0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
         (self.parent.jit)(self.mbuff.buffer.as_ptr() as *mut u8, self.mbuff.buffer.len(),

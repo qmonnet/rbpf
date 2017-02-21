@@ -174,13 +174,14 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
             ebpf::LD_IND_W   => { name = "ldindw";  desc = ldind_str(name, &insn); },
             ebpf::LD_IND_DW  => { name = "ldinddw"; desc = ldind_str(name, &insn); },
 
-            // BPF_LDX class
             ebpf::LD_DW_IMM  => {
                 insn_ptr += 1;
                 let next_insn = ebpf::get_insn(prog, insn_ptr);
                 imm = ((insn.imm as u32) as u64 + ((next_insn.imm as u64) << 32)) as i64;
                 name = "lddw"; desc = format!("{} r{:}, {:#x}", name, insn.dst, imm);
             },
+
+            // BPF_LDX class
             ebpf::LD_B_REG   => { name = "ldxb";  desc = ld_st_reg_str(name, &insn); },
             ebpf::LD_H_REG   => { name = "ldxh";  desc = ld_st_reg_str(name, &insn); },
             ebpf::LD_W_REG   => { name = "ldxw";  desc = ld_st_reg_str(name, &insn); },

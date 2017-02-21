@@ -19,9 +19,6 @@ use ebpf;
 
 extern crate libc;
 
-extern {
-    fn memset(s: *mut libc::c_void, c: libc::uint32_t, n: libc::size_t) -> *mut libc::c_void;
-}
 const PAGE_SIZE: usize = 4096;
 
 // Special values for target_pc in struct Jump
@@ -47,8 +44,8 @@ const RSI: u8 = 6;
 const RDI: u8 = 7;
 const R8:  u8 = 8;
 const R9:  u8 = 9;
-//const R10: u8 = 10;
-//const R11: u8 = 11;
+const R10: u8 = 10;
+const R11: u8 = 11;
 //const R12: u8 = 12;
 const R13: u8 = 13;
 const R14: u8 = 14;
@@ -67,6 +64,8 @@ const REGISTER_MAP: [u8;REGISTER_MAP_SIZE] = [
     R14, // 8  callee-saved
     R15, // 9  callee-saved
     RBP, // 10 stack pointer
+    // R10 and R11 are used to compute store a constant pointer to mem and to compute offset for
+    // LD_ABS_* and LD_IND_* operations, so they are not mapped to any eBPF register.
 ];
 
 // Return the x86 register for the given eBPF register
@@ -88,45 +87,45 @@ macro_rules! emit_bytes {
 }
 
 #[inline]
-fn emit1 (jit: &mut JitMemory, data: u8) {
+fn emit1(jit: &mut JitMemory, data: u8) {
     emit_bytes!(jit, data, u8);
 }
 
 #[inline]
-fn emit2 (jit: &mut JitMemory, data: u16) {
+fn emit2(jit: &mut JitMemory, data: u16) {
     emit_bytes!(jit, data, u16);
 }
 
 #[inline]
-fn emit4 (jit: &mut JitMemory, data: u32) {
+fn emit4(jit: &mut JitMemory, data: u32) {
     emit_bytes!(jit, data, u32);
 }
 
 #[inline]
-fn emit8 (jit: &mut JitMemory, data: u64) {
+fn emit8(jit: &mut JitMemory, data: u64) {
     emit_bytes!(jit, data, u64);
 }
 
 #[inline]
-fn emit_jump_offset (jit: &mut JitMemory, target_pc: isize) {
+fn emit_jump_offset(jit: &mut JitMemory, target_pc: isize) {
     let jump = Jump { offset_loc: jit.offset, target_pc: target_pc };
     jit.jumps.push(jump);
     emit4(jit, 0);
 }
 
 #[inline]
-fn emit_modrm (jit: &mut JitMemory, modrm: u8, r: u8, m: u8) {
+fn emit_modrm(jit: &mut JitMemory, modrm: u8, r: u8, m: u8) {
     assert!((modrm | 0xc0) == 0xc0);
     emit1(jit, (modrm & 0xc0) | ((r & 0b111) << 3) | (m & 0b111));
 }
 
 #[inline]
-fn emit_modrm_reg2reg (jit: &mut JitMemory, r: u8, m: u8) {
+fn emit_modrm_reg2reg(jit: &mut JitMemory, r: u8, m: u8) {
     emit_modrm(jit, 0xc0, r, m);
 }
 
 #[inline]
-fn emit_modrm_and_displacement (jit: &mut JitMemory, r: u8, m: u8, d: i32) {
+fn emit_modrm_and_displacement(jit: &mut JitMemory, r: u8, m: u8, d: i32) {
     if d == 0 && (m & 0b111) != RBP {
         emit_modrm(jit, 0x00, r, m);
     } else if d >= -128 && d <= 127 {
@@ -139,7 +138,7 @@ fn emit_modrm_and_displacement (jit: &mut JitMemory, r: u8, m: u8, d: i32) {
 }
 
 #[inline]
-fn emit_rex (jit: &mut JitMemory, w: u8, r: u8, x: u8, b: u8) {
+fn emit_rex(jit: &mut JitMemory, w: u8, r: u8, x: u8, b: u8) {
     assert!((w | 1) == 1);
     assert!((r | 1) == 1);
     assert!((x | 1) == 1);
@@ -150,7 +149,7 @@ fn emit_rex (jit: &mut JitMemory, w: u8, r: u8, x: u8, b: u8) {
 // Emits a REX prefix with the top bit of src and dst.
 // Skipped if no bits would be set.
 #[inline]
-fn emit_basic_rex (jit: &mut JitMemory, w: u8, src: u8, dst: u8) {
+fn emit_basic_rex(jit: &mut JitMemory, w: u8, src: u8, dst: u8) {
     if w != 0 || (src & 0b1000) != 0 || (dst & 0b1000) != 0 {
         let is_masked = | val, mask | { match val & mask {
             0 => 0,
@@ -161,13 +160,13 @@ fn emit_basic_rex (jit: &mut JitMemory, w: u8, src: u8, dst: u8) {
 }
 
 #[inline]
-fn emit_push (jit: &mut JitMemory, r: u8) {
+fn emit_push(jit: &mut JitMemory, r: u8) {
     emit_basic_rex(jit, 0, 0, r);
     emit1(jit, 0x50 | (r & 0b111));
 }
 
 #[inline]
-fn emit_pop (jit: &mut JitMemory, r: u8) {
+fn emit_pop(jit: &mut JitMemory, r: u8) {
     emit_basic_rex(jit, 0, 0, r);
     emit1(jit, 0x58 | (r & 0b111));
 }
@@ -176,7 +175,7 @@ fn emit_pop (jit: &mut JitMemory, r: u8) {
 // We use the MR encoding when there is a choice
 // 'src' is often used as an opcode extension
 #[inline]
-fn emit_alu32 (jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
+fn emit_alu32(jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
     emit_basic_rex(jit, 0, src, dst);
     emit1(jit, op);
     emit_modrm_reg2reg(jit, src, dst);
@@ -184,14 +183,14 @@ fn emit_alu32 (jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
 
 // REX prefix, ModRM byte, and 32-bit immediate
 #[inline]
-fn emit_alu32_imm32 (jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i32) {
+fn emit_alu32_imm32(jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i32) {
     emit_alu32(jit, op, src, dst);
     emit4(jit, imm as u32);
 }
 
 // REX prefix, ModRM byte, and 8-bit immediate
 #[inline]
-fn emit_alu32_imm8 (jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i8) {
+fn emit_alu32_imm8(jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i8) {
     emit_alu32(jit, op, src, dst);
     emit1(jit, imm as u8);
 }
@@ -200,7 +199,7 @@ fn emit_alu32_imm8 (jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i8) {
 // We use the MR encoding when there is a choice
 // 'src' is often used as an opcode extension
 #[inline]
-fn emit_alu64 (jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
+fn emit_alu64(jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
     emit_basic_rex(jit, 1, src, dst);
     emit1(jit, op);
     emit_modrm_reg2reg(jit, src, dst);
@@ -208,43 +207,43 @@ fn emit_alu64 (jit: &mut JitMemory, op: u8, src: u8, dst: u8) {
 
 // REX.W prefix, ModRM byte, and 32-bit immediate
 #[inline]
-fn emit_alu64_imm32 (jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i32) {
+fn emit_alu64_imm32(jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i32) {
     emit_alu64(jit, op, src, dst);
     emit4(jit, imm as u32);
 }
 
 // REX.W prefix, ModRM byte, and 8-bit immediate
 #[inline]
-fn emit_alu64_imm8 (jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i8) {
+fn emit_alu64_imm8(jit: &mut JitMemory, op: u8, src: u8, dst: u8, imm: i8) {
     emit_alu64(jit, op, src, dst);
     emit1(jit, imm as u8);
 }
 
 // Register to register mov
 #[inline]
-fn emit_mov (jit: &mut JitMemory, src: u8, dst: u8) {
+fn emit_mov(jit: &mut JitMemory, src: u8, dst: u8) {
     emit_alu64(jit, 0x89, src, dst);
 }
 
 #[inline]
-fn emit_cmp_imm32 (jit: &mut JitMemory, dst: u8, imm: i32) {
+fn emit_cmp_imm32(jit: &mut JitMemory, dst: u8, imm: i32) {
     emit_alu64_imm32(jit, 0x81, 7, dst, imm);
 }
 
 #[inline]
-fn emit_cmp (jit: &mut JitMemory, src: u8, dst: u8) {
+fn emit_cmp(jit: &mut JitMemory, src: u8, dst: u8) {
     emit_alu64(jit, 0x39, src, dst);
 }
 
 #[inline]
-fn emit_jcc (jit: &mut JitMemory, code: u8, target_pc: isize) {
+fn emit_jcc(jit: &mut JitMemory, code: u8, target_pc: isize) {
     emit1(jit, 0x0f);
     emit1(jit, code);
     emit_jump_offset(jit, target_pc);
 }
 
 #[inline]
-fn emit_jmp (jit: &mut JitMemory, target_pc: isize) {
+fn emit_jmp(jit: &mut JitMemory, target_pc: isize) {
     emit1(jit, 0xe9);
     emit_jump_offset(jit, target_pc);
 }
@@ -256,7 +255,7 @@ fn set_anchor(jit: &mut JitMemory, target: isize) {
 
 // Load [src + offset] into dst
 #[inline]
-fn emit_load (jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
+fn emit_load(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
     let data = match size {
         OperandSize::S64 => 1,
         _ => 0
@@ -285,7 +284,7 @@ fn emit_load (jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: 
 
 // Load sign-extended immediate into register
 #[inline]
-fn emit_load_imm (jit: &mut JitMemory, dst: u8, imm: i64) {
+fn emit_load_imm(jit: &mut JitMemory, dst: u8, imm: i64) {
     if imm >= std::i32::MIN as i64 && imm <= std::i32::MAX as i64 {
         emit_alu64_imm32(jit, 0xc7, 0, dst, imm as i32);
     } else {
@@ -298,7 +297,7 @@ fn emit_load_imm (jit: &mut JitMemory, dst: u8, imm: i64) {
 
 // Store register src to [dst + offset]
 #[inline]
-fn emit_store (jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
+fn emit_store(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
@@ -326,7 +325,7 @@ fn emit_store (jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset:
 
 // Store immediate to [dst + offset]
 #[inline]
-fn emit_store_imm32 (jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i32, imm: i32) {
+fn emit_store_imm32(jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i32, imm: i32) {
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
@@ -348,7 +347,7 @@ fn emit_store_imm32 (jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i3
 }
 
 #[inline]
-fn emit_call (jit: &mut JitMemory, target: i64) {
+fn emit_call(jit: &mut JitMemory, target: i64) {
     // TODO use direct call when possible
     emit_load_imm(jit, RAX, target);
     // callq *%rax
@@ -438,7 +437,7 @@ impl<'a> JitMemory<'a> {
             let mut raw: *mut libc::c_void = mem::uninitialized();
             libc::posix_memalign(&mut raw, PAGE_SIZE, size);
             libc::mprotect(raw, size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
-            memset(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
+            std::ptr::write_bytes(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
             contents = std::slice::from_raw_parts_mut(mem::transmute(raw), num_pages * PAGE_SIZE);
         }
 
@@ -465,6 +464,7 @@ impl<'a> JitMemory<'a> {
         // RCX: mem_len
         // R8:  mem_offset
         // R9:  mem_end_offset
+        emit_mov(self, RDX, R10);
         match (use_mbuff, update_data_ptr) {
             (false, _) => {
                 // We do not use any mbuff. Move mem pointer into register 1.
@@ -517,22 +517,44 @@ impl<'a> JitMemory<'a> {
             match insn.opc {
 
                 // BPF_LD class
-                ebpf::LD_ABS_B   => unimplemented!(),
-                ebpf::LD_ABS_H   => unimplemented!(),
-                ebpf::LD_ABS_W   => unimplemented!(),
-                ebpf::LD_ABS_DW  => unimplemented!(),
-                ebpf::LD_IND_B   => unimplemented!(),
-                ebpf::LD_IND_H   => unimplemented!(),
-                ebpf::LD_IND_W   => unimplemented!(),
-                ebpf::LD_IND_DW  => unimplemented!(),
+                // R10 is a constant pointer to mem.
+                ebpf::LD_ABS_B   =>
+                    emit_load(self, OperandSize::S8,  R10, RAX, insn.imm),
+                ebpf::LD_ABS_H   =>
+                    emit_load(self, OperandSize::S16, R10, RAX, insn.imm),
+                ebpf::LD_ABS_W   =>
+                    emit_load(self, OperandSize::S32, R10, RAX, insn.imm),
+                ebpf::LD_ABS_DW  =>
+                    emit_load(self, OperandSize::S64, R10, RAX, insn.imm),
+                ebpf::LD_IND_B   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S8,  R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_H   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S16, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_W   => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S32, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
+                ebpf::LD_IND_DW  => {
+                    emit_mov(self, R10, R11);                              // load mem into R11
+                    emit_alu64(self, 0x01, src, R11);                      // add src to R11
+                    emit_load(self, OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                },
 
-                // BPF_LDX class
                 ebpf::LD_DW_IMM  => {
                     insn_ptr += 1;
                     let second_part = ebpf::get_insn(prog, insn_ptr).imm as u64;
                     let imm = (insn.imm as u32) as u64 | second_part.wrapping_shl(32);
                     emit_load_imm(self, dst, imm as i64);
                 },
+
+                // BPF_LDX class
                 ebpf::LD_B_REG   =>
                     emit_load(self, OperandSize::S8,  src, dst, insn.off as i32),
                 ebpf::LD_H_REG   =>
@@ -760,7 +782,7 @@ impl<'a> JitMemory<'a> {
 
         // Division by zero handler
         set_anchor(self, TARGET_PC_DIV_BY_ZERO);
-        fn log (pc: u64) -> i64 {
+        fn log(pc: u64) -> i64 {
             // Write error message on stderr.
             // We would like to panic!() instead (but does not work here), or maybe return an
             // error, that is, if we also turn all other panics into errors someday.
