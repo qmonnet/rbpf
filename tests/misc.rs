@@ -253,8 +253,6 @@ fn test_jit_block_port() {
     }
 }
 
-
-
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff() {
@@ -284,12 +282,12 @@ fn test_vm_mbuff() {
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff_with_rust_api() {
-    use rbpf::rust_api::*;
+    use rbpf::code_build::*;
 
     let mut program = BpfCode::new();
     program
-        .load_x(MemSize::DoubleWord).dst_reg(0x01).src_reg(0x01).offset_bytes(0x00_08).push()
-        .load_x(MemSize::HalfWord).dst_reg(0x00).src_reg(0x01).offset_bytes(0x00_02).push()
+        .load_x(MemSize::DoubleWord).set_dst(0x01).set_src(0x01).set_off(0x00_08).push()
+        .load_x(MemSize::HalfWord).set_dst(0x00).set_src(0x01).set_off(0x00_02).push()
         .exit().push();
 
     let mem = &[

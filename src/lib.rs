@@ -23,12 +23,12 @@ extern crate combine;
 
 pub mod assembler;
 pub mod asm_parser;
+pub mod code_build;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
 mod jit;
 mod verifier;
-pub mod rust_api;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to

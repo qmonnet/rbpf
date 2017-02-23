@@ -1,4 +1,4 @@
-// Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
+// Copyright 2017 <alex.dukhno@icloud.com>
 //
 // Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
@@ -6,7 +6,7 @@
 
 //! Module provides API to create eBPF programs by Rust programming language
 
-use ebpf::Insn;
+use ebpf::*;
 
 /// Represents single eBPF instruction
 pub trait Instruction: Sized {
@@ -14,28 +14,28 @@ pub trait Instruction: Sized {
     fn opt_code_byte(&self) -> u8;
 
     /// returns destination register
-    fn dst(&self) -> u8;
+    fn get_dst(&self) -> u8;
 
     /// returns source register
-    fn src(&self) -> u8;
+    fn get_src(&self) -> u8;
 
     /// returns offset bytes
-    fn offset(&self) -> i16;
+    fn get_off(&self) -> i16;
 
     /// returns immediate value
-    fn imm(&self) -> i32;
+    fn get_imm(&self) -> i32;
 
     /// sets destination register
-    fn dst_reg(self, dst: u8) -> Self;
+    fn set_dst(self, dst: u8) -> Self;
 
     /// sets source register
-    fn src_reg(self, src: u8) -> Self;
+    fn set_src(self, src: u8) -> Self;
 
     /// sets offset bytes
-    fn offset_bytes(self, offset: i16) -> Self;
+    fn set_off(self, offset: i16) -> Self;
 
     /// sets immediate value
-    fn immediate(self, imm: i32) -> Self;
+    fn set_imm(self, imm: i32) -> Self;
 }
 
 pub trait IntoBytes {
@@ -50,13 +50,13 @@ impl<'i, I: Instruction> IntoBytes for &'i I {
     fn into_bytes(self) -> Self::Bytes {
         let mut buffer = Vec::with_capacity(8);
         buffer.push(self.opt_code_byte());
-        buffer.push(self.src() << 4 | self.dst());
-        buffer.push((self.offset() & 0x00_ff) as u8);
-        buffer.push(((self.offset() & 0xff_00) >> 8) as u8);
-        buffer.push((self.imm() & 0x00_00_00_ff) as u8);
-        buffer.push(((self.imm() & 0x00_00_ff_00) >> 8) as u8);
-        buffer.push(((self.imm() & 0x00_ff_00_00) >> 16) as u8);
-        buffer.push(((self.imm() & 0xff_00_00_00) >> 24) as u8);
+        buffer.push(self.get_src() << 4 | self.get_dst());
+        buffer.push((self.get_off() & 0x00_ff) as u8);
+        buffer.push(((self.get_off() & 0xff_00) >> 8) as u8);
+        buffer.push((self.get_imm() & 0x00_00_00_ff) as u8);
+        buffer.push(((self.get_imm() & 0x00_00_ff_00) >> 8) as u8);
+        buffer.push(((self.get_imm() & 0x00_ff_00_00) >> 16) as u8);
+        buffer.push(((self.get_imm() & 0xff_00_00_00) >> 24) as u8);
         buffer
     }
 }
@@ -72,55 +72,55 @@ impl BpfCode {
         BpfCode { instructions: vec![] }
     }
 
-    pub fn mov_add(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn add(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Add)
     }
 
-    pub fn mov_sub(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn sub(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Sub)
     }
 
-    pub fn mov_mul(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn mul(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Mul)
     }
 
-    pub fn mov_div(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn div(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Div)
     }
 
-    pub fn mov_bit_or(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_or(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitOr)
     }
 
-    pub fn mov_bit_and(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_and(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitAnd)
     }
 
-    pub fn mov_left_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn left_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::LShift)
     }
 
-    pub fn mov_right_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn right_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::RShift)
     }
 
-    pub fn mov_negate(&mut self, arch: Arch) -> Move {
+    pub fn negate(&mut self, arch: Arch) -> Move {
         self.mov_internal(Source::Imm, arch, OpBits::Negate)
     }
 
-    pub fn mov_mod(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn modulo(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Mod)
     }
 
-    pub fn mov_bit_xor(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_xor(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitXor)
     }
 
     pub fn mov(&mut self, source: Source, arch: Arch) -> Move {
-        self.mov_internal(source, arch, OpBits::NoOp)
+        self.mov_internal(source, arch, OpBits::Mov)
     }
 
-    pub fn mov_signed_right_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn signed_right_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::SignRShift)
     }
 
@@ -156,19 +156,19 @@ impl BpfCode {
     }
 
     pub fn load(&mut self, mem_size: MemSize) -> Load {
-        self.load_internal(mem_size, Addressing::Undef, 0x00)
+        self.load_internal(mem_size, Addressing::Imm, BPF_LD)
     }
 
     pub fn load_abs(&mut self, mem_size: MemSize) -> Load {
-        self.load_internal(mem_size, Addressing::Abs, 0x00)
+        self.load_internal(mem_size, Addressing::Abs, BPF_LD)
     }
 
     pub fn load_ind(&mut self, mem_size: MemSize) -> Load {
-        self.load_internal(mem_size, Addressing::Ind, 0x00)
+        self.load_internal(mem_size, Addressing::Ind, BPF_LD)
     }
 
     pub fn load_x(&mut self, mem_size: MemSize) -> Load {
-        self.load_internal(mem_size, Addressing::Undef, 0x61)
+        self.load_internal(mem_size, Addressing::Imm, BPF_MEM | BPF_LDX)
     }
 
     #[inline]
@@ -189,11 +189,11 @@ impl BpfCode {
     }
 
     pub fn store(&mut self, mem_size: MemSize) -> Store {
-        self.store_internal(mem_size, 0x00)
+        self.store_internal(mem_size, BPF_IMM)
     }
 
     pub fn store_x(&mut self, mem_size: MemSize) -> Store {
-        self.store_internal(mem_size, 0x61)
+        self.store_internal(mem_size, BPF_MEM | BPF_STX)
     }
 
     #[inline]
@@ -290,38 +290,38 @@ impl<'i> Instruction for Move<'i> {
         op_bits | src_bit | arch_bits
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -330,32 +330,32 @@ impl<'i> Instruction for Move<'i> {
 #[derive(Copy, Clone, PartialEq)]
 pub enum Source {
     /// immediate field will be used as a source
-    Imm = 0x00,
+    Imm = BPF_IMM as isize,
     /// src register will be used as a source
-    Reg = 0x08
+    Reg = BPF_X as isize
 }
 
 #[derive(Copy, Clone)]
 enum OpBits {
-    Add = 0x00,
-    Sub = 0x10,
-    Mul = 0x20,
-    Div = 0x30,
-    BitOr = 0x40,
-    BitAnd = 0x50,
-    LShift = 0x60,
-    RShift = 0x70,
-    Negate = 0x80,
-    Mod = 0x90,
-    BitXor = 0xa0,
-    NoOp = 0xb0,
-    SignRShift = 0xc0
+    Add = BPF_ADD as isize,
+    Sub = BPF_SUB as isize,
+    Mul = BPF_MUL as isize,
+    Div = BPF_DIV as isize,
+    BitOr = BPF_OR as isize,
+    BitAnd = BPF_AND as isize,
+    LShift = BPF_LSH as isize,
+    RShift = BPF_RSH as isize,
+    Negate = BPF_NEG as isize,
+    Mod = BPF_MOD as isize,
+    BitXor = BPF_XOR as isize,
+    Mov = BPF_MOV as isize,
+    SignRShift = BPF_ARSH as isize
 }
 
 #[derive(Copy, Clone)]
 pub enum Arch {
-    X64 = 0x07,
-    X32 = 0x04
+    X64 = BPF_ALU64 as isize,
+    X32 = BPF_ALU as isize
 }
 
 pub struct SwapBytes<'i> {
@@ -377,38 +377,38 @@ impl<'i> Instruction for SwapBytes<'i> {
         self.endian as u8
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -416,8 +416,8 @@ impl<'i> Instruction for SwapBytes<'i> {
 
 #[derive(Copy, Clone)]
 pub enum Endian {
-    Little = 0xd4,
-    Big = 0xdc
+    Little = LE as isize,
+    Big = BE as isize
 }
 
 pub struct Load<'i> {
@@ -443,38 +443,38 @@ impl<'i> Instruction for Load<'i> {
         addressing | size | self.source
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -498,41 +498,41 @@ impl<'i> Store<'i> {
 impl<'i> Instruction for Store<'i> {
     fn opt_code_byte(&self) -> u8 {
         let size = self.mem_size as u8;
-        0x62 | size | self.source
+        BPF_MEM | BPF_ST | size | self.source
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -540,17 +540,17 @@ impl<'i> Instruction for Store<'i> {
 
 #[derive(Copy, Clone)]
 pub enum MemSize {
-    DoubleWord = 0x18,
-    Byte = 0x10,
-    HalfWord = 0x08,
-    Word = 0x00
+    DoubleWord = BPF_DW as isize,
+    Byte = BPF_B as isize,
+    HalfWord = BPF_H as isize,
+    Word = BPF_W as isize
 }
 
 #[derive(Copy, Clone)]
 enum Addressing {
-    Undef = 0x00,
-    Abs = 0x20,
-    Ind = 0x40
+    Imm = BPF_IMM as isize,
+    Abs = BPF_ABS as isize,
+    Ind = BPF_IND as isize
 }
 
 pub struct Jump<'i> {
@@ -572,41 +572,41 @@ impl<'i> Instruction for Jump<'i> {
     fn opt_code_byte(&self) -> u8 {
         let cmp: u8 = self.cond as u8;
         let src_bit = self.src_bit as u8;
-        cmp | src_bit | 0x05
+        cmp | src_bit | BPF_JMP
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -614,14 +614,14 @@ impl<'i> Instruction for Jump<'i> {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Cond {
-    Abs = 0x00,
-    Equals = 0x10,
-    Greater = 0x20,
-    GreaterEquals = 0x30,
-    BitAnd = 0x40,
-    NotEquals = 0x50,
-    GreaterSigned = 0x60,
-    GreaterEqualsSigned = 0x70
+    Abs = BPF_JA as isize,
+    Equals = BPF_JEQ as isize,
+    Greater = BPF_JGT as isize,
+    GreaterEquals = BPF_JGE as isize,
+    BitAnd = BPF_JSET as isize,
+    NotEquals = BPF_JNE as isize,
+    GreaterSigned = BPF_JSGT as isize,
+    GreaterEqualsSigned = BPF_JSGE as isize
 }
 
 pub struct FunctionCall<'i> {
@@ -639,41 +639,41 @@ impl<'i> FunctionCall<'i> {
 
 impl<'i> Instruction for FunctionCall<'i> {
     fn opt_code_byte(&self) -> u8 {
-        0x85
+        BPF_CALL | BPF_JMP
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -694,41 +694,41 @@ impl<'i> Exit<'i> {
 
 impl<'i> Instruction for Exit<'i> {
     fn opt_code_byte(&self) -> u8 {
-        0x95
+        BPF_EXIT | BPF_JMP
     }
 
-    fn dst(&self) -> u8 {
+    fn get_dst(&self) -> u8 {
         self.insn.dst
     }
 
-    fn src(&self) -> u8 {
+    fn get_src(&self) -> u8 {
         self.insn.src
     }
 
-    fn offset(&self) -> i16 {
+    fn get_off(&self) -> i16 {
         self.insn.off
     }
 
-    fn imm(&self) -> i32 {
+    fn get_imm(&self) -> i32 {
         self.insn.imm
     }
 
-    fn dst_reg(mut self, dst: u8) -> Self {
+    fn set_dst(mut self, dst: u8) -> Self {
         self.insn.dst = dst;
         self
     }
 
-    fn src_reg(mut self, src: u8) -> Self {
+    fn set_src(mut self, src: u8) -> Self {
         self.insn.src = src;
         self
     }
 
-    fn offset_bytes(mut self, offset: i16) -> Self {
+    fn set_off(mut self, offset: i16) -> Self {
         self.insn.off = offset;
         self
     }
 
-    fn immediate(mut self, imm: i32) -> Self {
+    fn set_imm(mut self, imm: i32) -> Self {
         self.insn.imm = imm;
         self
     }
@@ -744,7 +744,7 @@ mod tests {
         #[test]
         fn call_immediate() {
             let mut program = BpfCode::new();
-            program.call().immediate(0x11_22_33_44).push();
+            program.call().set_imm(0x11_22_33_44).push();
 
             assert_eq!(program.into_bytes(), &[0x85, 0x00, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11]);
         }
@@ -767,7 +767,7 @@ mod tests {
             #[test]
             fn jump_on_dst_equals_src() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::Equals, Source::Reg).dst_reg(0x01).src_reg(0x02).push();
+                program.jump_conditional(Cond::Equals, Source::Reg).set_dst(0x01).set_src(0x02).push();
 
                 assert_eq!(program.into_bytes(), &[0x1d, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -775,7 +775,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_than_src() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::Greater, Source::Reg).dst_reg(0x03).src_reg(0x02).push();
+                program.jump_conditional(Cond::Greater, Source::Reg).set_dst(0x03).set_src(0x02).push();
 
                 assert_eq!(program.into_bytes(), &[0x2d, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -783,7 +783,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_or_equals_to_src() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterEquals, Source::Reg).dst_reg(0x04).src_reg(0x01).push();
+                program.jump_conditional(Cond::GreaterEquals, Source::Reg).set_dst(0x04).set_src(0x01).push();
 
                 assert_eq!(program.into_bytes(), &[0x3d, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -791,7 +791,7 @@ mod tests {
             #[test]
             fn jump_on_dst_bit_and_with_src_not_equal_zero() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::BitAnd, Source::Reg).dst_reg(0x05).src_reg(0x02).push();
+                program.jump_conditional(Cond::BitAnd, Source::Reg).set_dst(0x05).set_src(0x02).push();
 
                 assert_eq!(program.into_bytes(), &[0x4d, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -799,7 +799,7 @@ mod tests {
             #[test]
             fn jump_on_dst_not_equals_src() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::NotEquals, Source::Reg).dst_reg(0x03).src_reg(0x05).push();
+                program.jump_conditional(Cond::NotEquals, Source::Reg).set_dst(0x03).set_src(0x05).push();
 
                 assert_eq!(program.into_bytes(), &[0x5d, 0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -807,7 +807,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_than_src_signed() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterSigned, Source::Reg).dst_reg(0x04).src_reg(0x01).push();
+                program.jump_conditional(Cond::GreaterSigned, Source::Reg).set_dst(0x04).set_src(0x01).push();
 
                 assert_eq!(program.into_bytes(), &[0x6d, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -815,7 +815,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_or_equals_src_signed() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterEqualsSigned, Source::Reg).dst_reg(0x01).src_reg(0x03).push();
+                program.jump_conditional(Cond::GreaterEqualsSigned, Source::Reg).set_dst(0x01).set_src(0x03).push();
 
                 assert_eq!(program.into_bytes(), &[0x7d, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -828,7 +828,7 @@ mod tests {
             #[test]
             fn jump_to_label() {
                 let mut program = BpfCode::new();
-                program.jump_unconditional().offset_bytes(0x00_11).push();
+                program.jump_unconditional().set_off(0x00_11).push();
 
                 assert_eq!(program.into_bytes(), &[0x05, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -836,7 +836,7 @@ mod tests {
             #[test]
             fn jump_on_dst_equals_const() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::Equals, Source::Imm).dst_reg(0x01).immediate(0x00_11_22_33).push();
+                program.jump_conditional(Cond::Equals, Source::Imm).set_dst(0x01).set_imm(0x00_11_22_33).push();
 
                 assert_eq!(program.into_bytes(), &[0x15, 0x01, 0x00, 0x00, 0x33, 0x22, 0x11, 0x00]);
             }
@@ -844,7 +844,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_than_const() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::Greater, Source::Imm).dst_reg(0x02).immediate(0x00_11_00_11).push();
+                program.jump_conditional(Cond::Greater, Source::Imm).set_dst(0x02).set_imm(0x00_11_00_11).push();
 
                 assert_eq!(program.into_bytes(), &[0x25, 0x02, 0x00, 0x00, 0x11, 0x00, 0x11, 0x00]);
             }
@@ -852,7 +852,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_or_equals_to_const() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterEquals, Source::Imm).dst_reg(0x04).immediate(0x00_22_11_00).push();
+                program.jump_conditional(Cond::GreaterEquals, Source::Imm).set_dst(0x04).set_imm(0x00_22_11_00).push();
 
                 assert_eq!(program.into_bytes(), &[0x35, 0x04, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00]);
             }
@@ -860,7 +860,7 @@ mod tests {
             #[test]
             fn jump_on_dst_bit_and_with_const_not_equal_zero() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::BitAnd, Source::Imm).dst_reg(0x05).push();
+                program.jump_conditional(Cond::BitAnd, Source::Imm).set_dst(0x05).push();
 
                 assert_eq!(program.into_bytes(), &[0x45, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -868,7 +868,7 @@ mod tests {
             #[test]
             fn jump_on_dst_not_equals_const() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::NotEquals, Source::Imm).dst_reg(0x03).push();
+                program.jump_conditional(Cond::NotEquals, Source::Imm).set_dst(0x03).push();
 
                 assert_eq!(program.into_bytes(), &[0x55, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -876,7 +876,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_than_const_signed() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterSigned, Source::Imm).dst_reg(0x04).push();
+                program.jump_conditional(Cond::GreaterSigned, Source::Imm).set_dst(0x04).push();
 
                 assert_eq!(program.into_bytes(), &[0x65, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -884,7 +884,7 @@ mod tests {
             #[test]
             fn jump_on_dst_greater_or_equals_src_signed() {
                 let mut program = BpfCode::new();
-                program.jump_conditional(Cond::GreaterEqualsSigned, Source::Imm).dst_reg(0x01).push();
+                program.jump_conditional(Cond::GreaterEqualsSigned, Source::Imm).set_dst(0x01).push();
 
                 assert_eq!(program.into_bytes(), &[0x75, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -898,7 +898,7 @@ mod tests {
         #[test]
         fn store_word_from_dst_into_immediate_address() {
             let mut program = BpfCode::new();
-            program.store(MemSize::Word).dst_reg(0x01).offset_bytes(0x00_11).immediate(0x11_22_33_44).push();
+            program.store(MemSize::Word).set_dst(0x01).set_off(0x00_11).set_imm(0x11_22_33_44).push();
 
             assert_eq!(program.into_bytes(), &[0x62, 0x01, 0x11, 0x00, 0x44, 0x33, 0x22, 0x11]);
         }
@@ -906,7 +906,7 @@ mod tests {
         #[test]
         fn store_half_word_from_dst_into_immediate_address() {
             let mut program = BpfCode::new();
-            program.store(MemSize::HalfWord).dst_reg(0x02).offset_bytes(0x11_22).push();
+            program.store(MemSize::HalfWord).set_dst(0x02).set_off(0x11_22).push();
 
             assert_eq!(program.into_bytes(), &[0x6a, 0x02, 0x22, 0x11, 0x00, 0x00, 0x00, 0x00]);
         }
@@ -930,7 +930,7 @@ mod tests {
         #[test]
         fn store_word_from_dst_into_src_address() {
             let mut program = BpfCode::new();
-            program.store_x(MemSize::Word).dst_reg(0x01).src_reg(0x02).push();
+            program.store_x(MemSize::Word).set_dst(0x01).set_src(0x02).push();
 
             assert_eq!(program.into_bytes(), &[0x63, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
         }
@@ -967,33 +967,33 @@ mod tests {
             use super::super::super::*;
 
             #[test]
-            fn load_word_from_src_reg_with_offset() {
+            fn load_word_from_set_src_with_offset() {
                 let mut program = BpfCode::new();
-                program.load_x(MemSize::Word).dst_reg(0x01).src_reg(0x02).offset_bytes(0x00_02).push();
+                program.load_x(MemSize::Word).set_dst(0x01).set_src(0x02).set_off(0x00_02).push();
 
                 assert_eq!(program.into_bytes(), &[0x61, 0x21, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
 
             #[test]
-            fn load_half_word_from_src_reg_with_offset() {
+            fn load_half_word_from_set_src_with_offset() {
                 let mut program = BpfCode::new();
-                program.load_x(MemSize::HalfWord).dst_reg(0x02).src_reg(0x01).offset_bytes(0x11_22).push();
+                program.load_x(MemSize::HalfWord).set_dst(0x02).set_src(0x01).set_off(0x11_22).push();
 
                 assert_eq!(program.into_bytes(), &[0x69, 0x12, 0x22, 0x11, 0x00, 0x00, 0x00, 0x00]);
             }
 
             #[test]
-            fn load_byte_from_src_reg_with_offset() {
+            fn load_byte_from_set_src_with_offset() {
                 let mut program = BpfCode::new();
-                program.load_x(MemSize::Byte).dst_reg(0x01).src_reg(0x04).offset_bytes(0x00_11).push();
+                program.load_x(MemSize::Byte).set_dst(0x01).set_src(0x04).set_off(0x00_11).push();
 
                 assert_eq!(program.into_bytes(), &[0x71, 0x41, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
 
             #[test]
-            fn load_double_word_from_src_reg_with_offset() {
+            fn load_double_word_from_set_src_with_offset() {
                 let mut program = BpfCode::new();
-                program.load_x(MemSize::DoubleWord).dst_reg(0x04).src_reg(0x05).offset_bytes(0x44_55).push();
+                program.load_x(MemSize::DoubleWord).set_dst(0x04).set_src(0x05).set_off(0x44_55).push();
 
                 assert_eq!(program.into_bytes(), &[0x79, 0x54, 0x55, 0x44, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -1006,7 +1006,7 @@ mod tests {
             #[test]
             fn load_double_word() {
                 let mut program = BpfCode::new();
-                program.load(MemSize::DoubleWord).dst_reg(0x01).immediate(0x00_01_02_03).push();
+                program.load(MemSize::DoubleWord).set_dst(0x01).set_imm(0x00_01_02_03).push();
 
                 assert_eq!(program.into_bytes(), &[0x18, 0x01, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00]);
             }
@@ -1022,7 +1022,7 @@ mod tests {
             #[test]
             fn load_abs_half_word() {
                 let mut program = BpfCode::new();
-                program.load_abs(MemSize::HalfWord).dst_reg(0x05).push();
+                program.load_abs(MemSize::HalfWord).set_dst(0x05).push();
 
                 assert_eq!(program.into_bytes(), &[0x28, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -1030,7 +1030,7 @@ mod tests {
             #[test]
             fn load_abs_byte() {
                 let mut program = BpfCode::new();
-                program.load_abs(MemSize::Byte).dst_reg(0x01).push();
+                program.load_abs(MemSize::Byte).set_dst(0x01).push();
 
                 assert_eq!(program.into_bytes(), &[0x30, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -1038,7 +1038,7 @@ mod tests {
             #[test]
             fn load_abs_double_word() {
                 let mut program = BpfCode::new();
-                program.load_abs(MemSize::DoubleWord).dst_reg(0x01).immediate(0x01_02_03_04).push();
+                program.load_abs(MemSize::DoubleWord).set_dst(0x01).set_imm(0x01_02_03_04).push();
 
                 assert_eq!(program.into_bytes(), &[0x38, 0x01, 0x00, 0x00, 0x04, 0x03, 0x02, 0x01]);
             }
@@ -1084,7 +1084,7 @@ mod tests {
         #[test]
         fn convert_host_to_little_endian_16bits() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Little).dst_reg(0x01).immediate(0x00_00_00_10).push();
+            program.swap_bytes(Endian::Little).set_dst(0x01).set_imm(0x00_00_00_10).push();
 
             assert_eq!(program.into_bytes(), &[0xd4, 0x01, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00]);
         }
@@ -1092,7 +1092,7 @@ mod tests {
         #[test]
         fn convert_host_to_little_endian_32bits() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Little).dst_reg(0x02).immediate(0x00_00_00_20).push();
+            program.swap_bytes(Endian::Little).set_dst(0x02).set_imm(0x00_00_00_20).push();
 
             assert_eq!(program.into_bytes(), &[0xd4, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00]);
         }
@@ -1100,7 +1100,7 @@ mod tests {
         #[test]
         fn convert_host_to_little_endian_64bit() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Little).dst_reg(0x03).immediate(0x00_00_00_40).push();
+            program.swap_bytes(Endian::Little).set_dst(0x03).set_imm(0x00_00_00_40).push();
 
             assert_eq!(program.into_bytes(), &[0xd4, 0x03, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00]);
         }
@@ -1108,7 +1108,7 @@ mod tests {
         #[test]
         fn convert_host_to_big_endian_16bits() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Big).dst_reg(0x01).immediate(0x00_00_00_10).push();
+            program.swap_bytes(Endian::Big).set_dst(0x01).set_imm(0x00_00_00_10).push();
 
             assert_eq!(program.into_bytes(), &[0xdc, 0x01, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00]);
         }
@@ -1116,7 +1116,7 @@ mod tests {
         #[test]
         fn convert_host_to_big_endian_32bits() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Big).dst_reg(0x02).immediate(0x00_00_00_20).push();
+            program.swap_bytes(Endian::Big).set_dst(0x02).set_imm(0x00_00_00_20).push();
 
             assert_eq!(program.into_bytes(), &[0xdc, 0x02, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00]);
         }
@@ -1124,7 +1124,7 @@ mod tests {
         #[test]
         fn convert_host_to_big_endian_64bit() {
             let mut program = BpfCode::new();
-            program.swap_bytes(Endian::Big).dst_reg(0x03).immediate(0x00_00_00_40).push();
+            program.swap_bytes(Endian::Big).set_dst(0x03).set_imm(0x00_00_00_40).push();
 
             assert_eq!(program.into_bytes(), &[0xdc, 0x03, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00]);
         }
@@ -1141,7 +1141,7 @@ mod tests {
                 #[test]
                 fn move_and_add_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_add(Source::Imm, Arch::X64).dst_reg(0x02).immediate(0x01_02_03_04).push();
+                    program.add(Source::Imm, Arch::X64).set_dst(0x02).set_imm(0x01_02_03_04).push();
 
                     assert_eq!(program.into_bytes(), &[0x07, 0x02, 0x00, 0x00, 0x04, 0x03, 0x02, 0x01]);
                 }
@@ -1149,7 +1149,7 @@ mod tests {
                 #[test]
                 fn move_sub_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_sub(Source::Imm, Arch::X64).dst_reg(0x04).immediate(0x00_01_02_03).push();
+                    program.sub(Source::Imm, Arch::X64).set_dst(0x04).set_imm(0x00_01_02_03).push();
 
                     assert_eq!(program.into_bytes(), &[0x17, 0x04, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00]);
                 }
@@ -1157,7 +1157,7 @@ mod tests {
                 #[test]
                 fn move_mul_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mul(Source::Imm, Arch::X64).dst_reg(0x05).immediate(0x04_03_02_01).push();
+                    program.mul(Source::Imm, Arch::X64).set_dst(0x05).set_imm(0x04_03_02_01).push();
 
                     assert_eq!(program.into_bytes(), &[0x27, 0x05, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]);
                 }
@@ -1165,7 +1165,7 @@ mod tests {
                 #[test]
                 fn move_div_constant_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_div(Source::Imm, Arch::X64).dst_reg(0x02).immediate(0x00_ff_00_ff).push();
+                    program.div(Source::Imm, Arch::X64).set_dst(0x02).set_imm(0x00_ff_00_ff).push();
 
                     assert_eq!(program.into_bytes(), &[0x37, 0x02, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00]);
                 }
@@ -1173,7 +1173,7 @@ mod tests {
                 #[test]
                 fn move_bit_or_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_or(Source::Imm, Arch::X64).dst_reg(0x02).immediate(0x00_11_00_22).push();
+                    program.bit_or(Source::Imm, Arch::X64).set_dst(0x02).set_imm(0x00_11_00_22).push();
 
                     assert_eq!(program.into_bytes(), &[0x47, 0x02, 0x00, 0x00, 0x22, 0x00, 0x11, 0x00]);
                 }
@@ -1181,7 +1181,7 @@ mod tests {
                 #[test]
                 fn move_bit_and_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_and(Source::Imm, Arch::X64).dst_reg(0x02).immediate(0x11_22_33_44).push();
+                    program.bit_and(Source::Imm, Arch::X64).set_dst(0x02).set_imm(0x11_22_33_44).push();
 
                     assert_eq!(program.into_bytes(), &[0x57, 0x02, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11]);
                 }
@@ -1189,7 +1189,7 @@ mod tests {
                 #[test]
                 fn move_left_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_left_shift(Source::Imm, Arch::X64).dst_reg(0x01).push();
+                    program.left_shift(Source::Imm, Arch::X64).set_dst(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x67, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1197,7 +1197,7 @@ mod tests {
                 #[test]
                 fn move_logical_right_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_right_shift(Source::Imm, Arch::X64).dst_reg(0x01).push();
+                    program.right_shift(Source::Imm, Arch::X64).set_dst(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x77, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1205,7 +1205,7 @@ mod tests {
                 #[test]
                 fn move_negate_register() {
                     let mut program = BpfCode::new();
-                    program.mov_negate(Arch::X64).dst_reg(0x02).push();
+                    program.negate(Arch::X64).set_dst(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x87, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1213,7 +1213,7 @@ mod tests {
                 #[test]
                 fn move_mod_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mod(Source::Imm, Arch::X64).dst_reg(0x02).push();
+                    program.modulo(Source::Imm, Arch::X64).set_dst(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x97, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1221,7 +1221,7 @@ mod tests {
                 #[test]
                 fn move_bit_xor_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_xor(Source::Imm, Arch::X64).dst_reg(0x03).push();
+                    program.bit_xor(Source::Imm, Arch::X64).set_dst(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0xa7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1229,7 +1229,7 @@ mod tests {
                 #[test]
                 fn move_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov(Source::Imm, Arch::X64).dst_reg(0x01).immediate(0x00_00_00_FF).push();
+                    program.mov(Source::Imm, Arch::X64).set_dst(0x01).set_imm(0x00_00_00_FF).push();
 
                     assert_eq!(program.into_bytes(), &[0xb7, 0x01, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00]);
                 }
@@ -1237,7 +1237,7 @@ mod tests {
                 #[test]
                 fn move_signed_right_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_signed_right_shift(Source::Imm, Arch::X64).dst_reg(0x05).push();
+                    program.signed_right_shift(Source::Imm, Arch::X64).set_dst(0x05).push();
 
                     assert_eq!(program.into_bytes(), &[0xc7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1250,7 +1250,7 @@ mod tests {
                 #[test]
                 fn move_and_add_from_register() {
                     let mut program = BpfCode::new();
-                    program.mov_add(Source::Reg, Arch::X64).dst_reg(0x03).src_reg(0x02).push();
+                    program.add(Source::Reg, Arch::X64).set_dst(0x03).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x0f, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1258,7 +1258,7 @@ mod tests {
                 #[test]
                 fn move_sub_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_sub(Source::Reg, Arch::X64).dst_reg(0x03).src_reg(0x04).push();
+                    program.sub(Source::Reg, Arch::X64).set_dst(0x03).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0x1f, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1266,7 +1266,7 @@ mod tests {
                 #[test]
                 fn move_mul_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mul(Source::Reg, Arch::X64).dst_reg(0x04).src_reg(0x03).push();
+                    program.mul(Source::Reg, Arch::X64).set_dst(0x04).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0x2f, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1274,7 +1274,7 @@ mod tests {
                 #[test]
                 fn move_div_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_div(Source::Reg, Arch::X64).dst_reg(0x01).src_reg(0x00).push();
+                    program.div(Source::Reg, Arch::X64).set_dst(0x01).set_src(0x00).push();
 
                     assert_eq!(program.into_bytes(), &[0x3f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1282,7 +1282,7 @@ mod tests {
                 #[test]
                 fn move_bit_or_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_or(Source::Reg, Arch::X64).dst_reg(0x03).src_reg(0x01).push();
+                    program.bit_or(Source::Reg, Arch::X64).set_dst(0x03).set_src(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x4f, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1290,7 +1290,7 @@ mod tests {
                 #[test]
                 fn move_bit_and_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_and(Source::Reg, Arch::X64).dst_reg(0x03).src_reg(0x02).push();
+                    program.bit_and(Source::Reg, Arch::X64).set_dst(0x03).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x5f, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1298,7 +1298,7 @@ mod tests {
                 #[test]
                 fn move_left_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_left_shift(Source::Reg, Arch::X64).dst_reg(0x02).src_reg(0x03).push();
+                    program.left_shift(Source::Reg, Arch::X64).set_dst(0x02).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0x6f, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1306,7 +1306,7 @@ mod tests {
                 #[test]
                 fn move_logical_right_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_right_shift(Source::Reg, Arch::X64).dst_reg(0x02).src_reg(0x04).push();
+                    program.right_shift(Source::Reg, Arch::X64).set_dst(0x02).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0x7f, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1314,7 +1314,7 @@ mod tests {
                 #[test]
                 fn move_mod_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mod(Source::Reg, Arch::X64).dst_reg(0x01).src_reg(0x02).push();
+                    program.modulo(Source::Reg, Arch::X64).set_dst(0x01).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x9f, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1322,7 +1322,7 @@ mod tests {
                 #[test]
                 fn move_bit_xor_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_xor(Source::Reg, Arch::X64).dst_reg(0x02).src_reg(0x04).push();
+                    program.bit_xor(Source::Reg, Arch::X64).set_dst(0x02).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0xaf, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1330,7 +1330,7 @@ mod tests {
                 #[test]
                 fn move_from_register_to_another_register() {
                     let mut program = BpfCode::new();
-                    program.mov(Source::Reg, Arch::X64).src_reg(0x01).push();
+                    program.mov(Source::Reg, Arch::X64).set_src(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0xbf, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1338,7 +1338,7 @@ mod tests {
                 #[test]
                 fn move_signed_right_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_signed_right_shift(Source::Reg, Arch::X64).dst_reg(0x02).src_reg(0x03).push();
+                    program.signed_right_shift(Source::Reg, Arch::X64).set_dst(0x02).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0xcf, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1354,7 +1354,7 @@ mod tests {
                 #[test]
                 fn move_and_add_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_add(Source::Imm, Arch::X32).dst_reg(0x02).immediate(0x01_02_03_04).push();
+                    program.add(Source::Imm, Arch::X32).set_dst(0x02).set_imm(0x01_02_03_04).push();
 
                     assert_eq!(program.into_bytes(), &[0x04, 0x02, 0x00, 0x00, 0x04, 0x03, 0x02, 0x01]);
                 }
@@ -1362,7 +1362,7 @@ mod tests {
                 #[test]
                 fn move_sub_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_sub(Source::Imm, Arch::X32).dst_reg(0x04).immediate(0x00_01_02_03).push();
+                    program.sub(Source::Imm, Arch::X32).set_dst(0x04).set_imm(0x00_01_02_03).push();
 
                     assert_eq!(program.into_bytes(), &[0x14, 0x04, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00]);
                 }
@@ -1370,7 +1370,7 @@ mod tests {
                 #[test]
                 fn move_mul_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mul(Source::Imm, Arch::X32).dst_reg(0x05).immediate(0x04_03_02_01).push();
+                    program.mul(Source::Imm, Arch::X32).set_dst(0x05).set_imm(0x04_03_02_01).push();
 
                     assert_eq!(program.into_bytes(), &[0x24, 0x05, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]);
                 }
@@ -1378,7 +1378,7 @@ mod tests {
                 #[test]
                 fn move_div_constant_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_div(Source::Imm, Arch::X32).dst_reg(0x02).immediate(0x00_ff_00_ff).push();
+                    program.div(Source::Imm, Arch::X32).set_dst(0x02).set_imm(0x00_ff_00_ff).push();
 
                     assert_eq!(program.into_bytes(), &[0x34, 0x02, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00]);
                 }
@@ -1386,7 +1386,7 @@ mod tests {
                 #[test]
                 fn move_bit_or_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_or(Source::Imm, Arch::X32).dst_reg(0x02).immediate(0x00_11_00_22).push();
+                    program.bit_or(Source::Imm, Arch::X32).set_dst(0x02).set_imm(0x00_11_00_22).push();
 
                     assert_eq!(program.into_bytes(), &[0x44, 0x02, 0x00, 0x00, 0x22, 0x00, 0x11, 0x00]);
                 }
@@ -1394,7 +1394,7 @@ mod tests {
                 #[test]
                 fn move_bit_and_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_and(Source::Imm, Arch::X32).dst_reg(0x02).immediate(0x11_22_33_44).push();
+                    program.bit_and(Source::Imm, Arch::X32).set_dst(0x02).set_imm(0x11_22_33_44).push();
 
                     assert_eq!(program.into_bytes(), &[0x54, 0x02, 0x00, 0x00, 0x44, 0x33, 0x22, 0x11]);
                 }
@@ -1402,7 +1402,7 @@ mod tests {
                 #[test]
                 fn move_left_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_left_shift(Source::Imm, Arch::X32).dst_reg(0x01).push();
+                    program.left_shift(Source::Imm, Arch::X32).set_dst(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x64, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1410,7 +1410,7 @@ mod tests {
                 #[test]
                 fn move_logical_right_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_right_shift(Source::Imm, Arch::X32).dst_reg(0x01).push();
+                    program.right_shift(Source::Imm, Arch::X32).set_dst(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x74, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1418,7 +1418,7 @@ mod tests {
                 #[test]
                 fn move_negate_register() {
                     let mut program = BpfCode::new();
-                    program.mov_negate(Arch::X32).dst_reg(0x02).push();
+                    program.negate(Arch::X32).set_dst(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x84, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1426,7 +1426,7 @@ mod tests {
                 #[test]
                 fn move_mod_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mod(Source::Imm, Arch::X32).dst_reg(0x02).push();
+                    program.modulo(Source::Imm, Arch::X32).set_dst(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x94, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1434,7 +1434,7 @@ mod tests {
                 #[test]
                 fn move_bit_xor_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_xor(Source::Imm, Arch::X32).dst_reg(0x03).push();
+                    program.bit_xor(Source::Imm, Arch::X32).set_dst(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0xa4, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1442,7 +1442,7 @@ mod tests {
                 #[test]
                 fn move_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov(Source::Imm, Arch::X32).dst_reg(0x01).immediate(0x00_00_00_FF).push();
+                    program.mov(Source::Imm, Arch::X32).set_dst(0x01).set_imm(0x00_00_00_FF).push();
 
                     assert_eq!(program.into_bytes(), &[0xb4, 0x01, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00]);
                 }
@@ -1450,7 +1450,7 @@ mod tests {
                 #[test]
                 fn move_signed_right_shift_const_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_signed_right_shift(Source::Imm, Arch::X32).dst_reg(0x05).push();
+                    program.signed_right_shift(Source::Imm, Arch::X32).set_dst(0x05).push();
 
                     assert_eq!(program.into_bytes(), &[0xc4, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1463,7 +1463,7 @@ mod tests {
                 #[test]
                 fn move_and_add_from_register() {
                     let mut program = BpfCode::new();
-                    program.mov_add(Source::Reg, Arch::X32).dst_reg(0x03).src_reg(0x02).push();
+                    program.add(Source::Reg, Arch::X32).set_dst(0x03).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x0c, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1471,7 +1471,7 @@ mod tests {
                 #[test]
                 fn move_sub_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_sub(Source::Reg, Arch::X32).dst_reg(0x03).src_reg(0x04).push();
+                    program.sub(Source::Reg, Arch::X32).set_dst(0x03).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0x1c, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1479,7 +1479,7 @@ mod tests {
                 #[test]
                 fn move_mul_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mul(Source::Reg, Arch::X32).dst_reg(0x04).src_reg(0x03).push();
+                    program.mul(Source::Reg, Arch::X32).set_dst(0x04).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0x2c, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1487,7 +1487,7 @@ mod tests {
                 #[test]
                 fn move_div_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_div(Source::Reg, Arch::X32).dst_reg(0x01).src_reg(0x00).push();
+                    program.div(Source::Reg, Arch::X32).set_dst(0x01).set_src(0x00).push();
 
                     assert_eq!(program.into_bytes(), &[0x3c, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1495,7 +1495,7 @@ mod tests {
                 #[test]
                 fn move_bit_or_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_or(Source::Reg, Arch::X32).dst_reg(0x03).src_reg(0x01).push();
+                    program.bit_or(Source::Reg, Arch::X32).set_dst(0x03).set_src(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0x4c, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1503,7 +1503,7 @@ mod tests {
                 #[test]
                 fn move_bit_and_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_and(Source::Reg, Arch::X32).dst_reg(0x03).src_reg(0x02).push();
+                    program.bit_and(Source::Reg, Arch::X32).set_dst(0x03).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x5c, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1511,7 +1511,7 @@ mod tests {
                 #[test]
                 fn move_left_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_left_shift(Source::Reg, Arch::X32).dst_reg(0x02).src_reg(0x03).push();
+                    program.left_shift(Source::Reg, Arch::X32).set_dst(0x02).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0x6c, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1519,7 +1519,7 @@ mod tests {
                 #[test]
                 fn move_logical_right_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_right_shift(Source::Reg, Arch::X32).dst_reg(0x02).src_reg(0x04).push();
+                    program.right_shift(Source::Reg, Arch::X32).set_dst(0x02).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0x7c, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1527,7 +1527,7 @@ mod tests {
                 #[test]
                 fn move_mod_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_mod(Source::Reg, Arch::X32).dst_reg(0x01).src_reg(0x02).push();
+                    program.modulo(Source::Reg, Arch::X32).set_dst(0x01).set_src(0x02).push();
 
                     assert_eq!(program.into_bytes(), &[0x9c, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1535,7 +1535,7 @@ mod tests {
                 #[test]
                 fn move_bit_xor_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_bit_xor(Source::Reg, Arch::X32).dst_reg(0x02).src_reg(0x04).push();
+                    program.bit_xor(Source::Reg, Arch::X32).set_dst(0x02).set_src(0x04).push();
 
                     assert_eq!(program.into_bytes(), &[0xac, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1543,7 +1543,7 @@ mod tests {
                 #[test]
                 fn move_from_register_to_another_register() {
                     let mut program = BpfCode::new();
-                    program.mov(Source::Reg, Arch::X32).dst_reg(0x00).src_reg(0x01).push();
+                    program.mov(Source::Reg, Arch::X32).set_dst(0x00).set_src(0x01).push();
 
                     assert_eq!(program.into_bytes(), &[0xbc, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
@@ -1551,7 +1551,7 @@ mod tests {
                 #[test]
                 fn move_signed_right_shift_from_register_to_register() {
                     let mut program = BpfCode::new();
-                    program.mov_signed_right_shift(Source::Reg, Arch::X32).dst_reg(0x02).src_reg(0x03).push();
+                    program.signed_right_shift(Source::Reg, Arch::X32).set_dst(0x02).set_src(0x03).push();
 
                     assert_eq!(program.into_bytes(), &[0xcc, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
                 }
