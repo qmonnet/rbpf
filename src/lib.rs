@@ -1,7 +1,7 @@
 // Derived from uBPF <https://github.com/iovisor/ubpf>
 // Copyright 2015 Big Switch Networks, Inc
 //      (uBPF: VM architecture, parts of the interpreter, originally in C)
-// Copyright 2016 Quentin Monnet <quentin.monnet@6wind.com>
+// Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 //      (Translation to Rust, MetaBuff/multiple classes addition, hashmaps for helpers)
 //
 // Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
