@@ -282,7 +282,7 @@ fn test_vm_mbuff() {
 // Program and memory come from uBPF test ldxh.
 #[test]
 fn test_vm_mbuff_with_rust_api() {
-    use rbpf::code_build::*;
+    use rbpf::insn_builder::*;
 
     let mut program = BpfCode::new();
     program
