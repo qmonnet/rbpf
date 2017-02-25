@@ -23,9 +23,48 @@
 extern crate libc;
 
 use std::u64;
+use maps;
+use maps::EbpfMap;
 
 // Helpers associated to kernel helpers
 // See also linux/include/uapi/linux/bpf.h in Linux kernel sources.
+
+// bpf_map_lookup_elem()
+pub const BPF_MAP_LOOKUP_ELEM_IDX: u32 = 1;
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn bpf_map_lookup_elem (map_id: u64, key: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    println!("bpf_map_lookup_elem called, map: {:#x}, key: {:#x}", map_id, key);
+    unsafe {
+        println!("key first 4 bytes: {:#x}", *(key as *const u64));
+    };
+    unsafe {
+        // Get table from first argument.
+        let ref _map = *(*maps::EBPF_MAPS).maps.get(&map_id).unwrap();
+        // Match table type
+        match *_map {
+            maps::EbpfMapType::HashMap { ref map } => map.lookup_elem(key).unwrap() as *const u64 as u64,
+            _ => 0
+        }
+        // Call relevant lookup function
+    }
+}
+
+// bpf_map_update_elem()
+pub const BPF_MAP_UPDATE_ELEM_IDX: u32 = 2;
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn bpf_map_update_elem (map: u64, key: u64, value: u64, flags: u64, unused5: u64) -> u64 {
+    0
+}
+
+// bpf_map_delete_elem()
+pub const BPF_MAP_DELETE_ELEM_IDX: u32 = 3;
+#[allow(dead_code)]
+#[allow(unused_variables)]
+pub fn bpf_map_delete_elem (map: u64, key: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    0
+}
 
 // bpf_ktime_getns()
 
@@ -175,7 +214,7 @@ pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) ->
 // #![feature(asm)]
 // #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 // #[allow(unused_variables)]
-// pub fn memfrob (ptr: u64, len: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
+// pub fn trash_registers (unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
 //     unsafe {
 //         asm!(
 //                 "mov $0xf0, %rax"

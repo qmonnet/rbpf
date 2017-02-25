@@ -13,7 +13,7 @@
 #![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.png",
        html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.ico")]
 
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 use std::u32;
 use std::collections::HashMap;
@@ -26,6 +26,7 @@ pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
+pub mod maps;
 mod jit;
 mod verifier;
 

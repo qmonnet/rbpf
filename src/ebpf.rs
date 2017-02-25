@@ -556,3 +556,20 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<Insn> {
     };
     res
 }
+
+// Maps
+
+pub enum MapType {
+    Unspecified,
+    HashMap,
+    Array,
+    // Types below are in kernel, but we do not support them
+    // PROG_ARRAY,
+    // PERF_EVENT_ARRAY,
+    // PERCPU_HASH,
+    // PERCPU_ARRAY,
+    // STACK_TRACE,
+    // CGROUP_ARRAY,
+    // LRU_HASH,
+    // LRU_PERCPU_HASH,
+}
