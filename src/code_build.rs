@@ -14,28 +14,52 @@ pub trait Instruction: Sized {
     fn opt_code_byte(&self) -> u8;
 
     /// returns destination register
-    fn get_dst(&self) -> u8;
+    fn get_dst(&self) -> u8 {
+        self.get_insn().dst
+    }
 
     /// returns source register
-    fn get_src(&self) -> u8;
+    fn get_src(&self) -> u8 {
+        self.get_insn().src
+    }
 
     /// returns offset bytes
-    fn get_off(&self) -> i16;
+    fn get_off(&self) -> i16 {
+        self.get_insn().off
+    }
 
     /// returns immediate value
-    fn get_imm(&self) -> i32;
+    fn get_imm(&self) -> i32 {
+        self.get_insn().imm
+    }
 
     /// sets destination register
-    fn set_dst(self, dst: u8) -> Self;
+    fn set_dst(mut self, dst: u8) -> Self {
+        self.get_insn_mut().dst = dst;
+        self
+    }
 
     /// sets source register
-    fn set_src(self, src: u8) -> Self;
+    fn set_src(mut self, src: u8) -> Self {
+        self.get_insn_mut().src = src;
+        self
+    }
 
     /// sets offset bytes
-    fn set_off(self, offset: i16) -> Self;
+    fn set_off(mut self, offset: i16) -> Self {
+        self.get_insn_mut().off = offset;
+        self
+    }
 
     /// sets immediate value
-    fn set_imm(self, imm: i32) -> Self;
+    fn set_imm(mut self, imm: i32) -> Self {
+        self.get_insn_mut().imm = imm;
+        self
+    }
+
+    fn get_insn(&self) -> &Insn;
+
+    fn get_insn_mut(&mut self) -> &mut Insn;
 }
 
 pub trait IntoBytes {
@@ -290,40 +314,12 @@ impl<'i> Instruction for Move<'i> {
         op_bits | src_bit | arch_bits
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -377,40 +373,12 @@ impl<'i> Instruction for SwapBytes<'i> {
         self.endian as u8
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -443,40 +411,12 @@ impl<'i> Instruction for Load<'i> {
         addressing | size | self.source
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -501,40 +441,12 @@ impl<'i> Instruction for Store<'i> {
         BPF_MEM | BPF_ST | size | self.source
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -575,40 +487,12 @@ impl<'i> Instruction for Jump<'i> {
         cmp | src_bit | BPF_JMP
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -642,40 +526,12 @@ impl<'i> Instruction for FunctionCall<'i> {
         BPF_CALL | BPF_JMP
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
@@ -697,40 +553,12 @@ impl<'i> Instruction for Exit<'i> {
         BPF_EXIT | BPF_JMP
     }
 
-    fn get_dst(&self) -> u8 {
-        self.insn.dst
+    fn get_insn_mut(&mut self) -> &mut Insn {
+        &mut self.insn
     }
 
-    fn get_src(&self) -> u8 {
-        self.insn.src
-    }
-
-    fn get_off(&self) -> i16 {
-        self.insn.off
-    }
-
-    fn get_imm(&self) -> i32 {
-        self.insn.imm
-    }
-
-    fn set_dst(mut self, dst: u8) -> Self {
-        self.insn.dst = dst;
-        self
-    }
-
-    fn set_src(mut self, src: u8) -> Self {
-        self.insn.src = src;
-        self
-    }
-
-    fn set_off(mut self, offset: i16) -> Self {
-        self.insn.off = offset;
-        self
-    }
-
-    fn set_imm(mut self, imm: i32) -> Self {
-        self.insn.imm = imm;
-        self
+    fn get_insn(&self) -> &Insn {
+        &self.insn
     }
 }
 
