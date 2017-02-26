@@ -1,4 +1,4 @@
-// Copyright 2017 <alex.dukhno@icloud.com>
+// Copyright 2017 Alex Dukhno <alex.dukhno@icloud.com>
 //
 // Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
@@ -57,30 +57,40 @@ pub trait Instruction: Sized {
         self
     }
 
+    /// get `ebpf::Insn` struct
     fn get_insn(&self) -> &Insn;
 
+    /// get mutable `ebpf::Insn` struct
     fn get_insn_mut(&mut self) -> &mut Insn;
 }
 
+/// General trait for `Instruction`s and `BpfCode`.
+/// Provides functionality to transform `struct` into collection of bytes
 pub trait IntoBytes {
+    /// type of targeted transformation
     type Bytes;
 
+    /// consume `Self` with transformation into `Self::Bytes`
     fn into_bytes(self) -> Self::Bytes;
 }
 
+/// General implementation of `IntoBytes` for `Instruction`
 impl<'i, I: Instruction> IntoBytes for &'i I {
     type Bytes = Vec<u8>;
 
+    /// transform immutable reference of `Instruction` into `Vec<u8>` with size of 8
+    /// [ 1 byte ,      1 byte      , 2 bytes,  4 bytes  ]
+    /// [ OP_CODE, SRC_REG | DST_REG, OFFSET , IMMEDIATE ]
     fn into_bytes(self) -> Self::Bytes {
         let mut buffer = Vec::with_capacity(8);
         buffer.push(self.opt_code_byte());
         buffer.push(self.get_src() << 4 | self.get_dst());
-        buffer.push((self.get_off() & 0x00_ff) as u8);
-        buffer.push(((self.get_off() & 0xff_00) >> 8) as u8);
-        buffer.push((self.get_imm() & 0x00_00_00_ff) as u8);
-        buffer.push(((self.get_imm() & 0x00_00_ff_00) >> 8) as u8);
-        buffer.push(((self.get_imm() & 0x00_ff_00_00) >> 16) as u8);
-        buffer.push(((self.get_imm() & 0xff_00_00_00) >> 24) as u8);
+        buffer.push(self.get_off()          as u8);
+        buffer.push((self.get_off() >> 8)   as u8);
+        buffer.push(self.get_imm()          as u8);
+        buffer.push((self.get_imm() >> 8)   as u8);
+        buffer.push((self.get_imm() >> 16)  as u8);
+        buffer.push((self.get_imm() >> 24)  as u8);
         buffer
     }
 }
@@ -91,59 +101,72 @@ pub struct BpfCode {
 }
 
 impl BpfCode {
-
+    /// creates new empty BPF instruction stack
     pub fn new() -> Self {
         BpfCode { instructions: vec![] }
     }
 
+    /// create ADD instruction
     pub fn add(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Add)
     }
 
+    /// create SUB instruction
     pub fn sub(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Sub)
     }
 
+    /// create MUL instruction
     pub fn mul(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Mul)
     }
 
+    /// create DIV instruction
     pub fn div(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Div)
     }
 
+    /// create OR instruction
     pub fn bit_or(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitOr)
     }
 
+    /// create AND instruction
     pub fn bit_and(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitAnd)
     }
 
+    /// create LSHIFT instruction
     pub fn left_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::LShift)
     }
 
+    /// create RSHIFT instruction
     pub fn right_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::RShift)
     }
 
+    /// create NEGATE instruction
     pub fn negate(&mut self, arch: Arch) -> Move {
         self.mov_internal(Source::Imm, arch, OpBits::Negate)
     }
 
+    /// create MOD instruction
     pub fn modulo(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Mod)
     }
 
+    /// create XOR instruction
     pub fn bit_xor(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::BitXor)
     }
 
+    /// create MOV instruction
     pub fn mov(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::Mov)
     }
 
+    /// create SIGNED RSHIFT instruction
     pub fn signed_right_shift(&mut self, source: Source, arch: Arch) -> Move {
         self.mov_internal(source, arch, OpBits::SignRShift)
     }
@@ -165,6 +188,7 @@ impl BpfCode {
         }
     }
 
+    /// create byte swap instruction
     pub fn swap_bytes(&mut self, endian: Endian) -> SwapBytes {
         SwapBytes {
             bpf_code: self,
@@ -179,20 +203,24 @@ impl BpfCode {
         }
     }
 
+    /// create LOAD instruction, IMMEDIATE is the source
     pub fn load(&mut self, mem_size: MemSize) -> Load {
         self.load_internal(mem_size, Addressing::Imm, BPF_LD)
     }
 
+    /// create ABSOLUTE LOAD instruction
     pub fn load_abs(&mut self, mem_size: MemSize) -> Load {
         self.load_internal(mem_size, Addressing::Abs, BPF_LD)
     }
 
+    /// create INDIRECT LOAD instruction
     pub fn load_ind(&mut self, mem_size: MemSize) -> Load {
         self.load_internal(mem_size, Addressing::Ind, BPF_LD)
     }
 
+    /// create LOAD instruction, MEMORY is the source
     pub fn load_x(&mut self, mem_size: MemSize) -> Load {
-        self.load_internal(mem_size, Addressing::Imm, BPF_MEM | BPF_LDX)
+        self.load_internal(mem_size, Addressing::Mem, BPF_LDX)
     }
 
     #[inline]
@@ -212,10 +240,12 @@ impl BpfCode {
         }
     }
 
+    /// creates STORE instruction, IMMEDIATE is the source
     pub fn store(&mut self, mem_size: MemSize) -> Store {
         self.store_internal(mem_size, BPF_IMM)
     }
 
+    /// creates STORE instruction, MEMORY is the source
     pub fn store_x(&mut self, mem_size: MemSize) -> Store {
         self.store_internal(mem_size, BPF_MEM | BPF_STX)
     }
@@ -236,10 +266,12 @@ impl BpfCode {
         }
     }
 
+    /// create unconditional JMP instruction
     pub fn jump_unconditional(&mut self) -> Jump {
         self.jump_conditional(Cond::Abs, Source::Imm)
     }
 
+    /// create conditional JMP instruction
     pub fn jump_conditional(&mut self, cond: Cond, src_bit: Source) -> Jump {
         Jump {
             bpf_code: self,
@@ -255,6 +287,7 @@ impl BpfCode {
         }
     }
 
+    /// create CALL instruction
     pub fn call(&mut self) -> FunctionCall {
         FunctionCall {
             bpf_code: self,
@@ -268,6 +301,7 @@ impl BpfCode {
         }
     }
 
+    /// create EXIT instruction
     pub fn exit(&mut self) -> Exit {
         Exit {
             bpf_code: self,
@@ -282,14 +316,17 @@ impl BpfCode {
     }
 }
 
+/// Transform `BpfCode` into assemble representation
 impl<'a> IntoBytes for &'a BpfCode {
     type Bytes = &'a [u8];
 
+    /// returns `BpfCode` instruction stack as `&[u8]`
     fn into_bytes(self) -> Self::Bytes {
         self.instructions.as_slice()
     }
 }
 
+/// struct to represent `MOV ALU` instructions
 pub struct Move<'i> {
     bpf_code: &'i mut BpfCode,
     src_bit: Source,
@@ -299,6 +336,7 @@ pub struct Move<'i> {
 }
 
 impl<'i> Move<'i> {
+    /// push MOV instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -324,6 +362,7 @@ impl<'i> Instruction for Move<'i> {
 }
 
 #[derive(Copy, Clone, PartialEq)]
+/// The source of ALU and JMP instructions
 pub enum Source {
     /// immediate field will be used as a source
     Imm = BPF_IMM as isize,
@@ -349,11 +388,15 @@ enum OpBits {
 }
 
 #[derive(Copy, Clone)]
+/// Architecture of instructions
 pub enum Arch {
+    /// 64-bit instructions
     X64 = BPF_ALU64 as isize,
+    /// 32-bit instructions
     X32 = BPF_ALU as isize
 }
 
+/// struct representation of byte swap operation
 pub struct SwapBytes<'i> {
     bpf_code: &'i mut BpfCode,
     endian: Endian,
@@ -361,6 +404,7 @@ pub struct SwapBytes<'i> {
 }
 
 impl<'i> SwapBytes<'i> {
+    /// push bytes swap instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -383,11 +427,15 @@ impl<'i> Instruction for SwapBytes<'i> {
 }
 
 #[derive(Copy, Clone)]
+/// Bytes endian
 pub enum Endian {
+    /// Little endian
     Little = LE as isize,
+    /// Big endian
     Big = BE as isize
 }
 
+/// struct representation of LOAD instructions
 pub struct Load<'i> {
     bpf_code: &'i mut BpfCode,
     addressing: Addressing,
@@ -397,6 +445,7 @@ pub struct Load<'i> {
 }
 
 impl<'i> Load<'i> {
+    /// push LOAD instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -420,6 +469,7 @@ impl<'i> Instruction for Load<'i> {
     }
 }
 
+/// struct representation of STORE instructions
 pub struct Store<'i> {
     bpf_code: &'i mut BpfCode,
     mem_size: MemSize,
@@ -428,6 +478,7 @@ pub struct Store<'i> {
 }
 
 impl<'i> Store<'i> {
+    /// push STORE instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -451,20 +502,27 @@ impl<'i> Instruction for Store<'i> {
 }
 
 #[derive(Copy, Clone)]
+/// Memory size for LOAD and STORE instructions
 pub enum MemSize {
-    DoubleWord = BPF_DW as isize,
+    /// 8-bit size
     Byte = BPF_B as isize,
+    /// 16-bit size
     HalfWord = BPF_H as isize,
-    Word = BPF_W as isize
+    /// 32-bit size
+    Word = BPF_W as isize,
+    /// 64-bit size
+    DoubleWord = BPF_DW as isize
 }
 
 #[derive(Copy, Clone)]
 enum Addressing {
     Imm = BPF_IMM as isize,
     Abs = BPF_ABS as isize,
-    Ind = BPF_IND as isize
+    Ind = BPF_IND as isize,
+    Mem = BPF_MEM as isize
 }
 
+/// struct representation of JMP instructions
 pub struct Jump<'i> {
     bpf_code: &'i mut BpfCode,
     cond: Cond,
@@ -473,6 +531,7 @@ pub struct Jump<'i> {
 }
 
 impl<'i> Jump<'i> {
+    /// push JMP instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -497,23 +556,34 @@ impl<'i> Instruction for Jump<'i> {
 }
 
 #[derive(Copy, Clone, PartialEq)]
+/// Conditions for JMP instructions
 pub enum Cond {
+    /// Absolute or unconditional
     Abs = BPF_JA as isize,
+    /// Jump if `==`
     Equals = BPF_JEQ as isize,
+    /// Jump if `>`
     Greater = BPF_JGT as isize,
+    /// Jump if `>=`
     GreaterEquals = BPF_JGE as isize,
+    /// Jump if `src` & `dst`
     BitAnd = BPF_JSET as isize,
+    /// Jump if `!=`
     NotEquals = BPF_JNE as isize,
+    /// Jump if `>` (signed)
     GreaterSigned = BPF_JSGT as isize,
+    /// Jump if `>=` (signed)
     GreaterEqualsSigned = BPF_JSGE as isize
 }
 
+/// struct representation of CALL instruction
 pub struct FunctionCall<'i> {
     bpf_code: &'i mut BpfCode,
     insn: Insn
 }
 
 impl<'i> FunctionCall<'i> {
+    /// push CALL instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -535,12 +605,14 @@ impl<'i> Instruction for FunctionCall<'i> {
     }
 }
 
+/// struct representation of EXIT instruction
 pub struct Exit<'i> {
     bpf_code: &'i mut BpfCode,
     insn: Insn
 }
 
 impl<'i> Exit<'i> {
+    /// push EXIT instruction into BpfCode instruction stack
     pub fn push(mut self) -> &'i mut BpfCode {
         let mut asm = self.into_bytes();
         self.bpf_code.instructions.append(&mut asm);
@@ -564,7 +636,6 @@ impl<'i> Instruction for Exit<'i> {
 
 #[cfg(test)]
 mod tests {
-
     #[cfg(test)]
     mod special {
         use super::super::*;
