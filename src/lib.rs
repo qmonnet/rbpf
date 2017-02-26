@@ -26,6 +26,7 @@ pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
+pub mod insn_builder;
 mod jit;
 mod verifier;
 

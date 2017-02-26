@@ -281,6 +281,33 @@ fn test_vm_mbuff() {
 
 // Program and memory come from uBPF test ldxh.
 #[test]
+fn test_vm_mbuff_with_rust_api() {
+    use rbpf::insn_builder::*;
+
+    let mut program = BpfCode::new();
+    program
+        .load_x(MemSize::DoubleWord).set_dst(0x01).set_src(0x01).set_off(0x00_08).push()
+        .load_x(MemSize::HalfWord).set_dst(0x00).set_src(0x01).set_off(0x00_02).push()
+        .exit().push();
+
+    let mem = &[
+        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    ];
+
+    let mbuff = [0u8; 32];
+    unsafe {
+        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        *data     = mem.as_ptr() as u64;
+        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    }
+
+    let vm = rbpf::EbpfVmMbuff::new(program.into_bytes());
+    assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
+}
+
+// Program and memory come from uBPF test ldxh.
+#[test]
 fn test_jit_mbuff() {
     let prog = &[
         // Load mem from mbuff into R1
