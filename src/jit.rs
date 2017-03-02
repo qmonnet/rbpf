@@ -464,7 +464,10 @@ impl<'a> JitMemory<'a> {
         // RCX: mem_len
         // R8:  mem_offset
         // R9:  mem_end_offset
+
+        // Save mem pointer for use with LD_ABS_* and LD_IND_* instructions
         emit_mov(self, RDX, R10);
+
         match (use_mbuff, update_data_ptr) {
             (false, _) => {
                 // We do not use any mbuff. Move mem pointer into register 1.
