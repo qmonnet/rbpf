@@ -164,6 +164,8 @@ pub const LD_IND_W   : u8 = BPF_LD    | BPF_IND | BPF_W;
 /// BPF opcode: `ldinddw src, dst, imm`.
 pub const LD_IND_DW  : u8 = BPF_LD    | BPF_IND | BPF_DW;
 
+#[allow(unknown_lints)]
+#[allow(eq_op)]
 /// BPF opcode: `lddw dst, imm` /// `dst = imm`.
 pub const LD_DW_IMM  : u8 = BPF_LD    | BPF_IMM | BPF_DW;
 /// BPF opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.

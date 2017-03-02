@@ -96,6 +96,7 @@ impl<'i, I: Instruction> IntoBytes for &'i I {
 }
 
 /// BPF instruction stack in byte representation
+#[derive(Default)]
 pub struct BpfCode {
     instructions: Vec<u8>
 }

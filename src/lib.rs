@@ -15,6 +15,8 @@
 
 #![warn(missing_docs)]
 
+#![cfg_attr(feature = "cargo-clippy", allow(doc_markdown, match_same_arms))]
+
 use std::u32;
 use std::collections::HashMap;
 
@@ -223,6 +225,8 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let res = vm.prog_exec(mem, &mut mbuff);
     /// assert_eq!(res, 0x2211);
     /// ```
+    #[allow(unknown_lints)]
+    #[allow(cyclomatic_complexity)]
     pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> u64 {
         const U32MAX: u64 = u32::MAX as u64;
 
