@@ -22,11 +22,11 @@ extern crate libc;
 extern crate combine;
 
 pub mod assembler;
-pub mod asm_parser;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
+mod asm_parser;
 mod jit;
 mod verifier;
 
