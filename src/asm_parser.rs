@@ -117,6 +117,28 @@ fn format_parse_error(parse_error: ParseError<State<&str>>) -> String {
 /// Parse a string into a list of instructions.
 ///
 /// The instructions are not validated and may have invalid names and operand types.
+///
+/// # Examples
+///
+/// ```
+/// use rbpf::asm_parser;
+///
+/// // Taken from test_ldxh unit test.
+/// let insn_str1 = "ldxh r4, [r1+12]";
+/// assert_eq!(asm_parser::parse(insn_str1),
+///            Ok(vec![asm_parser::Instruction {
+///                        name: "ldxh".to_string(),
+///                        operands: vec![asm_parser::Operand::Register(4),
+///                                       asm_parser::Operand::Memory(1, 12)
+///                                       ],
+///                    }]));
+///
+/// // Taken from test_error_eof unit test: unexpected end of input in a register name.
+/// let insn_str2 = "lsh r";
+/// assert_eq!(asm_parser::parse(insn_str2),
+///            Err("Parse error at line 1 column 6: unexpected end of input, expected digit"
+///                .to_string()));
+/// ```
 pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
     match spaces().with(many(parser(instruction)).skip(eof())).parse(State::new(input)) {
         Ok((insts, _)) => Ok(insts),
