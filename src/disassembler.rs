@@ -22,11 +22,11 @@ fn alu_reg_str(name: &str, insn: &ebpf::Insn) -> String {
 
 #[inline]
 fn byteswap_str(name: &str, insn: &ebpf::Insn) -> String {
-    match insn.off {
+    match insn.imm {
         16 | 32 | 64 => {},
         _ => println!("[Disassembler] Warning: Invalid offset value for {} insn", name)
     }
-    format!("{}{} r{}", name, insn.off, insn.dst)
+    format!("{}{} r{}", name, insn.imm, insn.dst)
 }
 
 #[inline]
