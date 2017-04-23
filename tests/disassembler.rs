@@ -1,4 +1,6 @@
-// Copyright 2017 Rich Lane <lanerl@gmail.com>
+// Copyright 2017 Jan-Erik Rediger <badboy@archlinux.us>
+//
+// Adopted from tests in `tests/assembler.rs`
 //
 // Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
