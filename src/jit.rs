@@ -298,7 +298,6 @@ fn emit_load_imm(jit: &mut JitMemory, dst: u8, imm: i64) {
 // Store register src to [dst + offset]
 #[inline]
 fn emit_store(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
-    #[allow(single_match)]
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
@@ -327,7 +326,6 @@ fn emit_store(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: 
 // Store immediate to [dst + offset]
 #[inline]
 fn emit_store_imm32(jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i32, imm: i32) {
-    #[allow(single_match)]
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
