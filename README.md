@@ -28,7 +28,7 @@ tcpdump so as to avoid useless copies to user-space. It was ported to Linux,
 where it evolved into eBPF (_extended_ BPF), a faster version with more
 features. While BPF programs are originally intended to run in the kernel, the
 virtual machine of this crate enables running it in user-space applications;
-it contains an interpreter, a x86_64 JIT-compiler for eBPF programs, as well as
+it contains an interpreter, an x86_64 JIT-compiler for eBPF programs, as well as
 a disassembler.
 
 It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
