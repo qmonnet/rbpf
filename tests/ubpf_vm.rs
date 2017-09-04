@@ -20,6 +20,7 @@
 
 // These are unit tests for the eBPF interpreter.
 
+#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
 
 extern crate rbpf;
 mod common;

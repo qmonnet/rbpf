@@ -14,8 +14,10 @@
        html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.ico")]
 
 #![warn(missing_docs)]
+// There are unused mut warnings due to unsafe code.
+#![allow(unused_mut)]
 
-#![cfg_attr(feature = "cargo-clippy", allow(doc_markdown, match_same_arms))]
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
 
 use std::u32;
 use std::collections::HashMap;
