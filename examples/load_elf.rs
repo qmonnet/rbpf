@@ -5,7 +5,6 @@
 // copied, modified, or distributed except according to those terms.
 
 
-extern crate byteorder;
 extern crate elf;
 use std::path::PathBuf;
 

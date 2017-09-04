@@ -8,7 +8,6 @@
 #[macro_use]
 extern crate json;
 
-extern crate byteorder;
 extern crate elf;
 use std::path::PathBuf;
 

@@ -20,7 +20,6 @@
 use std::u32;
 use std::collections::HashMap;
 
-extern crate libc;
 extern crate combine;
 extern crate time;
 
