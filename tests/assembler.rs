@@ -4,6 +4,7 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
 
 extern crate rbpf;
 mod common;
@@ -436,7 +437,7 @@ fn test_large_immediate() {
 
 #[test]
 fn test_tcp_sack() {
-    assert_eq!(assemble(&TCP_SACK_ASM), Ok(TCP_SACK_BIN.to_vec()));
+    assert_eq!(assemble(TCP_SACK_ASM), Ok(TCP_SACK_BIN.to_vec()));
 }
 
 #[test]

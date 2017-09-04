@@ -341,7 +341,6 @@ to your `Cargo.toml` file.
 ```toml
 [dependencies]
 rbpf = "0.0.2"
-byteorder = "0.5.3"
 elf = "0.0.10"
 ```
 
@@ -355,7 +354,6 @@ in charger the buffer update so that we only have to provide a reference to the
 packet data for each run of the program.
 
 ```rust
-extern crate byteorder;
 extern crate elf;
 use std::path::PathBuf;
 

@@ -14,13 +14,14 @@
        html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.ico")]
 
 #![warn(missing_docs)]
+// There are unused mut warnings due to unsafe code.
+#![allow(unused_mut)]
 
-#![cfg_attr(feature = "cargo-clippy", allow(doc_markdown, match_same_arms))]
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
 
 use std::u32;
 use std::collections::HashMap;
 
-extern crate libc;
 extern crate combine;
 extern crate time;
 
@@ -237,10 +238,10 @@ impl<'a> EbpfVmMbuff<'a> {
         let mut reg: [u64;11] = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
         ];
-        if mbuff.len() > 0 {
+        if !mbuff.is_empty() {
             reg[1] = mbuff.as_ptr() as u64;
         }
-        else if mem.len() > 0 {
+        else if !mem.is_empty() {
             reg[1] = mem.as_ptr() as u64;
         }
 

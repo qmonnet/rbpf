@@ -4,8 +4,8 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
 
-extern crate byteorder;
 extern crate elf;
 use std::path::PathBuf;
 
@@ -89,7 +89,7 @@ fn main() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut packet2 = &mut [
+    let packet2 = &mut [
         0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
         0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
         0x08, 0x00, // ethertype

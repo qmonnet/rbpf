@@ -8,7 +8,6 @@
 #[macro_use]
 extern crate json;
 
-extern crate byteorder;
 extern crate elf;
 use std::path::PathBuf;
 
@@ -75,5 +74,5 @@ fn main() {
 
     let prog = &text_scn.data;
 
-    println!("{}", to_json(&prog));
+    println!("{}", to_json(prog));
 }

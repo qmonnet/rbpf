@@ -4,18 +4,19 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+// There are unused mut warnings due to unsafe code.
+#![allow(unused_mut)]
+#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
 
-// These crates would be needed to load bytecode from a BPF-compiled object file. Since the crates
-// are not used anywhere else in the library, it is deactivated: we do not want to load and compile
-// them just for the tests. If you want to use them, do not forget to add the following
-// dependencies to your Cargo.toml file:
+// This crate would be needed to load bytecode from a BPF-compiled object file. Since the crate
+// is not used anywhere else in the library, it is deactivated: we do not want to load and compile
+// it just for the tests. If you want to use it, do not forget to add the following
+// dependency to your Cargo.toml file:
 //
 // ---
-// byteorder = "0.5.3"
 // elf = "0.0.10"
 // ---
 //
-// extern crate byteorder;
 // extern crate elf;
 // use std::path::PathBuf;
 

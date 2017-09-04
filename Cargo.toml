@@ -30,6 +30,5 @@ time = "0.1"
 
 [dev-dependencies]
 
-byteorder = "0.5.3"
 elf = "0.0.10"
 json = "0.11.4"

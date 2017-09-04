@@ -35,7 +35,7 @@ fn check_prog_len(prog: &[u8]) {
                ebpf::PROG_MAX_INSNS, prog.len() / ebpf::INSN_SIZE);
     }
 
-    if prog.len() == 0 {
+    if prog.is_empty() {
         panic!("[Verifier] Error: program does not end with “EXIT” instruction");
     }
     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
