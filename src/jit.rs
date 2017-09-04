@@ -115,7 +115,7 @@ fn emit_jump_offset(jit: &mut JitMemory, target_pc: isize) {
 
 #[inline]
 fn emit_modrm(jit: &mut JitMemory, modrm: u8, r: u8, m: u8) {
-    assert!((modrm | 0xc0) == 0xc0);
+    assert_eq!((modrm | 0xc0), 0xc0);
     emit1(jit, (modrm & 0xc0) | ((r & 0b111) << 3) | (m & 0b111));
 }
 
@@ -139,10 +139,10 @@ fn emit_modrm_and_displacement(jit: &mut JitMemory, r: u8, m: u8, d: i32) {
 
 #[inline]
 fn emit_rex(jit: &mut JitMemory, w: u8, r: u8, x: u8, b: u8) {
-    assert!((w | 1) == 1);
-    assert!((r | 1) == 1);
-    assert!((x | 1) == 1);
-    assert!((b | 1) == 1);
+    assert_eq!((w | 1), 1);
+    assert_eq!((r | 1), 1);
+    assert_eq!((x | 1), 1);
+    assert_eq!((b | 1), 1);
     emit1(jit, 0x40 | (w << 3) | (r << 2) | (x << 1) | b);
 }
 
