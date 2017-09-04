@@ -436,7 +436,7 @@ fn test_large_immediate() {
 
 #[test]
 fn test_tcp_sack() {
-    assert_eq!(assemble(&TCP_SACK_ASM), Ok(TCP_SACK_BIN.to_vec()));
+    assert_eq!(assemble(TCP_SACK_ASM), Ok(TCP_SACK_BIN.to_vec()));
 }
 
 #[test]
