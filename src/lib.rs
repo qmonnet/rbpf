@@ -22,6 +22,7 @@ use std::collections::HashMap;
 
 extern crate libc;
 extern crate combine;
+extern crate time;
 
 pub mod assembler;
 pub mod disassembler;

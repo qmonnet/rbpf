@@ -26,6 +26,7 @@ include = [
 
 combine = "2.1.1"
 libc = "0.2.0"
+time = "0.1"
 
 [dev-dependencies]
 

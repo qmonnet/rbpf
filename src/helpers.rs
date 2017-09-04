@@ -23,6 +23,7 @@
 extern crate libc;
 
 use std::u64;
+use time;
 
 // Helpers associated to kernel helpers
 // See also linux/include/uapi/linux/bpf.h in Linux kernel sources.
@@ -34,9 +35,6 @@ use std::u64;
 pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 
 /// Get monotonic time (since boot time) in nanoseconds. All arguments are unused.
-///
-/// If needed, you may e.g. create a helper returning real time by using the same code, but
-/// replacing `libc::CLOCK_MONOTONIC` with `libc::CLOCK_REALTIME`.
 ///
 /// # Examples
 ///
@@ -54,15 +52,7 @@ pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 #[allow(dead_code)]
 #[allow(unused_variables)]
 pub fn bpf_time_getns (unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
-    unsafe {
-        let mut tp = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0
-        };
-        let tp_ptr: *mut libc::timespec = &mut tp;
-        libc::clock_gettime(libc::CLOCK_MONOTONIC, tp_ptr);
-        ((*tp_ptr).tv_sec as u64) * 10u64.pow(9) + (*tp_ptr).tv_nsec as u64
-    }
+    time::precise_time_ns()
 }
 
 // bpf_trace_printk()
