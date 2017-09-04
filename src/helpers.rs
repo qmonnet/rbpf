@@ -251,9 +251,10 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
 /// ```
 /// extern crate libc;
 /// extern crate rbpf;
+/// extern crate time;
 ///
 /// unsafe {
-///     libc::srand(libc::time(std::ptr::null_mut()) as u32);
+///     libc::srand(time::precise_time_ns() as u32)
 /// }
 ///
 /// let n = rbpf::helpers::rand(3, 6, 0, 0, 0);
