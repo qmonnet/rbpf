@@ -170,6 +170,7 @@ fn test_vm_block_port() {
     assert_eq!(res, 0xffffffff);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_jit_block_port() {
     // To load the bytecode from an object file instead of using the hardcoded instructions,
@@ -308,6 +309,7 @@ fn test_vm_mbuff_with_rust_api() {
 }
 
 // Program and memory come from uBPF test ldxh.
+#[cfg(not(windows))]
 #[test]
 fn test_jit_mbuff() {
     let prog = &[
@@ -336,6 +338,7 @@ fn test_jit_mbuff() {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsb() {
     let prog = &[
@@ -355,6 +358,7 @@ fn test_vm_jit_ldabsb() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsh() {
     let prog = &[
@@ -374,6 +378,7 @@ fn test_vm_jit_ldabsh() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsw() {
     let prog = &[
@@ -393,6 +398,7 @@ fn test_vm_jit_ldabsw() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsdw() {
     let prog = &[
@@ -442,6 +448,7 @@ fn test_vm_err_ldabsb_nomem() {
     // Memory check not implemented for JIT yet.
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindb() {
     let prog = &[
@@ -462,6 +469,7 @@ fn test_vm_jit_ldindb() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindh() {
     let prog = &[
@@ -482,6 +490,7 @@ fn test_vm_jit_ldindh() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindw() {
     let prog = &[
@@ -502,6 +511,7 @@ fn test_vm_jit_ldindw() {
     };
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldinddw() {
     let prog = &[

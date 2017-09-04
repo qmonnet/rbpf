@@ -31,6 +31,7 @@ pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
 mod asm_parser;
+#[cfg(not(windows))]
 mod jit;
 mod verifier;
 
@@ -553,6 +554,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) {
         self.jit = jit::compile(self.prog, &self.helpers, true, false);
     }
@@ -603,9 +605,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
     ///
+    /// # #[cfg(not(windows))]
     /// vm.jit_compile();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
+    /// # #[cfg(not(windows))]
     /// unsafe {
     ///     let res = vm.prog_exec_jit(mem, &mut mbuff);
     ///     assert_eq!(res, 0x2211);
@@ -910,6 +914,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(self.parent.prog, &self.parent.helpers, true, true);
     }
@@ -954,9 +959,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
     ///
+    /// # #[cfg(not(windows))]
     /// vm.jit_compile();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
+    /// # #[cfg(not(windows))]
     /// unsafe {
     ///     let res = vm.prog_exec_jit(mem);
     ///     assert_eq!(res, 0xdd);
@@ -1162,6 +1169,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// vm.jit_compile();
     /// ```
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) {
         self.parent.jit = jit::compile(self.parent.prog, &self.parent.helpers, false, false);
     }
@@ -1198,8 +1206,10 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmRaw::new(prog);
     ///
+    /// # #[cfg(not(windows))]
     /// vm.jit_compile();
     ///
+    /// # #[cfg(not(windows))]
     /// unsafe {
     ///     let res = vm.prog_exec_jit(mem);
     ///     assert_eq!(res, 0x22cc);
@@ -1373,6 +1383,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// vm.jit_compile();
     /// ```
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) {
         self.parent.jit_compile();
     }
@@ -1431,8 +1442,10 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmNoData::new(prog);
     ///
+    /// # #[cfg(not(windows))]
     /// vm.jit_compile();
     ///
+    /// # #[cfg(not(windows))]
     /// unsafe {
     ///     let res = vm.prog_exec_jit();
     ///     assert_eq!(res, 0x1122);
