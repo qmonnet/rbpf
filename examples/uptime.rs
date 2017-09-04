@@ -54,8 +54,7 @@ fn main() {
     vm.set_prog(prog2);
     vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns);
 
-    vm.jit_compile();
-    let time = unsafe { vm.prog_exec_jit() };
+    let time = vm.prog_exec();
 
     let days    =  time / 10u64.pow(9)  / 60   / 60  / 24;
     let hours   = (time / 10u64.pow(9)  / 60   / 60) % 24;

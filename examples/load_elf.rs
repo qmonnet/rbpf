@@ -118,10 +118,7 @@ fn main() {
     println!("Packet #1, program returned: {:?} ({:#x})", res, res);
     assert_eq!(res, 0xffffffff);
 
-    vm.jit_compile();
-    unsafe {
-        let res = vm.prog_exec_jit(packet2);
-        println!("Packet #2, program returned: {:?} ({:#x})", res, res);
-        assert_eq!(res, 0);
-    }
+    let res = vm.prog_exec(packet2);
+    println!("Packet #2, program returned: {:?} ({:#x})", res, res);
+    assert_eq!(res, 0);
 }
