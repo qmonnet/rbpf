@@ -237,10 +237,10 @@ impl<'a> EbpfVmMbuff<'a> {
         let mut reg: [u64;11] = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
         ];
-        if mbuff.len() > 0 {
+        if !mbuff.is_empty() {
             reg[1] = mbuff.as_ptr() as u64;
         }
-        else if mem.len() > 0 {
+        else if !mem.is_empty() {
             reg[1] = mem.as_ptr() as u64;
         }
 

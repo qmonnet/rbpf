@@ -154,7 +154,7 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);
     }
-    if prog.len() == 0 {
+    if prog.is_empty() {
         return vec![];
     }
 
@@ -339,7 +339,7 @@ pub fn disassemble(prog: &[u8]) {
         panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
                ebpf::INSN_SIZE);
     }
-    if prog.len() == 0 {
+    if prog.is_empty() {
         return;
     }
 
