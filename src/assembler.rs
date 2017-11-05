@@ -54,10 +54,14 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
     let jump_conditions = [("jeq", ebpf::BPF_JEQ),
                            ("jgt", ebpf::BPF_JGT),
                            ("jge", ebpf::BPF_JGE),
+                           ("jlt", ebpf::BPF_JLT),
+                           ("jle", ebpf::BPF_JLE),
                            ("jset", ebpf::BPF_JSET),
                            ("jne", ebpf::BPF_JNE),
                            ("jsgt", ebpf::BPF_JSGT),
-                           ("jsge", ebpf::BPF_JSGE)];
+                           ("jsge", ebpf::BPF_JSGE),
+                           ("jslt", ebpf::BPF_JSLT),
+                           ("jsle", ebpf::BPF_JSLE)];
 
     {
         let mut entry = |name: &str, inst_type: InstructionType, opc: u8| {

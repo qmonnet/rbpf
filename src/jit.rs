@@ -703,6 +703,22 @@ impl<'a> JitMemory<'a> {
                     emit_cmp(self, src, dst);
                     emit_jcc(self, 0x83, target_pc);
                 },
+                ebpf::JLT_IMM    => {
+                    emit_cmp_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x82, target_pc);
+                },
+                ebpf::JLT_REG    => {
+                    emit_cmp(self, src, dst);
+                    emit_jcc(self, 0x82, target_pc);
+                },
+                ebpf::JLE_IMM    => {
+                    emit_cmp_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x86, target_pc);
+                },
+                ebpf::JLE_REG    => {
+                    emit_cmp(self, src, dst);
+                    emit_jcc(self, 0x86, target_pc);
+                },
                 ebpf::JSET_IMM   => {
                     emit_alu64_imm32(self, 0xf7, 0, dst, insn.imm);
                     emit_jcc(self, 0x85, target_pc);
@@ -734,6 +750,22 @@ impl<'a> JitMemory<'a> {
                 ebpf::JSGE_REG   => {
                     emit_cmp(self, src, dst);
                     emit_jcc(self, 0x8d, target_pc);
+                },
+                ebpf::JSLT_IMM   => {
+                    emit_cmp_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8c, target_pc);
+                },
+                ebpf::JSLT_REG   => {
+                    emit_cmp(self, src, dst);
+                    emit_jcc(self, 0x8c, target_pc);
+                },
+                ebpf::JSLE_IMM   => {
+                    emit_cmp_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8e, target_pc);
+                },
+                ebpf::JSLE_REG   => {
+                    emit_cmp(self, src, dst);
+                    emit_jcc(self, 0x8e, target_pc);
                 },
                 ebpf::CALL       => {
                     // For JIT, helpers in use MUST be registered at compile time. They can be

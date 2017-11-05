@@ -529,6 +529,40 @@ fn test_vm_jge_imm() {
 }
 
 #[test]
+fn test_vm_jle_imm() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov32 r1, 5
+        jle r1, 4, +1
+        jle r1, 6, +1
+        exit
+        jle r1, 5, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jle_reg() {
+    let prog = assemble("
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        jle r1, r2, +2
+        jle r1, r1, +1
+        exit
+        jle r1, r3, +1
+        exit
+        mov r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
 fn test_vm_jgt_imm() {
     let prog = assemble("
         mov32 r0, 0
@@ -553,6 +587,38 @@ fn test_vm_jgt_reg() {
         jgt r1, r2, +2
         jgt r1, r1, +1
         jgt r1, r3, +1
+        exit
+        mov r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jlt_imm() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov32 r1, 5
+        jlt r1, 4, +2
+        jlt r1, 5, +1
+        jlt r1, 6, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jlt_reg() {
+    let prog = assemble("
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        jlt r1, r2, +2
+        jlt r1, r1, +1
+        jlt r1, r3, +1
         exit
         mov r0, 1
         exit").unwrap();
@@ -656,6 +722,41 @@ fn test_vm_jsge_reg() {
 }
 
 #[test]
+fn test_vm_jsle_imm() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov r1, -2
+        jsle r1, -3, +1
+        jsle r1, -1, +1
+        exit
+        mov32 r0, 1
+        jsle r1, -2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jsle_reg() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov r1, -1
+        mov r2, -2
+        mov32 r3, 0
+        jsle r1, r2, +1
+        jsle r1, r3, +1
+        exit
+        mov32 r0, 1
+        mov r1, r2
+        jsle r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
 fn test_vm_jsgt_imm() {
     let prog = assemble("
         mov32 r0, 0
@@ -681,6 +782,38 @@ fn test_vm_jsgt_reg() {
         mov32 r1, 0
         jsgt r1, r2, +1
         mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jslt_imm() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov r1, -2
+        jslt r1, -3, +2
+        jslt r1, -2, +1
+        jslt r1, -1, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(&prog);
+    assert_eq!(vm.prog_exec(), 0x1);
+}
+
+#[test]
+fn test_vm_jslt_reg() {
+    let prog = assemble("
+        mov32 r0, 0
+        mov r1, -2
+        mov r2, -3
+        mov r3, -1
+        jslt r1, r1, +2
+        jslt r1, r2, +1
+        jslt r1, r3, +1
+        exit
+        mov32 r0, 1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(&prog);
     assert_eq!(vm.prog_exec(), 0x1);

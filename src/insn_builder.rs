@@ -567,6 +567,10 @@ pub enum Cond {
     Greater = BPF_JGT as isize,
     /// Jump if `>=`
     GreaterEquals = BPF_JGE as isize,
+    /// Jump if `<`
+    Lower = BPF_JLT as isize,
+    /// Jump if `<=`
+    LowerEquals = BPF_JLE as isize,
     /// Jump if `src` & `dst`
     BitAnd = BPF_JSET as isize,
     /// Jump if `!=`
@@ -574,7 +578,11 @@ pub enum Cond {
     /// Jump if `>` (signed)
     GreaterSigned = BPF_JSGT as isize,
     /// Jump if `>=` (signed)
-    GreaterEqualsSigned = BPF_JSGE as isize
+    GreaterEqualsSigned = BPF_JSGE as isize,
+    /// Jump if `<` (signed)
+    LowerSigned = BPF_JSLT as isize,
+    /// Jump if `<=` (signed)
+    LowerEqualsSigned = BPF_JSLE as isize
 }
 
 /// struct representation of CALL instruction
@@ -689,6 +697,22 @@ mod tests {
             }
 
             #[test]
+            fn jump_on_dst_lower_than_src() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::Lower, Source::Reg).set_dst(0x03).set_src(0x02).push();
+
+                assert_eq!(program.into_bytes(), &[0xad, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_or_equals_to_src() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerEquals, Source::Reg).set_dst(0x04).set_src(0x01).push();
+
+                assert_eq!(program.into_bytes(), &[0xbd, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
             fn jump_on_dst_bit_and_with_src_not_equal_zero() {
                 let mut program = BpfCode::new();
                 program.jump_conditional(Cond::BitAnd, Source::Reg).set_dst(0x05).set_src(0x02).push();
@@ -718,6 +742,22 @@ mod tests {
                 program.jump_conditional(Cond::GreaterEqualsSigned, Source::Reg).set_dst(0x01).set_src(0x03).push();
 
                 assert_eq!(program.into_bytes(), &[0x7d, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_than_src_signed() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerSigned, Source::Reg).set_dst(0x04).set_src(0x01).push();
+
+                assert_eq!(program.into_bytes(), &[0xcd, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_or_equals_src_signed() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerEqualsSigned, Source::Reg).set_dst(0x01).set_src(0x03).push();
+
+                assert_eq!(program.into_bytes(), &[0xdd, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
         }
 
@@ -758,6 +798,22 @@ mod tests {
             }
 
             #[test]
+            fn jump_on_dst_lower_than_const() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::Lower, Source::Imm).set_dst(0x02).set_imm(0x00_11_00_11).push();
+
+                assert_eq!(program.into_bytes(), &[0xa5, 0x02, 0x00, 0x00, 0x11, 0x00, 0x11, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_or_equals_to_const() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerEquals, Source::Imm).set_dst(0x04).set_imm(0x00_22_11_00).push();
+
+                assert_eq!(program.into_bytes(), &[0xb5, 0x04, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00]);
+            }
+
+            #[test]
             fn jump_on_dst_bit_and_with_const_not_equal_zero() {
                 let mut program = BpfCode::new();
                 program.jump_conditional(Cond::BitAnd, Source::Imm).set_dst(0x05).push();
@@ -787,6 +843,22 @@ mod tests {
                 program.jump_conditional(Cond::GreaterEqualsSigned, Source::Imm).set_dst(0x01).push();
 
                 assert_eq!(program.into_bytes(), &[0x75, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_than_const_signed() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerSigned, Source::Imm).set_dst(0x04).push();
+
+                assert_eq!(program.into_bytes(), &[0xc5, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            }
+
+            #[test]
+            fn jump_on_dst_lower_or_equals_src_signed() {
+                let mut program = BpfCode::new();
+                program.jump_conditional(Cond::LowerEqualsSigned, Source::Imm).set_dst(0x01).push();
+
+                assert_eq!(program.into_bytes(), &[0xd5, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
             }
         }
     }

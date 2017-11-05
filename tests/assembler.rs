@@ -382,32 +382,48 @@ fn test_jump_conditional() {
     assert_eq!(asm("jeq r1, r2, +3
                     jgt r1, r2, +3
                     jge r1, r2, +3
+                    jlt r1, r2, +3
+                    jle r1, r2, +3
                     jset r1, r2, +3
                     jne r1, r2, +3
                     jsgt r1, r2, +3
-                    jsge r1, r2, +3"),
+                    jsge r1, r2, +3
+                    jslt r1, r2, +3
+                    jsle r1, r2, +3"),
                Ok(vec![insn(ebpf::JEQ_REG, 1, 2, 3, 0),
                        insn(ebpf::JGT_REG, 1, 2, 3, 0),
                        insn(ebpf::JGE_REG, 1, 2, 3, 0),
+                       insn(ebpf::JLT_REG, 1, 2, 3, 0),
+                       insn(ebpf::JLE_REG, 1, 2, 3, 0),
                        insn(ebpf::JSET_REG, 1, 2, 3, 0),
                        insn(ebpf::JNE_REG, 1, 2, 3, 0),
                        insn(ebpf::JSGT_REG, 1, 2, 3, 0),
-                       insn(ebpf::JSGE_REG, 1, 2, 3, 0)]));
+                       insn(ebpf::JSGE_REG, 1, 2, 3, 0),
+                       insn(ebpf::JSLT_REG, 1, 2, 3, 0),
+                       insn(ebpf::JSLE_REG, 1, 2, 3, 0)]));
 
     assert_eq!(asm("jeq r1, 2, +3
                     jgt r1, 2, +3
                     jge r1, 2, +3
+                    jlt r1, 2, +3
+                    jle r1, 2, +3
                     jset r1, 2, +3
                     jne r1, 2, +3
                     jsgt r1, 2, +3
-                    jsge r1, 2, +3"),
+                    jsge r1, 2, +3
+                    jslt r1, 2, +3
+                    jsle r1, 2, +3"),
                Ok(vec![insn(ebpf::JEQ_IMM, 1, 0, 3, 2),
                        insn(ebpf::JGT_IMM, 1, 0, 3, 2),
                        insn(ebpf::JGE_IMM, 1, 0, 3, 2),
+                       insn(ebpf::JLT_IMM, 1, 0, 3, 2),
+                       insn(ebpf::JLE_IMM, 1, 0, 3, 2),
                        insn(ebpf::JSET_IMM, 1, 0, 3, 2),
                        insn(ebpf::JNE_IMM, 1, 0, 3, 2),
                        insn(ebpf::JSGT_IMM, 1, 0, 3, 2),
-                       insn(ebpf::JSGE_IMM, 1, 0, 3, 2)]));
+                       insn(ebpf::JSGE_IMM, 1, 0, 3, 2),
+                       insn(ebpf::JSLT_IMM, 1, 0, 3, 2),
+                       insn(ebpf::JSLE_IMM, 1, 0, 3, 2)]));
 }
 
 // Test all supported Endian mnemonics.

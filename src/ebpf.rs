@@ -142,6 +142,14 @@ pub const BPF_JSGE  : u8 = 0x70;
 pub const BPF_CALL  : u8 = 0x80;
 /// BPF JMP operation code: return from program.
 pub const BPF_EXIT  : u8 = 0x90;
+/// BPF JMP operation code: jump if lower than.
+pub const BPF_JLT   : u8 = 0xa0;
+/// BPF JMP operation code: jump if lower or equal.
+pub const BPF_JLE   : u8 = 0xb0;
+/// BPF JMP operation code: jump if lower than (signed).
+pub const BPF_JSLT  : u8 = 0xc0;
+/// BPF JMP operation code: jump if lower or equal (signed).
+pub const BPF_JSLE  : u8 = 0xd0;
 
 // Op codes
 // (Following operation names are not “official”, but may be proper to rbpf; Linux kernel only
@@ -327,6 +335,14 @@ pub const JGT_REG    : u8 = BPF_JMP   | BPF_X   | BPF_JGT;
 pub const JGE_IMM    : u8 = BPF_JMP   | BPF_K   | BPF_JGE;
 /// BPF opcode: `jge dst, src, +off` /// `PC += off if dst >= src`.
 pub const JGE_REG    : u8 = BPF_JMP   | BPF_X   | BPF_JGE;
+/// BPF opcode: `jlt dst, imm, +off` /// `PC += off if dst < imm`.
+pub const JLT_IMM    : u8 = BPF_JMP   | BPF_K   | BPF_JLT;
+/// BPF opcode: `jlt dst, src, +off` /// `PC += off if dst < src`.
+pub const JLT_REG    : u8 = BPF_JMP   | BPF_X   | BPF_JLT;
+/// BPF opcode: `jle dst, imm, +off` /// `PC += off if dst <= imm`.
+pub const JLE_IMM    : u8 = BPF_JMP   | BPF_K   | BPF_JLE;
+/// BPF opcode: `jle dst, src, +off` /// `PC += off if dst <= src`.
+pub const JLE_REG    : u8 = BPF_JMP   | BPF_X   | BPF_JLE;
 /// BPF opcode: `jset dst, imm, +off` /// `PC += off if dst & imm`.
 pub const JSET_IMM   : u8 = BPF_JMP   | BPF_K   | BPF_JSET;
 /// BPF opcode: `jset dst, src, +off` /// `PC += off if dst & src`.
@@ -343,6 +359,14 @@ pub const JSGT_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSGT;
 pub const JSGE_IMM   : u8 = BPF_JMP   | BPF_K   | BPF_JSGE;
 /// BPF opcode: `jsge dst, src, +off` /// `PC += off if dst >= src (signed)`.
 pub const JSGE_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSGE;
+/// BPF opcode: `jslt dst, imm, +off` /// `PC += off if dst < imm (signed)`.
+pub const JSLT_IMM   : u8 = BPF_JMP   | BPF_K   | BPF_JSLT;
+/// BPF opcode: `jslt dst, src, +off` /// `PC += off if dst < src (signed)`.
+pub const JSLT_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSLT;
+/// BPF opcode: `jsle dst, imm, +off` /// `PC += off if dst <= imm (signed)`.
+pub const JSLE_IMM   : u8 = BPF_JMP   | BPF_K   | BPF_JSLE;
+/// BPF opcode: `jsle dst, src, +off` /// `PC += off if dst <= src (signed)`.
+pub const JSLE_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSLE;
 
 /// BPF opcode: `call imm` /// helper function call to helper with key `imm`.
 pub const CALL       : u8 = BPF_JMP   | BPF_CALL;
