@@ -1,4 +1,4 @@
-[project]
+[package]
 
 # Project metadata
 name = "rbpf"
