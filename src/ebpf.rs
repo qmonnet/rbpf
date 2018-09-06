@@ -18,6 +18,9 @@
 //! <https://www.kernel.org/doc/Documentation/networking/filter.txt>, or for a shorter version of
 //! the list of the operation codes: <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
 
+extern crate byteorder;
+use self::byteorder::{ByteOrder, LittleEndian};
+
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 4096;
 /// Size of an eBPF instructions, in bytes.
@@ -513,12 +516,8 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
         opc:  prog[INSN_SIZE * idx],
         dst:  prog[INSN_SIZE * idx + 1] & 0x0f,
         src: (prog[INSN_SIZE * idx + 1] & 0xf0) >> 4,
-        off: unsafe {
-            let x = prog.as_ptr().offset((INSN_SIZE * idx + 2) as isize) as *const i16; *x
-        },
-        imm: unsafe {
-            let x = prog.as_ptr().offset((INSN_SIZE * idx + 4) as isize) as *const i32; *x
-        },
+        off: LittleEndian::read_i16(&prog[(INSN_SIZE * idx + 2) .. ]),
+        imm: LittleEndian::read_i32(&prog[(INSN_SIZE * idx + 4) .. ]),
     }
 }
 
