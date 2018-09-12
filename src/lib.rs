@@ -19,11 +19,13 @@
 
 #![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
 
-use std::u32;
-use std::collections::HashMap;
-
+extern crate byteorder;
 extern crate combine;
 extern crate time;
+
+use std::u32;
+use std::collections::HashMap;
+use byteorder::{ByteOrder, LittleEndian};
 
 pub mod assembler;
 pub mod disassembler;
@@ -885,12 +887,8 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             panic!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset);
         }
-        unsafe {
-            let mut data     = self.mbuff.buffer.as_ptr().offset(self.mbuff.data_offset as isize)     as *mut u64;
-            let mut data_end = self.mbuff.buffer.as_ptr().offset(self.mbuff.data_end_offset as isize) as *mut u64;
-            *data     = mem.as_ptr() as u64;
-            *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-        }
+        LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_offset) .. ], mem.as_ptr() as u64);
+        LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_end_offset) .. ], mem.as_ptr() as u64 + mem.len() as u64);
         self.parent.prog_exec(mem, &self.mbuff.buffer)
     }
 

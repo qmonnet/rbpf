@@ -26,6 +26,7 @@ const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
 const TARGET_PC_EXIT:         isize = TARGET_OFFSET + 1;
 const TARGET_PC_DIV_BY_ZERO:  isize = TARGET_OFFSET + 2;
 
+#[derive(Copy, Clone)]
 enum OperandSize {
     S8  = 8,
     S16 = 16,
