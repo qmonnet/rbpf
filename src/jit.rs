@@ -26,6 +26,7 @@ const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
 const TARGET_PC_EXIT:         isize = TARGET_OFFSET + 1;
 const TARGET_PC_DIV_BY_ZERO:  isize = TARGET_OFFSET + 2;
 
+#[derive(Copy, Clone)]
 enum OperandSize {
     S8  = 8,
     S16 = 16,
@@ -255,7 +256,7 @@ fn set_anchor(jit: &mut JitMemory, target: isize) {
 
 // Load [src + offset] into dst
 #[inline]
-fn emit_load(jit: &mut JitMemory, size: &OperandSize, src: u8, dst: u8, offset: i32) {
+fn emit_load(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
     let data = match size {
         OperandSize::S64 => 1,
         _ => 0
@@ -297,7 +298,7 @@ fn emit_load_imm(jit: &mut JitMemory, dst: u8, imm: i64) {
 
 // Store register src to [dst + offset]
 #[inline]
-fn emit_store(jit: &mut JitMemory, size: &OperandSize, src: u8, dst: u8, offset: i32) {
+fn emit_store(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
@@ -325,7 +326,7 @@ fn emit_store(jit: &mut JitMemory, size: &OperandSize, src: u8, dst: u8, offset:
 
 // Store immediate to [dst + offset]
 #[inline]
-fn emit_store_imm32(jit: &mut JitMemory, size: &OperandSize, dst: u8, offset: i32, imm: i32) {
+fn emit_store_imm32(jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i32, imm: i32) {
     match size {
         OperandSize::S16 => emit1(jit, 0x66), // 16-bit override
         _ => {},
@@ -485,12 +486,12 @@ impl<'a> JitMemory<'a> {
                 // We have a fixed (simulated) mbuff: update mem and mem_end offset values in it.
                 // Store mem at mbuff + mem_offset. Trash R8.
                 emit_alu64(self, 0x01, RDI, R8);                // add mbuff to mem_offset in R8
-                emit_store(self, &OperandSize::S64, RDX, R8, 0); // set mem at mbuff + mem_offset
+                emit_store(self, OperandSize::S64, RDX, R8, 0); // set mem at mbuff + mem_offset
                 // Store mem_end at mbuff + mem_end_offset. Trash R9.
-                emit_load(self, &OperandSize::S64, RDX, R8, 0);  // load mem into R8
+                emit_load(self, OperandSize::S64, RDX, R8, 0);  // load mem into R8
                 emit_alu64(self, 0x01, RCX, R8);                // add mem_len to mem (= mem_end)
                 emit_alu64(self, 0x01, RDI, R9);                // add mbuff to mem_end_offset
-                emit_store(self, &OperandSize::S64, R8, R9, 0);  // store mem_end
+                emit_store(self, OperandSize::S64, R8, R9, 0);  // store mem_end
 
                 // Move rdi into register 1
                 if map_register(1) != RDI {
@@ -522,32 +523,32 @@ impl<'a> JitMemory<'a> {
                 // BPF_LD class
                 // R10 is a constant pointer to mem.
                 ebpf::LD_ABS_B   =>
-                    emit_load(self, &OperandSize::S8,  R10, RAX, insn.imm),
+                    emit_load(self, OperandSize::S8,  R10, RAX, insn.imm),
                 ebpf::LD_ABS_H   =>
-                    emit_load(self, &OperandSize::S16, R10, RAX, insn.imm),
+                    emit_load(self, OperandSize::S16, R10, RAX, insn.imm),
                 ebpf::LD_ABS_W   =>
-                    emit_load(self, &OperandSize::S32, R10, RAX, insn.imm),
+                    emit_load(self, OperandSize::S32, R10, RAX, insn.imm),
                 ebpf::LD_ABS_DW  =>
-                    emit_load(self, &OperandSize::S64, R10, RAX, insn.imm),
+                    emit_load(self, OperandSize::S64, R10, RAX, insn.imm),
                 ebpf::LD_IND_B   => {
                     emit_mov(self, R10, R11);                              // load mem into R11
                     emit_alu64(self, 0x01, src, R11);                      // add src to R11
-                    emit_load(self, &OperandSize::S8,  R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    emit_load(self, OperandSize::S8,  R11, RAX, insn.imm); // ld R0, mem[src+imm]
                 },
                 ebpf::LD_IND_H   => {
                     emit_mov(self, R10, R11);                              // load mem into R11
                     emit_alu64(self, 0x01, src, R11);                      // add src to R11
-                    emit_load(self, &OperandSize::S16, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    emit_load(self, OperandSize::S16, R11, RAX, insn.imm); // ld R0, mem[src+imm]
                 },
                 ebpf::LD_IND_W   => {
                     emit_mov(self, R10, R11);                              // load mem into R11
                     emit_alu64(self, 0x01, src, R11);                      // add src to R11
-                    emit_load(self, &OperandSize::S32, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    emit_load(self, OperandSize::S32, R11, RAX, insn.imm); // ld R0, mem[src+imm]
                 },
                 ebpf::LD_IND_DW  => {
                     emit_mov(self, R10, R11);                              // load mem into R11
                     emit_alu64(self, 0x01, src, R11);                      // add src to R11
-                    emit_load(self, &OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    emit_load(self, OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
                 },
 
                 ebpf::LD_DW_IMM  => {
@@ -559,33 +560,33 @@ impl<'a> JitMemory<'a> {
 
                 // BPF_LDX class
                 ebpf::LD_B_REG   =>
-                    emit_load(self, &OperandSize::S8,  src, dst, insn.off as i32),
+                    emit_load(self, OperandSize::S8,  src, dst, insn.off as i32),
                 ebpf::LD_H_REG   =>
-                    emit_load(self, &OperandSize::S16, src, dst, insn.off as i32),
+                    emit_load(self, OperandSize::S16, src, dst, insn.off as i32),
                 ebpf::LD_W_REG   =>
-                    emit_load(self, &OperandSize::S32, src, dst, insn.off as i32),
+                    emit_load(self, OperandSize::S32, src, dst, insn.off as i32),
                 ebpf::LD_DW_REG  =>
-                    emit_load(self, &OperandSize::S64, src, dst, insn.off as i32),
+                    emit_load(self, OperandSize::S64, src, dst, insn.off as i32),
 
                 // BPF_ST class
                 ebpf::ST_B_IMM   =>
-                    emit_store_imm32(self, &OperandSize::S8,  dst, insn.off as i32, insn.imm),
+                    emit_store_imm32(self, OperandSize::S8,  dst, insn.off as i32, insn.imm),
                 ebpf::ST_H_IMM   =>
-                    emit_store_imm32(self, &OperandSize::S16, dst, insn.off as i32, insn.imm),
+                    emit_store_imm32(self, OperandSize::S16, dst, insn.off as i32, insn.imm),
                 ebpf::ST_W_IMM   =>
-                    emit_store_imm32(self, &OperandSize::S32, dst, insn.off as i32, insn.imm),
+                    emit_store_imm32(self, OperandSize::S32, dst, insn.off as i32, insn.imm),
                 ebpf::ST_DW_IMM  =>
-                    emit_store_imm32(self, &OperandSize::S64, dst, insn.off as i32, insn.imm),
+                    emit_store_imm32(self, OperandSize::S64, dst, insn.off as i32, insn.imm),
 
                 // BPF_STX class
                 ebpf::ST_B_REG   =>
-                    emit_store(self, &OperandSize::S8,  src, dst, insn.off as i32),
+                    emit_store(self, OperandSize::S8,  src, dst, insn.off as i32),
                 ebpf::ST_H_REG   =>
-                    emit_store(self, &OperandSize::S16, src, dst, insn.off as i32),
+                    emit_store(self, OperandSize::S16, src, dst, insn.off as i32),
                 ebpf::ST_W_REG   =>
-                    emit_store(self, &OperandSize::S32, src, dst, insn.off as i32),
+                    emit_store(self, OperandSize::S32, src, dst, insn.off as i32),
                 ebpf::ST_DW_REG  =>
-                    emit_store(self, &OperandSize::S64, src, dst, insn.off as i32),
+                    emit_store(self, OperandSize::S64, src, dst, insn.off as i32),
                 ebpf::ST_W_XADD  => unimplemented!(),
                 ebpf::ST_DW_XADD => unimplemented!(),
 

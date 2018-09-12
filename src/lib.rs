@@ -19,14 +19,13 @@
 
 #![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
 
-use std::u32;
-use std::collections::HashMap;
-
 extern crate byteorder;
-use self::byteorder::{ByteOrder, LittleEndian};
-
 extern crate combine;
 extern crate time;
+
+use std::u32;
+use std::collections::HashMap;
+use byteorder::{ByteOrder, LittleEndian};
 
 pub mod assembler;
 pub mod disassembler;
