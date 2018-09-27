@@ -16,8 +16,10 @@
 #![warn(missing_docs)]
 // There are unused mut warnings due to unsafe code.
 #![allow(unused_mut)]
+// Allows old-style clippy
+#![allow(renamed_and_removed_lints)]
 
-#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
+#![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names, single_match, cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
 
 extern crate byteorder;
 extern crate combine;
@@ -318,21 +320,25 @@ impl<'a> EbpfVmMbuff<'a> {
 
                 // BPF_LDX class
                 ebpf::LD_B_REG   => reg[_dst] = unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u8;
                     check_mem_load(x as u64, 1, insn_ptr);
                     *x as u64
                 },
                 ebpf::LD_H_REG   => reg[_dst] = unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u16;
                     check_mem_load(x as u64, 2, insn_ptr);
                     *x as u64
                 },
                 ebpf::LD_W_REG   => reg[_dst] = unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u32;
                     check_mem_load(x as u64, 4, insn_ptr);
                     *x as u64
                 },
                 ebpf::LD_DW_REG  => reg[_dst] = unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr);
                     *x as u64
@@ -345,16 +351,19 @@ impl<'a> EbpfVmMbuff<'a> {
                     *x = insn.imm as u8;
                 },
                 ebpf::ST_H_IMM   => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
                     check_mem_store(x as u64, 2, insn_ptr);
                     *x = insn.imm as u16;
                 },
                 ebpf::ST_W_IMM   => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
                     check_mem_store(x as u64, 4, insn_ptr);
                     *x = insn.imm as u32;
                 },
                 ebpf::ST_DW_IMM  => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
                     check_mem_store(x as u64, 8, insn_ptr);
                     *x = insn.imm as u64;
@@ -367,16 +376,19 @@ impl<'a> EbpfVmMbuff<'a> {
                     *x = reg[_src] as u8;
                 },
                 ebpf::ST_H_REG   => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
                     check_mem_store(x as u64, 2, insn_ptr);
                     *x = reg[_src] as u16;
                 },
                 ebpf::ST_W_REG   => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
                     check_mem_store(x as u64, 4, insn_ptr);
                     *x = reg[_src] as u32;
                 },
                 ebpf::ST_DW_REG  => unsafe {
+                    #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
                     check_mem_store(x as u64, 8, insn_ptr);
                     *x = reg[_src] as u64;

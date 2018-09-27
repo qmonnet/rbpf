@@ -80,7 +80,8 @@ macro_rules! emit_bytes {
         let size = mem::size_of::<$t>() as usize;
         assert!($jit.offset + size <= $jit.contents.len());
         unsafe {
-            let mut ptr = $jit.contents.as_ptr().offset($jit.offset as isize) as *mut $t;
+            #[allow(cast_ptr_alignment)]
+            let mut ptr = $jit.contents.as_ptr().add($jit.offset) as *mut $t;
             *ptr = $data as $t;
         }
         $jit.offset += size;
@@ -348,9 +349,9 @@ fn emit_store_imm32(jit: &mut JitMemory, size: OperandSize, dst: u8, offset: i32
 }
 
 #[inline]
-fn emit_call(jit: &mut JitMemory, target: i64) {
+fn emit_call(jit: &mut JitMemory, target: usize) {
     // TODO use direct call when possible
-    emit_load_imm(jit, RAX, target);
+    emit_load_imm(jit, RAX, target as i64);
     // callq *%rax
     emit1(jit, 0xff);
     emit1(jit, 0xd0);
@@ -439,7 +440,7 @@ impl<'a> JitMemory<'a> {
             libc::posix_memalign(&mut raw, PAGE_SIZE, size);
             libc::mprotect(raw, size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
             std::ptr::write_bytes(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
-            contents = std::slice::from_raw_parts_mut(mem::transmute(raw), num_pages * PAGE_SIZE);
+            contents = std::slice::from_raw_parts_mut(raw as *mut u8, num_pages * PAGE_SIZE);
         }
 
         JitMemory {
@@ -775,7 +776,7 @@ impl<'a> JitMemory<'a> {
                     if let Some(helper) = helpers.get(&(insn.imm as u32)) {
                         // We reserve RCX for shifts
                         emit_mov(self, R9, RCX);
-                        emit_call(self, *helper as i64);
+                        emit_call(self, *helper as usize);
                     } else {
                         panic!("[JIT] Error: unknown helper function (id: {:#x})",
                                insn.imm as u32);
@@ -832,7 +833,7 @@ impl<'a> JitMemory<'a> {
             pc as i64 // Just to prevent warnings
         };
         emit_mov(self, RCX, RDI); // muldivmod stored pc in RCX
-        emit_call(self, log as i64);
+        emit_call(self, log as usize);
         emit_load_imm(self, map_register(0), -1);
         emit_jmp(self, TARGET_PC_EXIT);
     }
@@ -850,7 +851,7 @@ impl<'a> JitMemory<'a> {
                 let offset_loc = jump.offset_loc as i32 + std::mem::size_of::<i32>() as i32;
                 let rel = &(target_loc as i32 - offset_loc) as *const i32;
 
-                let offset_ptr = self.contents.as_ptr().offset(jump.offset_loc as isize);
+                let offset_ptr = self.contents.as_ptr().add(jump.offset_loc);
 
                 libc::memcpy(offset_ptr as *mut libc::c_void, rel as *const libc::c_void,
                              std::mem::size_of::<i32>());

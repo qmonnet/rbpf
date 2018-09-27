@@ -110,7 +110,7 @@ fn format_error(error: &Error<char, &str>) -> String {
     }
 }
 
-fn format_parse_error(parse_error: ParseError<State<&str>>) -> String {
+fn format_parse_error(parse_error: &ParseError<State<&str>>) -> String {
     format!("Parse error at line {} column {}: {}",
             parse_error.position.line,
             parse_error.position.column,
@@ -123,7 +123,7 @@ fn format_parse_error(parse_error: ParseError<State<&str>>) -> String {
 pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
     match spaces().with(many(parser(instruction)).skip(eof())).parse(State::new(input)) {
         Ok((insts, _)) => Ok(insts),
-        Err(err) => Err(format_parse_error(err)),
+        Err(err) => Err(format_parse_error(&err)),
     }
 }
 
