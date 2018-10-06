@@ -25,35 +25,39 @@
 
 use ebpf;
 
+fn reject(msg: String) {
+    panic!("[Verifier] Error: ".to_owned() + &msg);
+}
+
 fn check_prog_len(prog: &[u8]) {
     if prog.len() % ebpf::INSN_SIZE != 0 {
-        panic!("[Verifier] Error: eBPF program length must be a multiple of {:?} octets",
-               ebpf::INSN_SIZE);
+        reject(format!("eBPF program length must be a multiple of {:?} octets",
+                       ebpf::INSN_SIZE));
     }
     if prog.len() > ebpf::PROG_MAX_SIZE {
-        panic!("[Verifier] Error: eBPF program length limited to {:?}, here {:?}",
-               ebpf::PROG_MAX_INSNS, prog.len() / ebpf::INSN_SIZE);
+        reject(format!("eBPF program length limited to {:?}, here {:?}",
+                       ebpf::PROG_MAX_INSNS, prog.len() / ebpf::INSN_SIZE));
     }
 
     if prog.is_empty() {
-        panic!("[Verifier] Error: program does not end with “EXIT” instruction");
+        reject("program does not end with “EXIT” instruction".to_string());
     }
     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     if last_insn.opc != ebpf::EXIT {
-        panic!("[Verifier] Error: program does not end with “EXIT” instruction");
+        reject("program does not end with “EXIT” instruction".to_string());
     }
 }
 
 fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) {
     if insn.imm == 0 {
-        panic!("[Verifier] Error: division by 0 (insn #{:?})", insn_ptr);
+        reject(format!("division by 0 (insn #{:?})", insn_ptr));
     }
 }
 
 fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) {
     match insn.imm {
         16 | 32 | 64 => return,
-        _ => panic!("[Verifier] Error: unsupported argument for LE/BE (insn #{:?})", insn_ptr)
+        _ => reject(format!("unsupported argument for LE/BE (insn #{:?})", insn_ptr))
     }
 }
 
@@ -62,41 +66,36 @@ fn check_load_dw(prog: &[u8], insn_ptr: usize) {
     // this function should be called only for LD_DW insn, that cannot be last in program.
     let next_insn = ebpf::get_insn(prog, insn_ptr + 1);
     if next_insn.opc != 0 {
-        panic!("[Verifier] Error: incomplete LD_DW instruction (insn #{:?})", insn_ptr);
+        reject(format!("incomplete LD_DW instruction (insn #{:?})", insn_ptr));
     }
-
 }
 
 fn check_jmp_offset(prog: &[u8], insn_ptr: usize) {
     let insn = ebpf::get_insn(prog, insn_ptr);
     if insn.off == -1 {
-        panic!("[Verifier] Error: infinite loop (insn #{:?})", insn_ptr);
+        reject(format!("infinite loop (insn #{:?})", insn_ptr));
     }
 
     let dst_insn_ptr = insn_ptr as isize + 1 + insn.off as isize;
     if dst_insn_ptr < 0 || dst_insn_ptr as usize >= (prog.len() / ebpf::INSN_SIZE) {
-        panic!("[Verifier] Error: jump out of code to #{:?} (insn #{:?})",
-               dst_insn_ptr, insn_ptr);
+        reject(format!("jump out of code to #{:?} (insn #{:?})", dst_insn_ptr, insn_ptr));
     }
 
     let dst_insn = ebpf::get_insn(prog, dst_insn_ptr as usize);
     if dst_insn.opc == 0 {
-        panic!("[Verifier] Error: jump to middle of LD_DW at #{:?} (insn #{:?})",
-               dst_insn_ptr, insn_ptr);
+        reject(format!("jump to middle of LD_DW at #{:?} (insn #{:?})", dst_insn_ptr, insn_ptr));
     }
 }
 
 fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) {
     if insn.src > 10 {
-        panic!("[Verifier] Error: invalid source register (insn #{:?})", insn_ptr);
+        reject(format!("invalid source register (insn #{:?})", insn_ptr));
     }
 
     match (insn.dst, store) {
         (0 ... 9, _) | (10, true) => {},
-        (10, false) => panic!("[Verifier] Error: cannot write into register r10 (insn #{:?})",
-                              insn_ptr),
-        (_, _)      => panic!("[Verifier] Error: invalid destination register (insn #{:?})",
-                              insn_ptr)
+        (10, false) => reject(format!("cannot write into register r10 (insn #{:?})", insn_ptr)),
+        (_, _)      => reject(format!("invalid destination register (insn #{:?})", insn_ptr))
     }
 }
 
@@ -231,8 +230,7 @@ pub fn check(prog: &[u8]) -> bool {
             ebpf::EXIT       => {},
 
             _                => {
-                panic!("[Verifier] Error: unknown eBPF opcode {:#2x} (insn #{:?})",
-                       insn.opc, insn_ptr);
+                reject(format!("unknown eBPF opcode {:#2x} (insn #{:?})", insn.opc, insn_ptr));
             },
         }
 
@@ -243,7 +241,7 @@ pub fn check(prog: &[u8]) -> bool {
 
     // insn_ptr should now be equal to number of instructions.
     if insn_ptr != prog.len() / ebpf::INSN_SIZE {
-        panic!("[Verifier] Error: jumped out of code to #{:?}", insn_ptr);
+        reject(format!("jumped out of code to #{:?}", insn_ptr));
     }
 
     true
