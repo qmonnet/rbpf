@@ -33,7 +33,7 @@ fn test_verifier_err_div_by_zero_imm() {
         mov32 r0, 1
         div32 r0, 0
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -45,7 +45,7 @@ fn test_verifier_err_endian_size() {
         0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     vm.prog_exec();
 }
 
@@ -56,7 +56,7 @@ fn test_verifier_err_incomplete_lddw() { // Note: ubpf has test-err-incomplete-l
         0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     vm.prog_exec();
 }
 
@@ -66,7 +66,7 @@ fn test_verifier_err_infinite_loop() {
     let prog = assemble("
         ja -1
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -76,7 +76,7 @@ fn test_verifier_err_invalid_reg_dst() {
     let prog = assemble("
         mov r11, 1
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -86,7 +86,7 @@ fn test_verifier_err_invalid_reg_src() {
     let prog = assemble("
         mov r0, r11
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -97,7 +97,7 @@ fn test_verifier_err_jmp_lddw() {
         ja +1
         lddw r0, 0x1122334455667788
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -107,7 +107,7 @@ fn test_verifier_err_jmp_out() {
     let prog = assemble("
         ja +2
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -116,7 +116,7 @@ fn test_verifier_err_jmp_out() {
 fn test_verifier_err_no_exit() {
     let prog = assemble("
         mov32 r0, 0").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -132,7 +132,7 @@ fn test_verifier_err_too_many_instructions() {
     }).collect::<Vec<u8>>();
     prog.append(&mut vec![ 0x95, 0, 0, 0, 0, 0, 0, 0 ]);
 
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }
 
@@ -143,7 +143,7 @@ fn test_verifier_err_unknown_opcode() {
         0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     vm.prog_exec();
 }
 
@@ -153,6 +153,6 @@ fn test_verifier_err_write_r10() {
     let prog = assemble("
         mov r10, 1
         exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(&prog);
+    let vm = rbpf::EbpfVmNoData::new(&prog).unwrap();
     vm.prog_exec();
 }

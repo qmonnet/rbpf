@@ -27,6 +27,7 @@ extern crate time;
 
 use std::u32;
 use std::collections::HashMap;
+use std::io::Error;
 use byteorder::{ByteOrder, LittleEndian};
 
 pub mod assembler;
@@ -75,7 +76,7 @@ struct MetaBuff {
 /// }
 ///
 /// // Instantiate a VM.
-/// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+/// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
 ///
 /// // Provide both a reference to the packet data, and to the metadata buffer.
 /// let res = vm.prog_exec(mem, &mut mbuff);
@@ -92,10 +93,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -106,28 +103,24 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a> {
-        verifier::check(prog);
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmMbuff<'a>, Error> {
+        verifier::check(prog)?;
 
         fn no_jit(_mbuff: *mut u8, _len: usize, _mem: *mut u8, _mem_len: usize,
                   _nodata_offset: usize, _nodata_end_offset: usize) -> u64 {
             panic!("Error: program has not been JIT-compiled");
         }
 
-        EbpfVmMbuff {
+        Ok(EbpfVmMbuff {
             prog:    prog,
             jit:     no_jit,
             helpers: HashMap::new(),
-        }
+        })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -143,12 +136,13 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog1);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog1).unwrap();
     /// vm.set_prog(prog2);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) {
-        verifier::check(prog);
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+        verifier::check(prog)?;
         self.prog = prog;
+        Ok(())
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -179,7 +173,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     ///
     /// // Register a helper.
     /// // On running the program this helper will print the content of registers r3, r4 and r5 to
@@ -226,7 +220,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
     /// let res = vm.prog_exec(mem, &mut mbuff);
@@ -572,7 +566,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -625,7 +619,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -711,7 +705,7 @@ impl<'a> EbpfVmMbuff<'a> {
 /// ];
 ///
 /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-/// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+/// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
 ///
 /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
 /// let res = vm.prog_exec(mem1);
@@ -730,10 +724,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -748,10 +738,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> EbpfVmFixedMbuff<'a> {
-        let parent = EbpfVmMbuff::new(prog);
+    pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, Error> {
+        let parent = EbpfVmMbuff::new(prog)?;
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         let mbuff = MetaBuff {
@@ -759,20 +749,16 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             data_end_offset: data_end_offset,
             buffer:          buffer,
         };
-        EbpfVmFixedMbuff {
+        Ok(EbpfVmFixedMbuff {
             parent: parent,
             mbuff:  mbuff,
-        }
+        })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
     ///
     /// At the same time, load new offsets for storing pointers to start and end of packet data in
     /// the internal metadata buffer.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -795,19 +781,20 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog1, 0, 0);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog1, 0, 0).unwrap();
     /// vm.set_prog(prog2, 0x40, 0x50);
     ///
     /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x27);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) {
+    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         self.mbuff.buffer = buffer;
         self.mbuff.data_offset = data_offset;
         self.mbuff.data_end_offset = data_end_offset;
-        self.parent.set_prog(prog)
+        self.parent.set_prog(prog)?;
+        Ok(())
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -844,7 +831,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -886,7 +873,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
     /// let res = vm.prog_exec(mem);
@@ -928,7 +915,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -975,7 +962,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -1020,7 +1007,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmRaw::new(prog);
+/// let vm = rbpf::EbpfVmRaw::new(prog).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.prog_exec(mem);
@@ -1035,10 +1022,6 @@ impl<'a> EbpfVmRaw<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1050,20 +1033,16 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmRaw::new(prog);
+    /// let vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> EbpfVmRaw<'a> {
-        let parent = EbpfVmMbuff::new(prog);
-        EbpfVmRaw {
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmRaw<'a>, Error> {
+        let parent = EbpfVmMbuff::new(prog)?;
+        Ok(EbpfVmRaw {
             parent: parent,
-        }
+        })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -1083,14 +1062,15 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(prog1);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog1).unwrap();
     /// vm.set_prog(prog2);
     ///
     /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) {
-        self.parent.set_prog(prog)
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+        self.parent.set_prog(prog)?;
+        Ok(())
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -1120,7 +1100,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -1154,7 +1134,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     ///
     /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x22cc);
@@ -1183,7 +1163,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -1222,7 +1202,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(prog);
+    /// let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -1272,7 +1252,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmNoData::new(prog);
+/// let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.prog_exec();
@@ -1287,10 +1267,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1301,20 +1277,16 @@ impl<'a> EbpfVmNoData<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmNoData::new(prog);
+    /// let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> EbpfVmNoData<'a> {
-        let parent = EbpfVmRaw::new(prog);
-        EbpfVmNoData {
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmNoData<'a>, Error> {
+        let parent = EbpfVmRaw::new(prog)?;
+        Ok(EbpfVmNoData {
             parent: parent,
-        }
+        })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -1329,7 +1301,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(prog1);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog1).unwrap();
     ///
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x2211);
@@ -1339,8 +1311,9 @@ impl<'a> EbpfVmNoData<'a> {
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) {
-        self.parent.set_prog(prog)
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+        self.parent.set_prog(prog)?;
+        Ok(())
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -1365,7 +1338,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -1396,7 +1369,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     ///
     ///
     /// vm.jit_compile();
@@ -1423,7 +1396,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let vm = rbpf::EbpfVmNoData::new(prog);
+    /// let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     ///
     /// // For this kind of VM, the `prog_exec()` function needs no argument.
     /// let res = vm.prog_exec();
@@ -1458,7 +1431,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(prog);
+    /// let mut vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
