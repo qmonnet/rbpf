@@ -121,7 +121,7 @@ fn test_verifier_err_no_exit() {
 }
 
 #[test]
-#[should_panic(expected = "[Verifier] Error: eBPF program length limited to 4096, here 4097")]
+#[should_panic(expected = "[Verifier] Error: eBPF program length limited to 4096, here 4097")]
 fn test_verifier_err_too_many_instructions() {
     // uBPF uses 65637 instructions, because it sets its limit at 65636.
     // We use the classic 4096 limit from kernel, so no need to produce as many instructions.
