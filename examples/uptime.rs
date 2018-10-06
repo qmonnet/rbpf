@@ -39,7 +39,7 @@ fn main() {
     ];
 
     // Create a VM: this one takes no data. Load prog1 in it.
-    let mut vm = rbpf::EbpfVmNoData::new(prog1);
+    let mut vm = rbpf::EbpfVmNoData::new(prog1).unwrap();
     // Execute prog1.
     assert_eq!(vm.prog_exec(), 0x3);
 
@@ -51,7 +51,7 @@ fn main() {
     // In the following example we use a helper to get the elapsed time since boot time: we
     // reimplement uptime in eBPF, in Rust. Because why not.
 
-    vm.set_prog(prog2);
+    vm.set_prog(prog2).unwrap();
     vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns);
 
     let time;
