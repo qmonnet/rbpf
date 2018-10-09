@@ -24,12 +24,14 @@
 
 
 use ebpf;
+use std::io::{Error, ErrorKind};
 
-fn reject(msg: String) -> Result<(), String> {
-    Err("[Verifier] Error: ".to_owned() + &msg)
+fn reject(msg: String) -> Result<(), Error> {
+    let full_msg = format!("[Verifier] Error: {}", msg);
+    Err(Error::new(ErrorKind::Other, full_msg))
 }
 
-fn check_prog_len(prog: &[u8]) -> Result<(), String> {
+fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
         reject(format!("eBPF program length must be a multiple of {:?} octets",
                        ebpf::INSN_SIZE))?;
@@ -50,7 +52,7 @@ fn check_prog_len(prog: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), String> {
+fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     if insn.imm == 0 {
         reject(format!("division by 0 (insn #{:?})", insn_ptr))?;
     }
@@ -58,14 +60,14 @@ fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), String> {
     Ok(())
 }
 
-fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), String> {
+fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     match insn.imm {
         16 | 32 | 64 => Ok(()),
         _ => reject(format!("unsupported argument for LE/BE (insn #{:?})", insn_ptr))
     }
 }
 
-fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), String> {
+fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     // We know we can reach next insn since we enforce an EXIT insn at the end of program, while
     // this function should be called only for LD_DW insn, that cannot be last in program.
     let next_insn = ebpf::get_insn(prog, insn_ptr + 1);
@@ -76,7 +78,7 @@ fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), String> {
     Ok(())
 }
 
-fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), String> {
+fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     let insn = ebpf::get_insn(prog, insn_ptr);
     if insn.off == -1 {
         reject(format!("infinite loop (insn #{:?})", insn_ptr))?;
@@ -95,7 +97,7 @@ fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), String> {
     Ok(())
 }
 
-fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<(), String> {
+fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<(), Error> {
     if insn.src > 10 {
         reject(format!("invalid source register (insn #{:?})", insn_ptr))?;
     }
@@ -107,7 +109,7 @@ fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<()
     }
 }
 
-pub fn check(prog: &[u8]) -> Result<(), String> {
+pub fn check(prog: &[u8]) -> Result<(), Error> {
     check_prog_len(prog)?;
 
     let mut insn_ptr:usize = 0;

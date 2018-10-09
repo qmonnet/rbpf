@@ -27,6 +27,7 @@ extern crate time;
 
 use std::u32;
 use std::collections::HashMap;
+use std::io::Error;
 use byteorder::{ByteOrder, LittleEndian};
 
 pub mod assembler;
@@ -108,7 +109,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> Result<EbpfVmMbuff<'a>, String> {
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmMbuff<'a>, Error> {
         verifier::check(prog)?;
 
         fn no_jit(_mbuff: *mut u8, _len: usize, _mem: *mut u8, _mem_len: usize,
@@ -146,7 +147,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmMbuff::new(prog1).unwrap();
     /// vm.set_prog(prog2);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), String> {
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
         verifier::check(prog)?;
         self.prog = prog;
         Ok(())
@@ -751,7 +752,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, String> {
+    pub fn new(prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
@@ -802,7 +803,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x27);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), String> {
+    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         self.mbuff.buffer = buffer;
@@ -1054,7 +1055,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Instantiate a VM.
     /// let vm = rbpf::EbpfVmRaw::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> Result<EbpfVmRaw<'a>, String> {
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmRaw<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
         Ok(EbpfVmRaw {
             parent: parent,
@@ -1091,7 +1092,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.prog_exec(mem);
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), String> {
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
         self.parent.set_prog(prog)?;
         Ok(())
     }
@@ -1306,7 +1307,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Instantiate a VM.
     /// let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
     /// ```
-    pub fn new(prog: &'a [u8]) -> Result<EbpfVmNoData<'a>, String> {
+    pub fn new(prog: &'a [u8]) -> Result<EbpfVmNoData<'a>, Error> {
         let parent = EbpfVmRaw::new(prog)?;
         Ok(EbpfVmNoData {
             parent: parent,
@@ -1342,7 +1343,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// let res = vm.prog_exec();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), String> {
+    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
         self.parent.set_prog(prog)?;
         Ok(())
     }
