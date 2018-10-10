@@ -35,6 +35,9 @@ a disassembler.
 It is based on Rich Lane's [uBPF software](https://github.com/iovisor/ubpf/),
 which does nearly the same, but is written in C.
 
+The crate is supposed to compile and run on Linux, MacOS X, and Windows,
+although the JIT-compiler does not work with Windows at this time.
+
 ## Link to the crate
 
 This crate is available from [crates.io](https://crates.io/crates/rbpf), so it
