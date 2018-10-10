@@ -21,6 +21,9 @@
 // use std::path::PathBuf;
 
 extern crate rbpf;
+
+use std::io::{Error, ErrorKind};
+use rbpf::assembler::assemble;
 use rbpf::helpers;
 
 // The following two examples have been compiled from C with the following command:
@@ -563,3 +566,46 @@ fn test_vm_err_ldindb_nomem() {
 
     // Memory check not implemented for JIT yet.
 }
+
+#[test]
+#[should_panic(expected = "No program, call prog_set()")]
+fn test_vm_exec_no_program() {
+    let vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+fn verifier_success(_prog: &[u8]) -> Result<(), Error> {
+    Ok(())
+}
+
+fn verifier_fail(_prog: &[u8]) -> Result<(), Error> {
+    Err(Error::new(ErrorKind::Other,
+                   "Gaggablaghblagh!"))
+}
+
+#[test]
+fn test_verifier_success() {
+    let prog = assemble(
+        "mov32 r0, 0xBEE
+         exit",
+    ).unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(verifier_success).unwrap();
+    vm.set_prog(&prog).unwrap();;
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+#[test]
+#[should_panic(expected = "Gaggablaghblagh!")]
+fn test_verifier_fail() {
+    let prog = assemble(
+        "mov32 r0, 0xBEE
+         exit",
+    ).unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();;
+    vm.set_verifier(verifier_fail).unwrap();;
+    vm.set_prog(&prog).unwrap();;
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+

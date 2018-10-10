@@ -1764,10 +1764,3 @@ fn test_vm_verify_fail() {
     vm.set_prog(&prog).unwrap();
     assert_eq!(vm.prog_exec(), 0xBEE);
 }
-
-#[test]
-#[should_panic(expected = "No program, call prog_set()")]
-fn test_vm_exec_no_program() {
-    let vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    assert_eq!(vm.prog_exec(), 0xBEE);
-}

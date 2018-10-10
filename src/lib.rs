@@ -158,7 +158,7 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
-    /// Sets a new verifier function
+    /// Set a new verifier function
     ///
     /// # Panics
     ///
@@ -858,7 +858,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         Ok(())
     }
 
-    /// Sets a new verifier function
+    /// Set a new verifier function
     ///
     /// # Panics
     ///
@@ -1174,7 +1174,7 @@ impl<'a> EbpfVmRaw<'a> {
         Ok(())
     }
 
-    /// Sets a new verifier function
+    /// Set a new verifier function
     ///
     /// # Panics
     ///
@@ -1457,7 +1457,7 @@ impl<'a> EbpfVmNoData<'a> {
         Ok(())
     }
 
-    /// Sets a new verifier function
+    /// Set a new verifier function
     ///
     /// # Panics
     ///
@@ -1480,7 +1480,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// }
     ///
     /// let prog1 = &[
-    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
