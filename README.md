@@ -546,7 +546,6 @@ on your own.
   with clang?
 * Maybe one day, tail calls?
 * JIT-compilers for other architectures?
-* eBPF assembler _à la_ uBPF, to have more readable unit tests?
 * …
 
 ## License
