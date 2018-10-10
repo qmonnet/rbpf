@@ -64,7 +64,7 @@ rbpf = { path = "path/to/rbpf" }
 
 Then indicate in your source code that you want to use the crate:
 
-```rust
+```rust,ignore
 extern crate rbpf;
 ```
 
@@ -130,7 +130,7 @@ machines:
 
 All these structs implement the same public functions:
 
-```rust
+```rust,ignore
 // called with EbpfVmMbuff:: prefix
 pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a>
 
@@ -159,7 +159,7 @@ the memory area of packet data are to be stored in the internal metadata buffer
 each time the program is executed. Other structs do not use this mechanism and
 do not need those offsets.
 
-```rust
+```rust,ignore
 // for struct EbpfVmMbuff, struct EbpfVmRaw and struct EbpfVmRawData
 pub fn set_prog(&mut self, prog: &'a [u8])
 
@@ -173,7 +173,7 @@ You can use for example `my_vm.set_prog(my_program);` to change the loaded
 program after the VM instance creation. This program is checked with the
 verifier.
 
-```rust
+```rust,ignore
 pub fn register_helper(&mut self,
                        key: u32,
                        function: fn (u64, u64, u64, u64, u64) -> u64)
@@ -184,7 +184,7 @@ registers in a hashmap, so the key can be any `u32` value you want. It may be
 useful for programs that should be compatible with the Linux kernel, and
 therefore must use specific helper numbers.
 
-```rust
+```rust,ignore
 // for struct EbpfVmMbuff
 pub fn prog_exec(&self,
                  mem: &'a mut [u8],
@@ -203,7 +203,7 @@ data and the metadata buffer, or only to the packet data, or nothing at all,
 depending on the kind of the VM used. The value returned is the result of the
 eBPF program.
 
-```rust
+```rust,ignore
 pub fn jit_compile(&mut self)
 ```
 
@@ -211,7 +211,7 @@ JIT-compile the loaded program, for x86_64 architecture. If the program is to
 use helper functions, they must be registered into the VM before this function
 is called. The generated assembly function is internally stored in the VM.
 
-```rust
+```rust,ignore
 // for struct EbpfVmMbuff
 pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8],
                             mbuff: &'a mut [u8]) -> u64
