@@ -12,6 +12,7 @@ Rust (user-space) virtual machine for eBPF
 * [Link to the crate](#link-to-the-crate)
 * [API](#api)
 * [Example uses](#example-uses)
+* [Building eBPF programs](#building-ebpf-programs)
 * [Feedback welcome!](#feedback-welcome)
 * [Questions / Answers](#questions--answers)
 * [Caveats](#caveats)
@@ -425,7 +426,7 @@ fn main() {
 }
 ```
 
-## Building programs
+## Building eBPF programs
 
 Besides passing the raw hexadecimal codes for building eBPF programs, two other
 methods are available.
