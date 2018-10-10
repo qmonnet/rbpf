@@ -93,10 +93,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -125,10 +121,6 @@ impl<'a> EbpfVmMbuff<'a> {
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -732,10 +724,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -771,10 +759,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// At the same time, load new offsets for storing pointers to start and end of packet data in
     /// the internal metadata buffer.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -1038,10 +1022,6 @@ impl<'a> EbpfVmRaw<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1063,10 +1043,6 @@ impl<'a> EbpfVmRaw<'a> {
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
@@ -1291,10 +1267,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1315,10 +1287,6 @@ impl<'a> EbpfVmNoData<'a> {
     }
 
     /// Load a new eBPF program into the virtual machine instance.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
     ///
     /// # Examples
     ///
