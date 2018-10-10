@@ -136,25 +136,26 @@ All these structs implement the same public functions:
 
 ```rust,ignore
 // called with EbpfVmMbuff:: prefix
-pub fn new(prog: &'a [u8]) -> EbpfVmMbuff<'a>
+pub fn new(prog: &'a [u8]) -> Result<EbpfVmMbuff<'a>, Error>
 
 // called with EbpfVmFixedMbuff:: prefix
 pub fn new(prog: &'a [u8],
            data_offset: usize,
-           data_end_offset: usize) -> EbpfVmFixedMbuff<'a>
+           data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, Error>
 
 // called with EbpfVmRaw:: prefix
-pub fn new(prog: &'a [u8]) -> EbpfVmRaw<'a>
+pub fn new(prog: &'a [u8]) -> Result<EbpfVmRaw<'a>, Error>
 
 // called with EbpfVmNoData:: prefix
-pub fn new(prog: &'a [u8]) -> EbpfVmNoData<'a>
+pub fn new(prog: &'a [u8]) -> Result<EbpfVmNoData<'a>, Error>
 ```
 
 This is used to create a new instance of a VM. The return type is dependent of
 the struct from which the function is called. For instance,
 `rbpf::EbpfVmRaw::new(my_program)` would return an instance of `struct
-rbpf::EbpfVmRaw`. When a program is loaded, it is checked with a very simple
-verifier (nothing close to the one for Linux kernel).
+rbpf::EbpfVmRaw` (wrapped in a `Result`). When a program is loaded, it is
+checked with a very simple verifier (nothing close to the one for Linux
+kernel).
 
 For `struct EbpfVmFixedMbuff`, two additional arguments must be passed to the
 constructor: `data_offset` and `data_end_offset`. They are the offset (byte
@@ -165,12 +166,12 @@ do not need those offsets.
 
 ```rust,ignore
 // for struct EbpfVmMbuff, struct EbpfVmRaw and struct EbpfVmRawData
-pub fn set_prog(&mut self, prog: &'a [u8])
+pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error>
 
 // for struct EbpfVmFixedMbuff
 pub fn set_prog(&mut self, prog: &'a [u8],
                 data_offset: usize,
-                data_end_offset: usize)
+                data_end_offset: usize) -> Result<(), Error>
 ```
 
 You can use for example `my_vm.set_prog(my_program);` to change the loaded
@@ -257,7 +258,7 @@ fn main() {
     // Instantiate a struct EbpfVmNoData. This is an eBPF VM for programs that
     // takes no packet data in argument.
     // The eBPF program is passed to the constructor.
-    let vm = rbpf::EbpfVmNoData::new(prog);
+    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
 
     // Execute (interpret) the program. No argument required for this VM.
     assert_eq!(vm.prog_exec(), 0x3);
@@ -284,7 +285,7 @@ fn main() {
 
     // This is an eBPF VM for programs reading from a given memory area (it
     // directly reads from packet data)
-    let mut vm = rbpf::EbpfVmRaw::new(prog);
+    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
 
     // This time we JIT-compile the program.
     vm.jit_compile();
@@ -325,7 +326,7 @@ fn main() {
     }
 
     // This eBPF VM is for program that use a metadata buffer.
-    let mut vm = rbpf::EbpfVmMbuff::new(prog);
+    let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
 
     // Here again we JIT-compile the program.
     vm.jit_compile();
@@ -412,7 +413,7 @@ fn main() {
     // We must provide the offsets at which the pointers to packet data start
     // and end must be stored: these are the offsets at which the program will
     // load the packet data from the metadata buffer.
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
 
     // We register a helper function, that can be called by the program, into
     // the VM.
