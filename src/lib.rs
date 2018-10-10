@@ -40,7 +40,7 @@ mod asm_parser;
 mod jit;
 mod verifier;
 
-/// eBPF verification function that panics if the program does not meet its requirements
+/// eBPF verification function that panics if the program does not meet its requirements.
 ///
 /// Some examples of things the verifier may panic for:
 ///   - program does not terminate
@@ -92,10 +92,10 @@ struct MetaBuff {
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
-    prog:    Option<&'a [u8]>,
-    verifier: fn(prog: &[u8]) -> Result<(), Error>,
-    jit: (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
-    helpers: HashMap<u32, ebpf::Helper>,
+    prog:     Option<&'a [u8]>,
+    verifier: fn(prog: &[u8]) -> bool,
+    jit:      (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
+    helpers:  HashMap<u32, ebpf::Helper>,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
@@ -170,7 +170,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier
+    /// // simple verifier.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -181,7 +181,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// let prog1 = &[
-    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
@@ -286,7 +286,7 @@ impl<'a> EbpfVmMbuff<'a> {
 
         let prog = match self.prog { 
             Some(prog) => prog,
-            None => panic!("No program, call prog_set()"),
+            None => panic!("Error: No program set, call prog_set() to load one"),
         };
         let stack = vec![0u8;ebpf::STACK_SIZE];
 
@@ -313,8 +313,8 @@ impl<'a> EbpfVmMbuff<'a> {
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
             insn_ptr += 1;
-            let _dst    = insn.dst as usize;
-            let _src    = insn.src as usize;
+            let _dst = insn.dst as usize;
+            let _src = insn.src as usize;
 
             match insn.opc {
 
@@ -631,7 +631,7 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn jit_compile(&mut self) {
         let prog = match self.prog { 
             Some(prog) => prog,
-            None => panic!("No program, call prog_set()"),
+            None => panic!("Error: No program set, call prog_set() to load one"),
         };
         self.jit = jit::compile(prog, &self.helpers, true, false);
     }
@@ -870,7 +870,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier
+    /// // simple verifier.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -881,7 +881,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// }
     ///
     /// let prog1 = &[
-    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
@@ -1020,7 +1020,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     pub fn jit_compile(&mut self) {
         let prog = match self.parent.prog { 
             Some(prog) => prog,
-            None => panic!("No program, call prog_set()"),
+            None => panic!("Error: No program set, call prog_set() to load one"),
         };
         self.parent.jit = jit::compile(prog, &self.parent.helpers, true, true);
     }
@@ -1186,7 +1186,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier
+    /// // simple verifier.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -1197,7 +1197,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// }
     ///
     /// let prog1 = &[
-    ///     0xb7, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
@@ -1308,7 +1308,7 @@ impl<'a> EbpfVmRaw<'a> {
     pub fn jit_compile(&mut self) {
         let prog = match self.parent.prog { 
             Some(prog) => prog,
-            None => panic!("No program, call prog_set()"),
+            None => panic!("Error: No program set, call prog_set() to load one"),
         };
         self.parent.jit = jit::compile(prog, &self.parent.helpers, false, false);
     }
@@ -1469,7 +1469,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier
+    /// // simple verifier.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
