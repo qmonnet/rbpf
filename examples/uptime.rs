@@ -39,7 +39,7 @@ fn main() {
     ];
 
     // Create a VM: this one takes no data. Load prog1 in it.
-    let mut vm = rbpf::EbpfVmNoData::new(prog1).unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
     // Execute prog1.
     assert_eq!(vm.prog_exec(), 0x3);
 
