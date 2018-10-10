@@ -422,6 +422,97 @@ fn main() {
 }
 ```
 
+## Building programs
+
+Besides passing the raw hexadecimal codes for building eBPF programs, two other
+methods are available.
+
+### Assembler
+
+The first method consists in using the assembler provided by the crate.
+
+```rust
+extern crate rbpf;
+use rbpf::assembler::assemble;
+
+let prog = assemble("add64 r1, 0x605
+                     mov64 r2, 0x32
+                     mov64 r1, r0
+                     be16 r0
+                     neg64 r2
+                     exit");
+
+println!("{:?}", prog);
+```
+
+The above snippet will produce:
+
+```rust,ignore
+Ok([0x07, 0x01, 0x00, 0x00, 0x05, 0x06, 0x00, 0x00,
+    0xb7, 0x02, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00,
+    0xbf, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    0x87, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+```
+
+Conversely, a disassembler is also available to dump instruction names from
+bytecode in a human-friendly format.
+
+```rust
+extern crate rbpf;
+use rbpf::disassembler::disassemble;
+
+let prog = &[
+    0x07, 0x01, 0x00, 0x00, 0x05, 0x06, 0x00, 0x00,
+    0xb7, 0x02, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00,
+    0xbf, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xdc, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+    0x87, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+];
+
+disassemble(prog);
+```
+
+This will produce the following output:
+
+```txt
+add64 r1, 0x605
+mov64 r2, 0x32
+mov64 r1, r0
+be16 r0
+neg64 r2
+exit
+```
+
+Please refer to [source code](src/assembler.rs) and [tests](tests/assembler.rs)
+for the syntax and the list of instruction names.
+
+### Building API
+
+The other way to build programs is to chain commands from the instruction
+builder API. It looks less like assembly, maybe more like high-level functions.
+What's sure is that the result is more verbose, but if you prefer to build
+programs this way, it works just as well. If we take again the same sample as
+above, it would be constructed as follows.
+
+```rust
+extern crate rbpf;
+use rbpf::insn_builder::*;
+
+let mut program = BpfCode::new();
+program.add(Source::Imm, Arch::X64).set_dst(1).set_imm(0x605).push()
+       .mov(Source::Imm, Arch::X64).set_dst(2).set_imm(0x32).push()
+       .mov(Source::Reg, Arch::X64).set_src(0).set_dst(1).push()
+       .swap_bytes(Endian::Big).set_dst(0).set_imm(0x10).push()
+       .negate(Arch::X64).set_dst(2).push()
+       .exit().push();
+```
+
+Again, please refer to [the source and related tests](src/insn_builder.rs) to
+get more information and examples on how to use it.
+
 ## Feedback welcome!
 
 This is the author's first try at writing Rust code. He learned a lot in the
