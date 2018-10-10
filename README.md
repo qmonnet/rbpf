@@ -328,7 +328,7 @@ fn main() {
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    unsafe { assert_eq!(vm.prog_exec_jit(mem, &mut mbuff), 0x2211); }
+    unsafe { assert_eq!(vm.prog_exec_jit(mem, mbuff), 0x2211); }
 }
 ```
 
