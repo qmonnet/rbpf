@@ -568,7 +568,7 @@ fn test_vm_err_ldindb_nomem() {
 }
 
 #[test]
-#[should_panic(expected = "No program, call prog_set()")]
+#[should_panic(expected = "Error: No program set, call prog_set() to load one")]
 fn test_vm_exec_no_program() {
     let vm = rbpf::EbpfVmNoData::new(None).unwrap();
     assert_eq!(vm.prog_exec(), 0xBEE);
