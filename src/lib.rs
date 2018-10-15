@@ -126,10 +126,10 @@ impl<'a> EbpfVmMbuff<'a> {
         }
 
         Ok(EbpfVmMbuff {
-            prog:    prog,
+            prog:     prog,
             verifier: verifier::check,
-            jit:     no_jit,
-            helpers: HashMap::new(),
+            jit:      no_jit,
+            helpers:  HashMap::new(),
         })
     }
 
@@ -158,7 +158,7 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function
+    /// Set a new verifier function.
     ///
     /// # Panics
     ///
@@ -187,7 +187,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
-    /// // Change the verifier
+    /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
@@ -858,7 +858,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function
+    /// Set a new verifier function.
     ///
     /// # Panics
     ///
@@ -887,7 +887,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
-    /// // Change the verifier
+    /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
@@ -1174,7 +1174,7 @@ impl<'a> EbpfVmRaw<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function
+    /// Set a new verifier function.
     ///
     /// # Panics
     ///
@@ -1203,7 +1203,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
-    /// // Change the verifier
+    /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
@@ -1457,7 +1457,7 @@ impl<'a> EbpfVmNoData<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function
+    /// Set a new verifier function.
     ///
     /// # Panics
     ///
@@ -1486,7 +1486,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
-    /// // Change the verifier
+    /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {

@@ -1742,25 +1742,3 @@ fn test_vm_tcp_sack_nomatch() {
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     assert_eq!(vm.prog_exec(mem.as_mut_slice()), 0x0);
 }
-
-#[test]
-fn test_vm_set_prog() {
-    let prog = assemble(
-        "mov32 r0, 0xBEE
-         exit",
-    ).unwrap();
-    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    vm.set_prog(&prog).unwrap();
-    assert_eq!(vm.prog_exec(), 0xBEE);
-}
-
-#[test]
-#[should_panic(expected = "[Verifier] Error: program does not end with “EXIT” instruction")]
-fn test_vm_verify_fail() {
-    let prog = assemble(
-        "mov32 r0, 0xBEE",
-    ).unwrap();
-    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    vm.set_prog(&prog).unwrap();
-    assert_eq!(vm.prog_exec(), 0xBEE);
-}
