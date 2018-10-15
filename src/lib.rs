@@ -93,7 +93,7 @@ struct MetaBuff {
 /// ```
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
-    verifier: fn(prog: &[u8]) -> bool,
+    verifier: Verifier,
     jit:      (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
     helpers:  HashMap<u32, ebpf::Helper>,
 }
