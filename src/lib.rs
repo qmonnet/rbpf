@@ -40,13 +40,14 @@ mod asm_parser;
 mod jit;
 mod verifier;
 
-/// eBPF verification function that panics if the program does not meet its requirements.
+/// eBPF verification function that returns an error if the program does not meet its requirements.
 ///
-/// Some examples of things the verifier may panic for:
-///   - program does not terminate
-///   - unknown instructions
-///   - bad formed instruction
-///   - unknown eBPF helper index
+/// Some examples of things the verifier may reject the program for:
+///
+///   - Program does not terminate.
+///   - Unknown instructions.
+///   - Bad formed instruction.
+///   - Unknown eBPF helper index.
 pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
@@ -158,11 +159,9 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    /// Set a new verifier function. The function should return an `Error` if the program should be
+    /// rejected by the virtual machine. If a program has been loaded to the VM already, the
+    /// verifier is immediately run.
     ///
     /// # Examples
     ///
@@ -170,7 +169,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier.
+    /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -858,11 +857,9 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    /// Set a new verifier function. The function should return an `Error` if the program should be
+    /// rejected by the virtual machine. If a program has been loaded to the VM already, the
+    /// verifier is immediately run.
     ///
     /// # Examples
     ///
@@ -870,7 +867,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier.
+    /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -1174,11 +1171,9 @@ impl<'a> EbpfVmRaw<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    /// Set a new verifier function. The function should return an `Error` if the program should be
+    /// rejected by the virtual machine. If a program has been loaded to the VM already, the
+    /// verifier is immediately run.
     ///
     /// # Examples
     ///
@@ -1186,7 +1181,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier.
+    /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
@@ -1457,11 +1452,9 @@ impl<'a> EbpfVmNoData<'a> {
         Ok(())
     }
 
-    /// Set a new verifier function.
-    ///
-    /// # Panics
-    ///
-    /// The simple verifier may panic if it finds errors in the eBPF program at load time.
+    /// Set a new verifier function. The function should return an `Error` if the program should be
+    /// rejected by the virtual machine. If a program has been loaded to the VM already, the
+    /// verifier is immediately run.
     ///
     /// # Examples
     ///
@@ -1469,7 +1462,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// use std::io::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
-    /// // simple verifier.
+    /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {

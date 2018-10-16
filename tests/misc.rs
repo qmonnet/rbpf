@@ -607,5 +607,3 @@ fn test_verifier_fail() {
     vm.set_prog(&prog).unwrap();
     assert_eq!(vm.prog_exec(), 0xBEE);
 }
-
-
