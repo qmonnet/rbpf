@@ -42,7 +42,7 @@ fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
     }
 
     if prog.is_empty() {
-        reject("No program set, call prog_set() to load one".to_string())?;
+        reject("no program set, call set_prog() to load one".to_string())?;
     }
     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     if last_insn.opc != ebpf::EXIT {
