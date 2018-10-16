@@ -26,9 +26,8 @@
 use ebpf;
 use std::io::{Error, ErrorKind};
 
-#[allow(needless_pass_by_value)]
-fn reject(msg: String) -> Result<(), Error> {
-    let full_msg = format!("[Verifier] Error: {}", msg);
+fn reject<S: AsRef<str>>(msg: S) -> Result<(), Error> {
+    let full_msg = format!("[Verifier] Error: {}", msg.as_ref());
     Err(Error::new(ErrorKind::Other, full_msg))
 }
 
