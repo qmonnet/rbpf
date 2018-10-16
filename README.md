@@ -155,7 +155,7 @@ the struct from which the function is called. For instance,
 `rbpf::EbpfVmRaw::new(my_program)` would return an instance of `struct
 rbpf::EbpfVmRaw` (wrapped in a `Result`). When a program is loaded, it is
 checked with a very simple verifier (nothing close to the one for Linux
-kernel).
+kernel). Users are also able to replace it with a custom verifier.
 
 For `struct EbpfVmFixedMbuff`, two additional arguments must be passed to the
 constructor: `data_offset` and `data_end_offset`. They are the offset (byte
@@ -176,7 +176,20 @@ pub fn set_prog(&mut self, prog: &'a [u8],
 
 You can use for example `my_vm.set_prog(my_program);` to change the loaded
 program after the VM instance creation. This program is checked with the
-verifier.
+verifier attached to the VM. The verifying function of the VM can be changed at
+any moment.
+
+```rust,ignore
+pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
+
+pub fn set_verifier(&mut self,
+                    verifier: Verifier) -> Result<(), Error>
+```
+
+Note that if a program has already been loaded into the VM, setting a new
+verifier also immediately runs it on the loaded program. However, the verifier
+is not run if no program has been loaded (if `None` was passed to the `new()`
+method when creating the VM).
 
 ```rust,ignore
 pub fn register_helper(&mut self,
