@@ -21,6 +21,9 @@
 // use std::path::PathBuf;
 
 extern crate rbpf;
+
+use std::io::{Error, ErrorKind};
+use rbpf::assembler::assemble;
 use rbpf::helpers;
 
 // The following two examples have been compiled from C with the following command:
@@ -162,7 +165,7 @@ fn test_vm_block_port() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
     let res = vm.prog_exec(packet);
@@ -244,7 +247,7 @@ fn test_jit_block_port() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
     vm.jit_compile();
 
@@ -277,7 +280,7 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
+    let vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 
@@ -304,7 +307,7 @@ fn test_vm_mbuff_with_rust_api() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = rbpf::EbpfVmMbuff::new(program.into_bytes()).unwrap();
+    let vm = rbpf::EbpfVmMbuff::new(Some(program.into_bytes())).unwrap();
     assert_eq!(vm.prog_exec(mem, &mbuff), 0x2211);
 }
 
@@ -332,7 +335,7 @@ fn test_jit_mbuff() {
     }
 
     unsafe {
-        let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
+        let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
         vm.jit_compile();
         assert_eq!(vm.prog_exec_jit(mem, &mut mbuff), 0x2211);
     }
@@ -349,7 +352,7 @@ fn test_vm_jit_ldabsb() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x33);
 
     vm.jit_compile();
@@ -369,7 +372,7 @@ fn test_vm_jit_ldabsh() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x4433);
 
     vm.jit_compile();
@@ -389,7 +392,7 @@ fn test_vm_jit_ldabsw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x66554433);
     vm.jit_compile();
 
@@ -409,7 +412,7 @@ fn test_vm_jit_ldabsdw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0xaa99887766554433);
     vm.jit_compile();
 
@@ -429,7 +432,7 @@ fn test_vm_err_ldabsb_oob() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     vm.prog_exec(mem);
 
     // Memory check not implemented for JIT yet.
@@ -442,7 +445,7 @@ fn test_vm_err_ldabsb_nomem() {
         0x38, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     vm.prog_exec();
 
     // Memory check not implemented for JIT yet.
@@ -460,7 +463,7 @@ fn test_vm_jit_ldindb() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x88);
 
     vm.jit_compile();
@@ -481,7 +484,7 @@ fn test_vm_jit_ldindh() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x9988);
 
     vm.jit_compile();
@@ -502,7 +505,7 @@ fn test_vm_jit_ldindw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0x88776655);
     vm.jit_compile();
 
@@ -523,7 +526,7 @@ fn test_vm_jit_ldinddw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.prog_exec(mem), 0xccbbaa9988776655);
     vm.jit_compile();
 
@@ -544,7 +547,7 @@ fn test_vm_err_ldindb_oob() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     vm.prog_exec(mem);
 
     // Memory check not implemented for JIT yet.
@@ -558,8 +561,51 @@ fn test_vm_err_ldindb_nomem() {
         0x38, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     vm.prog_exec();
 
     // Memory check not implemented for JIT yet.
 }
+
+#[test]
+#[should_panic(expected = "Error: No program set, call prog_set() to load one")]
+fn test_vm_exec_no_program() {
+    let vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+fn verifier_success(_prog: &[u8]) -> Result<(), Error> {
+    Ok(())
+}
+
+fn verifier_fail(_prog: &[u8]) -> Result<(), Error> {
+    Err(Error::new(ErrorKind::Other,
+                   "Gaggablaghblagh!"))
+}
+
+#[test]
+fn test_verifier_success() {
+    let prog = assemble(
+        "mov32 r0, 0xBEE
+         exit",
+    ).unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(verifier_success).unwrap();
+    vm.set_prog(&prog).unwrap();
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+#[test]
+#[should_panic(expected = "Gaggablaghblagh!")]
+fn test_verifier_fail() {
+    let prog = assemble(
+        "mov32 r0, 0xBEE
+         exit",
+    ).unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(verifier_fail).unwrap();
+    vm.set_prog(&prog).unwrap();
+    assert_eq!(vm.prog_exec(), 0xBEE);
+}
+
+

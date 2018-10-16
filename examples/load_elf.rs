@@ -111,7 +111,7 @@ fn main() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
 
     let res = vm.prog_exec(packet1);
