@@ -591,7 +591,7 @@ fn test_verifier_success() {
     ).unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(verifier_success).unwrap();
-    vm.set_prog(&prog).unwrap();;
+    vm.set_prog(&prog).unwrap();
     assert_eq!(vm.prog_exec(), 0xBEE);
 }
 
@@ -602,9 +602,9 @@ fn test_verifier_fail() {
         "mov32 r0, 0xBEE
          exit",
     ).unwrap();
-    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();;
-    vm.set_verifier(verifier_fail).unwrap();;
-    vm.set_prog(&prog).unwrap();;
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(verifier_fail).unwrap();
+    vm.set_prog(&prog).unwrap();
     assert_eq!(vm.prog_exec(), 0xBEE);
 }
 
