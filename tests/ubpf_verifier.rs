@@ -34,7 +34,7 @@ fn test_verifier_err_div_by_zero_imm() {
         div32 r0, 0
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn test_verifier_err_endian_size() {
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
     let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn test_verifier_err_incomplete_lddw() { // Note: ubpf has test-err-incomplete-l
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
     let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_verifier_err_infinite_loop() {
         ja -1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn test_verifier_err_invalid_reg_dst() {
         mov r11, 1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_verifier_err_invalid_reg_src() {
         mov r0, r11
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn test_verifier_err_jmp_lddw() {
         lddw r0, 0x1122334455667788
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn test_verifier_err_jmp_out() {
         ja +2
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn test_verifier_err_no_exit() {
     let prog = assemble("
         mov32 r0, 0").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn test_verifier_err_too_many_instructions() {
     prog.append(&mut vec![ 0x95, 0, 0, 0, 0, 0, 0, 0 ]);
 
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn test_verifier_err_unknown_opcode() {
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
     let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
 
 #[test]
@@ -154,5 +154,5 @@ fn test_verifier_err_write_r10() {
         mov r10, 1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.prog_exec();
+    vm.prog_exec().unwrap();
 }
