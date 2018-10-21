@@ -50,6 +50,9 @@ mod verifier;
 ///   - Unknown eBPF helper index.
 pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
+/// eBPF Jit-compiled program.
+pub type JitCompiled = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
+
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
 // actually handle it. The offsets are used to tell the VM where in the buffer the pointers to
@@ -95,7 +98,7 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
     verifier: Verifier,
-    jit:      Option<(unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64)>,
+    jit:      Option<JitCompiled>,
     helpers:  HashMap<u32, ebpf::Helper>,
 }
 
@@ -120,12 +123,6 @@ impl<'a> EbpfVmMbuff<'a> {
         if let Some(prog) = prog {
             verifier::check(prog)?;
         }
-
-        // fn no_jit(_mbuff: *mut u8, _len: usize, _mem: *mut u8, _mem_len: usize,
-        //           _nodata_offset: usize, _nodata_end_offset: usize) -> u64 {
-        //     Err(Error::new(ErrorKind::Other,
-        //         "Error: program has not been JIT-compiled")?;
-        // }
 
         Ok(EbpfVmMbuff {
             prog:     prog,
@@ -244,12 +241,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from the
     /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
     /// pointers are correctly stored in the buffer.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -610,11 +601,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
     ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
-    ///
     /// # Examples
     ///
     /// ```
@@ -633,9 +619,9 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog { 
             Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other, format!("Error: No program set, call prog_set() to load one")))?,
+            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.jit = Some(jit::compile(prog, &self.helpers, true, false));
+        self.jit = Some(jit::compile(prog, &self.helpers, true, false)?);
         Ok(())
     }
 
@@ -646,10 +632,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from the
     /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
     /// pointers are correctly stored in the buffer.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -952,12 +934,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
     /// the addresses should be placed should have be set at the creation of the VM.
     ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
-    ///
     /// # Examples
     ///
     /// ```
@@ -998,11 +974,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
     ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1027,7 +998,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, true, true));
+        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, true, true)?);
         Ok(())
     }
 
@@ -1038,10 +1009,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from some
     /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
     /// the addresses should be placed should have be set at the creation of the VM.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -1263,12 +1230,6 @@ impl<'a> EbpfVmRaw<'a> {
 
     /// Execute the program loaded, with the given packet data.
     ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
-    ///
     /// # Examples
     ///
     /// ```
@@ -1297,11 +1258,6 @@ impl<'a> EbpfVmRaw<'a> {
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
     ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1323,16 +1279,12 @@ impl<'a> EbpfVmRaw<'a> {
             None => Err(Error::new(ErrorKind::Other,
                         "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, false, false));
+        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, false, false)?);
         Ok(())
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
     /// similar to `prog_exec()`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -1544,11 +1496,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
     ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
-    ///
     /// # Examples
     ///
     /// ```
@@ -1569,12 +1516,6 @@ impl<'a> EbpfVmNoData<'a> {
     }
 
     /// Execute the program loaded, without providing pointers to any memory area whatsoever.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as memory accesses or division by zero attempts. This may be changed in the
-    /// future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -1597,10 +1538,6 @@ impl<'a> EbpfVmNoData<'a> {
 
     /// Execute the previously JIT-compiled program, without providing pointers to any memory area
     /// whatsoever, in a manner very similar to `prog_exec()`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
