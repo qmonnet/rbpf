@@ -65,7 +65,7 @@ fn main() {
 
     #[cfg(windows)]
     {
-        time = vm.prog_exec();
+        time = vm.prog_exec().unwrap();
     }
 
     let days    =  time / 10u64.pow(9)  / 60   / 60  / 24;
