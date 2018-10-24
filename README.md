@@ -686,6 +686,9 @@ details.
 
 ## Other resources
 
+* Cilium project documentation about BPF: [_BPF and XDP Reference
+  Guide_](http://docs.cilium.io/en/latest/bpf/)
+
 * Kernel documentation about BPF: [Documentation/networking/filter.txt
   file](https://www.kernel.org/doc/Documentation/networking/filter.txt)
 
