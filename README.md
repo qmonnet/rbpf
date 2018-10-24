@@ -166,15 +166,15 @@ do not need those offsets.
 
 ```rust,ignore
 // for struct EbpfVmMbuff, struct EbpfVmRaw and struct EbpfVmRawData
-pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error>
+pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error>
 
 // for struct EbpfVmFixedMbuff
-pub fn set_prog(&mut self, prog: &'a [u8],
+pub fn set_program(&mut self, prog: &'a [u8],
                 data_offset: usize,
                 data_end_offset: usize) -> Result<(), Error>
 ```
 
-You can use for example `my_vm.set_prog(my_program);` to change the loaded
+You can use for example `my_vm.set_program(my_program);` to change the loaded
 program after the VM instance creation. This program is checked with the
 verifier attached to the VM. The verifying function of the VM can be changed at
 any moment.
@@ -205,16 +205,16 @@ therefore must use specific helper numbers.
 
 ```rust,ignore
 // for struct EbpfVmMbuff
-pub fn prog_exec(&self,
+pub fn execute_program(&self,
                  mem: &'a mut [u8],
                  mbuff: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub fn prog_exec(&self,
+pub fn execute_program(&self,
                  mem: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
-pub fn prog_exec(&self) -> Result<(u64), Error>
+pub fn execute_program(&self) -> Result<(u64), Error>
 ```
 
 Interprets the loaded program. The function takes a reference to the packet
@@ -232,18 +232,18 @@ is called. The generated assembly function is internally stored in the VM.
 
 ```rust,ignore
 // for struct EbpfVmMbuff
-pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8],
+pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8],
                             mbuff: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> Result<(u64), Error>
+pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
-pub unsafe fn prog_exec_jit(&self) -> Result<(u64), Error>
+pub unsafe fn execute_program_jit(&self) -> Result<(u64), Error>
 ```
 
 Calls the JIT-compiled program. The arguments to provide are the same as for
-`prog_exec()`, again depending on the kind of VM that is used. The result of
+`execute_program()`, again depending on the kind of VM that is used. The result of
 the JIT-compiled program should be the same as with the interpreter, but it
 should run faster. Note that if errors occur during the program execution, the
 JIT-compiled version does not handle it as well as the interpreter, and the
@@ -275,7 +275,7 @@ fn main() {
     let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
 
     // Execute (interpret) the program. No argument required for this VM.
-    assert_eq!(vm.prog_exec().unwrap(), 0x3);
+    assert_eq!(vm.execute_program().unwrap(), 0x3);
 }
 ```
 
@@ -306,7 +306,7 @@ fn main() {
 
     // Then we execute it. For this kind of VM, a reference to the packet data
     // must be passed to the function that executes the program.
-    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11); }
+    unsafe { assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11); }
 }
 ```
 ### Using a metadata buffer
@@ -347,7 +347,7 @@ fn main() {
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    unsafe { assert_eq!(vm.prog_exec_jit(mem, mbuff).unwrap(), 0x2211); }
+    unsafe { assert_eq!(vm.execute_program_jit(mem, mbuff).unwrap(), 0x2211); }
 }
 ```
 
@@ -437,7 +437,7 @@ fn main() {
     // This kind of VM takes a reference to the packet data, but does not need
     // any reference to the metadata buffer: a fixed buffer is handled
     // internally by the VM.
-    let res = vm.prog_exec(packet).unwrap();
+    let res = vm.execute_program(packet).unwrap();
     println!("Program returned: {:?} ({:#x})", res, res);
 }
 ```
