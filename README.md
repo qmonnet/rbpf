@@ -563,9 +563,9 @@ Other than the language, obviously? Well, there are some differences:
   stack, differs between uBPF and rbpf. The latter uses the same values as the
   Linux kernel, while uBPF has its own values.
 
-* When an error occur while a program is run by uBPF, the function running the
+* When an error occurs while a program is run by uBPF, the function running the
   program silently returns the maximum value as an error code, while rbpf
-  Rust type `Error`.
+  returns Rust type `Error`.
 
 * The registration of helper functions, that can be called from within an eBPF
   program, is not handled in the same way.
