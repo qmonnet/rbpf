@@ -160,7 +160,7 @@ kernel). Users are also able to replace it with a custom verifier.
 For `struct EbpfVmFixedMbuff`, two additional arguments must be passed to the
 constructor: `data_offset` and `data_end_offset`. They are the offset (byte
 number) at which the pointers to the beginning and to the end, respectively, of
-the memory area of the packet data, are to be stored in the internal metadata buffer
+the memory area of packet data are to be stored in the internal metadata buffer
 each time the program is executed. Other structs do not use this mechanism and
 do not need those offsets.
 
@@ -537,7 +537,7 @@ get more information and examples on how to use it.
 
 This is the author's first try at writing Rust code. He learned a lot in the
 process, but there remains a feeling that this crate has a kind of C-ish style
-in some places instead of the Rusty look, the author would like it to have. So
+in some places instead of the Rusty look the author would like it to have. So
 feedback (or PRs) are welcome, including about ways you might see to take
 better advantage of Rust features.
 
@@ -635,7 +635,7 @@ on your own.
 * The JIT compiler produces an unsafe program: memory access are not tested at
   runtime (yet). Use with caution.
 
-* Contrary to the interpreter, if a division by 0 is attempted, the JIT program
+* If a division by 0 is attempted by a JIT-ted program, the program
   returns `0xffffffffffffffff` and exits cleanly (no `panic!()`). This is
   because the author has not found how to make `panic!()` work from the
   generated assembly so far.
