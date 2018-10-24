@@ -92,7 +92,7 @@ struct MetaBuff {
 /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 ///
 /// // Provide both a reference to the packet data, and to the metadata buffer.
-/// let res = vm.prog_exec(mem, &mut mbuff).unwrap();
+/// let res = vm.execute_program(mem, &mut mbuff).unwrap();
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
@@ -149,9 +149,9 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
-    /// vm.set_prog(prog2).unwrap();
+    /// vm.set_program(prog2).unwrap();
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+    pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error> {
         (self.verifier)(prog)?;
         self.prog = Some(prog);
         Ok(())
@@ -268,12 +268,12 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// let res = vm.prog_exec(mem, &mut mbuff).unwrap();
+    /// let res = vm.execute_program(mem, &mut mbuff).unwrap();
     /// assert_eq!(res, 0x2211);
     /// ```
     #[allow(unknown_lints)]
     #[allow(cyclomatic_complexity)]
-    pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
+    pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         const U32MAX: u64 = u32::MAX as u64;
 
         let prog = match self.prog { 
@@ -626,7 +626,7 @@ impl<'a> EbpfVmMbuff<'a> {
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data and metadata
-    /// buffer, in a manner very similar to `prog_exec()`.
+    /// buffer, in a manner very similar to `execute_program()`.
     ///
     /// If the program is made to be compatible with Linux kernel, it is expected to load the
     /// address of the beginning and of the end of the memory area used for packet data from the
@@ -673,11 +673,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Provide both a reference to the packet data, and to the metadata buffer.
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem, &mut mbuff).unwrap();
+    ///     let res = vm.execute_program_jit(mem, &mut mbuff).unwrap();
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -703,7 +703,7 @@ impl<'a> EbpfVmMbuff<'a> {
 ///
 /// This struct implements a static internal buffer that is passed to the program. The user has to
 /// indicate the offset values at which the eBPF program expects to find the start and the end of
-/// packet data in the buffer. On calling the `prog_exec()` or `prog_exec_jit()` functions, the
+/// packet data in the buffer. On calling the `execute_program()` or `execute_program_jit()` functions, the
 /// struct automatically updates the addresses in this static buffer, at the appointed offsets, for
 /// the start and the end of the packet data the program is called upon.
 ///
@@ -758,10 +758,10 @@ impl<'a> EbpfVmMbuff<'a> {
 /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
 ///
 /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-/// let res = vm.prog_exec(mem1).unwrap();
+/// let res = vm.execute_program(mem1).unwrap();
 /// assert_eq!(res, 0xffffffffffffffdd);
 ///
-/// let res = vm.prog_exec(mem2).unwrap();
+/// let res = vm.execute_program(mem2).unwrap();
 /// assert_eq!(res, 0x27);
 /// ```
 pub struct EbpfVmFixedMbuff<'a> {
@@ -832,18 +832,18 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog1), 0, 0).unwrap();
-    /// vm.set_prog(prog2, 0x40, 0x50);
+    /// vm.set_program(prog2, 0x40, 0x50);
     ///
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x27);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
+    pub fn set_program(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         self.mbuff.buffer = buffer;
         self.mbuff.data_offset = data_offset;
         self.mbuff.data_end_offset = data_end_offset;
-        self.parent.set_prog(prog)?;
+        self.parent.set_program(prog)?;
         Ok(())
     }
 
@@ -920,7 +920,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 3);
     /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
@@ -954,10 +954,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0xdd);
     /// ```
-    pub fn prog_exec(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
@@ -966,7 +966,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         }
         LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_offset) .. ], mem.as_ptr() as u64);
         LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_end_offset) .. ], mem.as_ptr() as u64 + mem.len() as u64);
-        self.parent.prog_exec(mem, &self.mbuff.buffer)
+        self.parent.execute_program(mem, &self.mbuff.buffer)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -1003,7 +1003,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
-    /// similar to `prog_exec()`.
+    /// similar to `execute_program()`.
     ///
     /// If the program is made to be compatible with Linux kernel, it is expected to load the
     /// address of the beginning and of the end of the memory area used for packet data from some
@@ -1044,13 +1044,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem).unwrap();
+    ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0xdd);
     /// }
     /// ```
-    // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
+    // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -1093,7 +1093,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
-/// let res = vm.prog_exec(mem).unwrap();
+/// let res = vm.execute_program(mem).unwrap();
 /// assert_eq!(res, 0x22cc);
 /// ```
 pub struct EbpfVmRaw<'a> {
@@ -1146,13 +1146,13 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog1)).unwrap();
-    /// vm.set_prog(prog2);
+    /// vm.set_program(prog2);
     ///
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
-        self.parent.set_prog(prog)?;
+    pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+        self.parent.set_program(prog)?;
         Ok(())
     }
 
@@ -1222,7 +1222,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x10000000);
     /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
@@ -1247,11 +1247,11 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
-    /// let res = vm.prog_exec(mem).unwrap();
+    /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn prog_exec(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
-        self.parent.prog_exec(mem, &[])
+    pub fn execute_program(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+        self.parent.execute_program(mem, &[])
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -1285,7 +1285,7 @@ impl<'a> EbpfVmRaw<'a> {
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
-    /// similar to `prog_exec()`.
+    /// similar to `execute_program()`.
     ///
     /// # Safety
     ///
@@ -1317,13 +1317,13 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem).unwrap();
+    ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
-        self.parent.prog_exec_jit(mem, &mut mbuff)
+        self.parent.execute_program_jit(mem, &mut mbuff)
     }
 }
 
@@ -1363,7 +1363,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
-/// let res = vm.prog_exec().unwrap();
+/// let res = vm.execute_program().unwrap();
 /// assert_eq!(res, 0x11);
 /// ```
 pub struct EbpfVmNoData<'a> {
@@ -1411,16 +1411,16 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
     ///
-    /// let res = vm.prog_exec().unwrap();
+    /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x2211);
     ///
-    /// vm.set_prog(prog2);
+    /// vm.set_program(prog2);
     ///
-    /// let res = vm.prog_exec().unwrap();
+    /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
-        self.parent.set_prog(prog)?;
+    pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error> {
+        self.parent.set_program(prog)?;
         Ok(())
     }
 
@@ -1485,7 +1485,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti).unwrap();
     ///
-    /// let res = vm.prog_exec().unwrap();
+    /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1000);
     /// ```
     pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
@@ -1529,16 +1529,16 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
-    /// // For this kind of VM, the `prog_exec()` function needs no argument.
-    /// let res = vm.prog_exec().unwrap();
+    /// // For this kind of VM, the `execute_program()` function needs no argument.
+    /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn prog_exec(&self) -> Result<(u64), Error> {
-        self.parent.prog_exec(&mut [])
+    pub fn execute_program(&self) -> Result<(u64), Error> {
+        self.parent.execute_program(&mut [])
     }
 
     /// Execute the previously JIT-compiled program, without providing pointers to any memory area
-    /// whatsoever, in a manner very similar to `prog_exec()`.
+    /// whatsoever, in a manner very similar to `execute_program()`.
     ///
     /// # Safety
     ///
@@ -1565,11 +1565,11 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit().unwrap();
+    ///     let res = vm.execute_program_jit().unwrap();
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self) -> Result<(u64), Error> {
-        self.parent.prog_exec_jit(&mut [])
+    pub unsafe fn execute_program_jit(&self) -> Result<(u64), Error> {
+        self.parent.execute_program_jit(&mut [])
     }
 }
