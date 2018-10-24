@@ -12,10 +12,13 @@
 use std;
 use std::mem;
 use std::collections::HashMap;
-use std::fmt::{Error, Formatter};
+use std::fmt::Formatter;
+use std::fmt::Error as FormatterError;
+use std::io::{Error, ErrorKind};
 use std::ops::{Index, IndexMut};
 
 use ebpf;
+use JitProgram;
 
 extern crate libc;
 
@@ -453,7 +456,7 @@ impl<'a> JitMemory<'a> {
     }
 
     fn jit_compile(&mut self, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
-                   helpers: &HashMap<u32, ebpf::Helper>) {
+                   helpers: &HashMap<u32, ebpf::Helper>) -> Result<(), Error> {
         emit_push(self, RBP);
         emit_push(self, RBX);
         emit_push(self, R13);
@@ -778,8 +781,9 @@ impl<'a> JitMemory<'a> {
                         emit_mov(self, R9, RCX);
                         emit_call(self, *helper as usize);
                     } else {
-                        panic!("[JIT] Error: unknown helper function (id: {:#x})",
-                               insn.imm as u32);
+                        Err(Error::new(ErrorKind::Other,
+                                       format!("[JIT] Error: unknown helper function (id: {:#x})",
+                                               insn.imm as u32)))?;
                     };
                 },
                 ebpf::TAIL_CALL  => { unimplemented!() },
@@ -790,8 +794,9 @@ impl<'a> JitMemory<'a> {
                 },
 
                 _                => {
-                    panic!("[JIT] Error: unknown eBPF opcode {:#2x} (insn #{:?})",
-                           insn.opc, insn_ptr);
+                    Err(Error::new(ErrorKind::Other,
+                                   format!("[JIT] Error: unknown eBPF opcode {:#2x} (insn #{:?})",
+                                           insn.opc, insn_ptr)))?;
                 },
             }
 
@@ -836,9 +841,10 @@ impl<'a> JitMemory<'a> {
         emit_call(self, log as usize);
         emit_load_imm(self, map_register(0), -1);
         emit_jmp(self, TARGET_PC_EXIT);
+        Ok(())
     }
 
-    fn resolve_jumps(&mut self)
+    fn resolve_jumps(&mut self) -> Result<(), Error>
     {
         for jump in &self.jumps {
             let target_loc = match self.special_targets.get(&jump.target_pc) {
@@ -857,6 +863,7 @@ impl<'a> JitMemory<'a> {
                              std::mem::size_of::<i32>());
             }
         }
+        Ok(())
     }
 } // struct JitMemory
 
@@ -875,7 +882,7 @@ impl<'a> IndexMut<usize> for JitMemory<'a> {
 }
 
 impl<'a> std::fmt::Debug for JitMemory<'a> {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
         fmt.write_str("JIT contents: [")?;
         for i in self.contents as &[u8] {
             fmt.write_fmt(format_args!(" {:#04x},", i))?;
@@ -894,13 +901,13 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 pub fn compile(prog: &[u8],
                helpers: &HashMap<u32, ebpf::Helper>,
                use_mbuff: bool, update_data_ptr: bool)
-    -> (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64) {
+    -> Result<(JitProgram), Error> {
 
     // TODO: check how long the page must be to be sure to support an eBPF program of maximum
     // possible length
     let mut jit = JitMemory::new(1);
-    jit.jit_compile(prog, use_mbuff, update_data_ptr, helpers);
-    jit.resolve_jumps();
+    jit.jit_compile(prog, use_mbuff, update_data_ptr, helpers)?;
+    jit.resolve_jumps()?;
 
-    unsafe { mem::transmute(jit.contents.as_ptr()) }
+    Ok(unsafe { mem::transmute(jit.contents.as_ptr()) })
 }

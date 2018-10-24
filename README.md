@@ -194,7 +194,8 @@ method when creating the VM).
 ```rust,ignore
 pub fn register_helper(&mut self,
                        key: u32,
-                       function: fn (u64, u64, u64, u64, u64) -> u64)
+                       function: fn (u64, u64, u64, u64, u64) -> u64) 
+                       -> Result<(), Error>
 ```
 
 This function is used to register a helper function. The VM stores its
@@ -206,14 +207,14 @@ therefore must use specific helper numbers.
 // for struct EbpfVmMbuff
 pub fn prog_exec(&self,
                  mem: &'a mut [u8],
-                 mbuff: &'a mut [u8]) -> u64
+                 mbuff: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
 pub fn prog_exec(&self,
-                 mem: &'a mut [u8]) -> u64
+                 mem: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
-pub fn prog_exec(&self) -> u64
+pub fn prog_exec(&self) -> Result<(u64), Error>
 ```
 
 Interprets the loaded program. The function takes a reference to the packet
@@ -222,7 +223,7 @@ depending on the kind of the VM used. The value returned is the result of the
 eBPF program.
 
 ```rust,ignore
-pub fn jit_compile(&mut self)
+pub fn jit_compile(&mut self) -> Result<(), Error>
 ```
 
 JIT-compile the loaded program, for x86_64 architecture. If the program is to
@@ -232,13 +233,13 @@ is called. The generated assembly function is internally stored in the VM.
 ```rust,ignore
 // for struct EbpfVmMbuff
 pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8],
-                            mbuff: &'a mut [u8]) -> u64
+                            mbuff: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> u64
+pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
-pub unsafe fn prog_exec_jit(&self) -> u64
+pub unsafe fn prog_exec_jit(&self) -> Result<(u64), Error>
 ```
 
 Calls the JIT-compiled program. The arguments to provide are the same as for
@@ -274,7 +275,7 @@ fn main() {
     let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
 
     // Execute (interpret) the program. No argument required for this VM.
-    assert_eq!(vm.prog_exec(), 0x3);
+    assert_eq!(vm.prog_exec().unwrap(), 0x3);
 }
 ```
 
@@ -301,11 +302,11 @@ fn main() {
     let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
 
     // This time we JIT-compile the program.
-    vm.jit_compile();
+    vm.jit_compile().unwrap();
 
     // Then we execute it. For this kind of VM, a reference to the packet data
     // must be passed to the function that executes the program.
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11); }
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11); }
 }
 ```
 ### Using a metadata buffer
@@ -342,11 +343,11 @@ fn main() {
     let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
 
     // Here again we JIT-compile the program.
-    vm.jit_compile();
+    vm.jit_compile().unwrap();
 
     // Here we must provide both a reference to the packet data, and to the
     // metadata buffer we use.
-    unsafe { assert_eq!(vm.prog_exec_jit(mem, mbuff), 0x2211); }
+    unsafe { assert_eq!(vm.prog_exec_jit(mem, mbuff).unwrap(), 0x2211); }
 }
 ```
 
@@ -430,12 +431,13 @@ fn main() {
 
     // We register a helper function, that can be called by the program, into
     // the VM.
-    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf);
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX,
+                       helpers::bpf_trace_printf).unwrap();
 
     // This kind of VM takes a reference to the packet data, but does not need
     // any reference to the metadata buffer: a fixed buffer is handled
     // internally by the VM.
-    let res = vm.prog_exec(packet);
+    let res = vm.prog_exec(packet).unwrap();
     println!("Program returned: {:?} ({:#x})", res, res);
 }
 ```
@@ -458,7 +460,7 @@ let prog = assemble("add64 r1, 0x605
                      mov64 r1, r0
                      be16 r0
                      neg64 r2
-                     exit");
+                     exit").unwrap();
 
 println!("{:?}", prog);
 ```
@@ -561,9 +563,9 @@ Other than the language, obviously? Well, there are some differences:
   stack, differs between uBPF and rbpf. The latter uses the same values as the
   Linux kernel, while uBPF has its own values.
 
-* When an error occur while a program is run by uBPF, the function running the
+* When an error occurs while a program is run by uBPF, the function running the
   program silently returns the maximum value as an error code, while rbpf
-  `panic!()`.
+  returns Rust type `Error`.
 
 * The registration of helper functions, that can be called from within an eBPF
   program, is not handled in the same way.
@@ -615,8 +617,8 @@ not trivial, and we cannot “copy” it since it is under GPL license.
 ### What about safety then?
 
 Rust has a strong emphasize on safety. Yet to have the eBPF VM work, some
-“unsafe” blocks of code are used. The VM, taken as an eBPF interpreter, can
-`panic!()` but should not crash. Please file an issue otherwise.
+`unsafe` blocks of code are used. The VM, taken as an eBPF interpreter, can
+return an error but should not crash. Please file an issue otherwise.
 
 As for the JIT-compiler, it is a different story, since runtime memory checks
 are more complicated to implement in assembly. It _will_ crash if your
@@ -648,7 +650,6 @@ on your own.
 * Implement some traits (`Clone`, `Drop`, `Debug` are good candidate).
 * Provide built-in support for user-space array and hash BPF maps.
 * Improve safety of JIT-compiled programs with runtime memory checks.
-* Replace `panic!()` by cleaner error handling.
 * Add helpers (some of those supported in the kernel, such as checksum update,
   could be helpful).
 * Improve verifier. Could we find a way to directly support programs compiled

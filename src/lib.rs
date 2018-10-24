@@ -27,7 +27,7 @@ extern crate time;
 
 use std::u32;
 use std::collections::HashMap;
-use std::io::Error;
+use std::io::{Error, ErrorKind};
 use byteorder::{ByteOrder, LittleEndian};
 
 pub mod assembler;
@@ -49,6 +49,9 @@ mod verifier;
 ///   - Bad formed instruction.
 ///   - Unknown eBPF helper index.
 pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
+
+/// eBPF Jit-compiled program.
+pub type JitProgram = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
@@ -89,13 +92,13 @@ struct MetaBuff {
 /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 ///
 /// // Provide both a reference to the packet data, and to the metadata buffer.
-/// let res = vm.prog_exec(mem, &mut mbuff);
+/// let res = vm.prog_exec(mem, &mut mbuff).unwrap();
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
     verifier: Verifier,
-    jit:      (unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64),
+    jit:      Option<JitProgram>,
     helpers:  HashMap<u32, ebpf::Helper>,
 }
 
@@ -121,15 +124,10 @@ impl<'a> EbpfVmMbuff<'a> {
             verifier::check(prog)?;
         }
 
-        fn no_jit(_mbuff: *mut u8, _len: usize, _mem: *mut u8, _mem_len: usize,
-                  _nodata_offset: usize, _nodata_end_offset: usize) -> u64 {
-            panic!("Error: program has not been JIT-compiled");
-        }
-
         Ok(EbpfVmMbuff {
             prog:     prog,
             verifier: verifier::check,
-            jit:      no_jit,
+            jit:      None,
             helpers:  HashMap::new(),
         })
     }
@@ -230,10 +228,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Register a helper.
     /// // On running the program this helper will print the content of registers r3, r4 and r5 to
     /// // standard output.
-    /// vm.register_helper(6, helpers::bpf_trace_printf);
+    /// vm.register_helper(6, helpers::bpf_trace_printf).unwrap();
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
+    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
         self.helpers.insert(key, function);
+        Ok(())
     }
 
     /// Execute the program loaded, with the given packet data and metadata buffer.
@@ -242,12 +241,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from the
     /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
     /// pointers are correctly stored in the buffer.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -275,17 +268,18 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// let res = vm.prog_exec(mem, &mut mbuff);
+    /// let res = vm.prog_exec(mem, &mut mbuff).unwrap();
     /// assert_eq!(res, 0x2211);
     /// ```
     #[allow(unknown_lints)]
     #[allow(cyclomatic_complexity)]
-    pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> u64 {
+    pub fn prog_exec(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         const U32MAX: u64 = u32::MAX as u64;
 
         let prog = match self.prog { 
             Some(prog) => prog,
-            None => panic!("Error: No program set, call prog_set() to load one"),
+            None => Err(Error::new(ErrorKind::Other,
+                        "Error: No program set, call prog_set() to load one"))?,
         };
         let stack = vec![0u8;ebpf::STACK_SIZE];
 
@@ -301,10 +295,10 @@ impl<'a> EbpfVmMbuff<'a> {
         }
 
         let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVmMbuff::check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack)
         };
         let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-            EbpfVmMbuff::check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack);
+            EbpfVmMbuff::check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack)
         };
 
         // Loop on instructions
@@ -323,42 +317,42 @@ impl<'a> EbpfVmMbuff<'a> {
                 // bother re-fetching it, just use mem already.
                 ebpf::LD_ABS_B   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_ABS_H   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_ABS_W   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_ABS_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_IND_B   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_IND_H   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_IND_W   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_IND_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
 
@@ -372,75 +366,75 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::LD_B_REG   => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u8;
-                    check_mem_load(x as u64, 1, insn_ptr);
+                    check_mem_load(x as u64, 1, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_H_REG   => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u16;
-                    check_mem_load(x as u64, 2, insn_ptr);
+                    check_mem_load(x as u64, 2, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_W_REG   => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u32;
-                    check_mem_load(x as u64, 4, insn_ptr);
+                    check_mem_load(x as u64, 4, insn_ptr)?;
                     *x as u64
                 },
                 ebpf::LD_DW_REG  => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u64;
-                    check_mem_load(x as u64, 8, insn_ptr);
+                    check_mem_load(x as u64, 8, insn_ptr)?;
                     *x as u64
                 },
 
                 // BPF_ST class
                 ebpf::ST_B_IMM   => unsafe {
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u8;
-                    check_mem_store(x as u64, 1, insn_ptr);
+                    check_mem_store(x as u64, 1, insn_ptr)?;
                     *x = insn.imm as u8;
                 },
                 ebpf::ST_H_IMM   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
-                    check_mem_store(x as u64, 2, insn_ptr);
+                    check_mem_store(x as u64, 2, insn_ptr)?;
                     *x = insn.imm as u16;
                 },
                 ebpf::ST_W_IMM   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
-                    check_mem_store(x as u64, 4, insn_ptr);
+                    check_mem_store(x as u64, 4, insn_ptr)?;
                     *x = insn.imm as u32;
                 },
                 ebpf::ST_DW_IMM  => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
-                    check_mem_store(x as u64, 8, insn_ptr);
+                    check_mem_store(x as u64, 8, insn_ptr)?;
                     *x = insn.imm as u64;
                 },
 
                 // BPF_STX class
                 ebpf::ST_B_REG   => unsafe {
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u8;
-                    check_mem_store(x as u64, 1, insn_ptr);
+                    check_mem_store(x as u64, 1, insn_ptr)?;
                     *x = reg[_src] as u8;
                 },
                 ebpf::ST_H_REG   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
-                    check_mem_store(x as u64, 2, insn_ptr);
+                    check_mem_store(x as u64, 2, insn_ptr)?;
                     *x = reg[_src] as u16;
                 },
                 ebpf::ST_W_REG   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
-                    check_mem_store(x as u64, 4, insn_ptr);
+                    check_mem_store(x as u64, 4, insn_ptr)?;
                     *x = reg[_src] as u32;
                 },
                 ebpf::ST_DW_REG  => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
-                    check_mem_store(x as u64, 8, insn_ptr);
+                    check_mem_store(x as u64, 8, insn_ptr)?;
                     *x = reg[_src] as u64;
                 },
                 ebpf::ST_W_XADD  => unimplemented!(),
@@ -459,7 +453,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::DIV32_IMM  => reg[_dst] = (reg[_dst] as u32 / insn.imm              as u32) as u64,
                 ebpf::DIV32_REG  => {
                     if reg[_src] == 0 {
-                        panic!("Error: division by 0");
+                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
                     }
                     reg[_dst] = (reg[_dst] as u32 / reg[_src] as u32) as u64;
                 },
@@ -475,7 +469,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::MOD32_IMM  =>   reg[_dst] = (reg[_dst] as u32             % insn.imm  as u32) as u64,
                 ebpf::MOD32_REG  => {
                     if reg[_src] == 0 {
-                        panic!("Error: division by 0");
+                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
                     }
                     reg[_dst] = (reg[_dst] as u32 % reg[_src] as u32) as u64;
                 },
@@ -512,7 +506,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::DIV64_IMM  => reg[_dst]                       /= insn.imm as u64,
                 ebpf::DIV64_REG  => {
                     if reg[_src] == 0 {
-                        panic!("Error: division by 0");
+                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
                     }
                     reg[_dst] /= reg[_src];
                 },
@@ -528,7 +522,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::MOD64_IMM  => reg[_dst] %=  insn.imm as u64,
                 ebpf::MOD64_REG  => {
                     if reg[_src] == 0 {
-                        panic!("Error: division by 0");
+                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
                     }
                     reg[_dst] %= reg[_src];
                 },
@@ -569,10 +563,10 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::CALL       => if let Some(function) = self.helpers.get(&(insn.imm as u32)) {
                     reg[0] = function(reg[1], reg[2], reg[3], reg[4], reg[5]);
                 } else {
-                    panic!("Error: unknown helper function (id: {:#x})", insn.imm as u32);
+                    Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
                 },
                 ebpf::TAIL_CALL  => unimplemented!(),
-                ebpf::EXIT       => return reg[0],
+                ebpf::EXIT       => return Ok(reg[0]),
 
                 _                => unreachable!()
             }
@@ -582,35 +576,30 @@ impl<'a> EbpfVmMbuff<'a> {
     }
 
     fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
-                 mbuff: &[u8], mem: &[u8], stack: &[u8]) {
+                 mbuff: &[u8], mem: &[u8], stack: &[u8]) -> Result<(), Error> {
         if mbuff.as_ptr() as u64 <= addr && addr + len as u64 <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
-            return
+            return Ok(())
         }
         if mem.as_ptr() as u64 <= addr && addr + len as u64 <= mem.as_ptr() as u64 + mem.len() as u64 {
-            return
+            return Ok(())
         }
         if stack.as_ptr() as u64 <= addr && addr + len as u64 <= stack.as_ptr() as u64 + stack.len() as u64 {
-            return
+            return Ok(())
         }
 
-        panic!(
+        Err(Error::new(ErrorKind::Other, format!(
             "Error: out of bounds memory {} (insn #{:?}), addr {:#x}, size {:?}\nmbuff: {:#x}/{:#x}, mem: {:#x}/{:#x}, stack: {:#x}/{:#x}",
             access_type, insn_ptr, addr, len,
             mbuff.as_ptr() as u64, mbuff.len(),
             mem.as_ptr() as u64, mem.len(),
             stack.as_ptr() as u64, stack.len()
-        );
+        )))
     }
 
     /// JIT-compile the loaded program. No argument required for this.
     ///
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
     ///
     /// # Examples
     ///
@@ -627,12 +616,13 @@ impl<'a> EbpfVmMbuff<'a> {
     /// vm.jit_compile();
     /// ```
     #[cfg(not(windows))]
-    pub fn jit_compile(&mut self) {
+    pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog { 
             Some(prog) => prog,
-            None => panic!("Error: No program set, call prog_set() to load one"),
+            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.jit = jit::compile(prog, &self.helpers, true, false);
+        self.jit = Some(jit::compile(prog, &self.helpers, true, false)?);
+        Ok(())
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data and metadata
@@ -642,10 +632,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from the
     /// metadata buffer, at some appointed offsets. It is up to the user to ensure that these
     /// pointers are correctly stored in the buffer.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -687,11 +673,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Provide both a reference to the packet data, and to the metadata buffer.
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem, &mut mbuff);
+    ///     let res = vm.prog_exec_jit(mem, &mut mbuff).unwrap();
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -703,7 +689,11 @@ impl<'a> EbpfVmMbuff<'a> {
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
-        (self.jit)(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)
+        match self.jit {
+            Some(jit) => Ok(jit(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
+            None => Err(Error::new(ErrorKind::Other,
+                        "Error: program has not been JIT-compiled")),
+        }
     }
 }
 
@@ -768,10 +758,10 @@ impl<'a> EbpfVmMbuff<'a> {
 /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
 ///
 /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-/// let res = vm.prog_exec(mem1);
+/// let res = vm.prog_exec(mem1).unwrap();
 /// assert_eq!(res, 0xffffffffffffffdd);
 ///
-/// let res = vm.prog_exec(mem2);
+/// let res = vm.prog_exec(mem2).unwrap();
 /// assert_eq!(res, 0x27);
 /// ```
 pub struct EbpfVmFixedMbuff<'a> {
@@ -844,7 +834,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog1), 0, 0).unwrap();
     /// vm.set_prog(prog2, 0x40, 0x50);
     ///
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 0x27);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
@@ -930,11 +920,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 3);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
-        self.parent.register_helper(key, function);
+    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+        self.parent.register_helper(key, function)
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -943,12 +933,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from some
     /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
     /// the addresses should be placed should have be set at the creation of the VM.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -970,15 +954,15 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 0xdd);
     /// ```
-    pub fn prog_exec(&mut self, mem: &'a mut [u8]) -> u64 {
+    pub fn prog_exec(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
-            panic!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
-            l, self.mbuff.data_offset, self.mbuff.data_end_offset);
+            Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
+            l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
         }
         LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_offset) .. ], mem.as_ptr() as u64);
         LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_end_offset) .. ], mem.as_ptr() as u64 + mem.len() as u64);
@@ -989,11 +973,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
     ///
     /// # Examples
     ///
@@ -1014,12 +993,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// vm.jit_compile();
     /// ```
     #[cfg(not(windows))]
-    pub fn jit_compile(&mut self) {
+    pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog { 
             Some(prog) => prog,
-            None => panic!("Error: No program set, call prog_set() to load one"),
+            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = jit::compile(prog, &self.parent.helpers, true, true);
+        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, true, true)?);
+        Ok(())
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
@@ -1029,10 +1009,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// address of the beginning and of the end of the memory area used for packet data from some
     /// metadata buffer, which in the case of this VM is handled internally. The offsets at which
     /// the addresses should be placed should have be set at the creation of the VM.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -1068,13 +1044,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem);
+    ///     let res = vm.prog_exec_jit(mem).unwrap();
     ///     assert_eq!(res, 0xdd);
     /// }
     /// ```
     // This struct redefines the `prog_exec_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> u64 {
+    pub unsafe fn prog_exec_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -1083,8 +1059,17 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
-        (self.parent.jit)(self.mbuff.buffer.as_ptr() as *mut u8, self.mbuff.buffer.len(),
-                          mem_ptr, mem.len(), self.mbuff.data_offset, self.mbuff.data_end_offset)
+        
+        match self.parent.jit {
+            Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
+                                self.mbuff.buffer.len(),
+                                mem_ptr,
+                                mem.len(), 
+                                self.mbuff.data_offset,
+                                self.mbuff.data_end_offset)),
+            None => Err(Error::new(ErrorKind::Other,
+                                   "Error: program has not been JIT-compiled"))
+        }
     }
 }
 
@@ -1108,7 +1093,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
-/// let res = vm.prog_exec(mem);
+/// let res = vm.prog_exec(mem).unwrap();
 /// assert_eq!(res, 0x22cc);
 /// ```
 pub struct EbpfVmRaw<'a> {
@@ -1163,7 +1148,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog1)).unwrap();
     /// vm.set_prog(prog2);
     ///
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
@@ -1237,20 +1222,14 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 0x10000000);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
-        self.parent.register_helper(key, function);
+    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+        self.parent.register_helper(key, function)
     }
 
     /// Execute the program loaded, with the given packet data.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as out of bounds accesses or division by zero attempts. This may be changed
-    /// in the future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -1268,10 +1247,10 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
-    /// let res = vm.prog_exec(mem);
+    /// let res = vm.prog_exec(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn prog_exec(&self, mem: &'a mut [u8]) -> u64 {
+    pub fn prog_exec(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         self.parent.prog_exec(mem, &[])
     }
 
@@ -1279,11 +1258,6 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
     ///
     /// # Examples
     ///
@@ -1300,20 +1274,18 @@ impl<'a> EbpfVmRaw<'a> {
     /// vm.jit_compile();
     /// ```
     #[cfg(not(windows))]
-    pub fn jit_compile(&mut self) {
+    pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog { 
             Some(prog) => prog,
-            None => panic!("Error: No program set, call prog_set() to load one"),
+            None => Err(Error::new(ErrorKind::Other,
+                        "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = jit::compile(prog, &self.parent.helpers, false, false);
+        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, false, false)?);
+        Ok(())
     }
 
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
     /// similar to `prog_exec()`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -1345,11 +1317,11 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit(mem);
+    ///     let res = vm.prog_exec_jit(mem).unwrap();
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> u64 {
+    pub unsafe fn prog_exec_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.prog_exec_jit(mem, &mut mbuff)
     }
@@ -1391,7 +1363,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
-/// let res = vm.prog_exec();
+/// let res = vm.prog_exec().unwrap();
 /// assert_eq!(res, 0x11);
 /// ```
 pub struct EbpfVmNoData<'a> {
@@ -1439,12 +1411,12 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
     ///
-    /// let res = vm.prog_exec();
+    /// let res = vm.prog_exec().unwrap();
     /// assert_eq!(res, 0x2211);
     ///
     /// vm.set_prog(prog2);
     ///
-    /// let res = vm.prog_exec();
+    /// let res = vm.prog_exec().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
     pub fn set_prog(&mut self, prog: &'a [u8]) -> Result<(), Error> {
@@ -1511,24 +1483,19 @@ impl<'a> EbpfVmNoData<'a> {
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
-    /// vm.register_helper(1, helpers::sqrti);
+    /// vm.register_helper(1, helpers::sqrti).unwrap();
     ///
-    /// let res = vm.prog_exec();
+    /// let res = vm.prog_exec().unwrap();
     /// assert_eq!(res, 0x1000);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) {
-        self.parent.register_helper(key, function);
+    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+        self.parent.register_helper(key, function)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
     ///
     /// If using helper functions, be sure to register them into the VM before calling this
     /// function.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during JIT-compiling, such as the occurrence of an
-    /// unknown eBPF operation code.
     ///
     /// # Examples
     ///
@@ -1545,17 +1512,11 @@ impl<'a> EbpfVmNoData<'a> {
     /// vm.jit_compile();
     /// ```
     #[cfg(not(windows))]
-    pub fn jit_compile(&mut self) {
-        self.parent.jit_compile();
+    pub fn jit_compile(&mut self) -> Result<(), Error> {
+        self.parent.jit_compile()
     }
 
     /// Execute the program loaded, without providing pointers to any memory area whatsoever.
-    ///
-    /// # Panics
-    ///
-    /// This function is currently expected to panic if it encounters any error during the program
-    /// execution, such as memory accesses or division by zero attempts. This may be changed in the
-    /// future (we could raise errors instead).
     ///
     /// # Examples
     ///
@@ -1569,19 +1530,15 @@ impl<'a> EbpfVmNoData<'a> {
     /// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// // For this kind of VM, the `prog_exec()` function needs no argument.
-    /// let res = vm.prog_exec();
+    /// let res = vm.prog_exec().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn prog_exec(&self) -> u64 {
+    pub fn prog_exec(&self) -> Result<(u64), Error> {
         self.parent.prog_exec(&mut [])
     }
 
     /// Execute the previously JIT-compiled program, without providing pointers to any memory area
     /// whatsoever, in a manner very similar to `prog_exec()`.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if an error occurs during the execution of the program.
     ///
     /// # Safety
     ///
@@ -1608,11 +1565,11 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// # #[cfg(not(windows))]
     /// unsafe {
-    ///     let res = vm.prog_exec_jit();
+    ///     let res = vm.prog_exec_jit().unwrap();
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    pub unsafe fn prog_exec_jit(&self) -> u64 {
+    pub unsafe fn prog_exec_jit(&self) -> Result<(u64), Error> {
         self.parent.prog_exec_jit(&mut [])
     }
 }

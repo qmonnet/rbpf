@@ -39,8 +39,8 @@ fn test_jit_add() {
         add32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x3); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x3); }
 }
 
 #[test]
@@ -66,8 +66,8 @@ fn test_jit_alu64_arith() {
         div r0, r4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x2a); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x2a); }
 }
 
 #[test]
@@ -97,8 +97,8 @@ fn test_jit_alu64_bit() {
         xor r0, r2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x11); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x11); }
 }
 
 #[test]
@@ -124,8 +124,8 @@ fn test_jit_alu_arith() {
         div32 r0, r4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x2a); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x2a); }
 }
 
 #[test]
@@ -153,8 +153,8 @@ fn test_jit_alu_bit() {
         xor32 r0, r2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x11); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x11); }
 }
 
 #[test]
@@ -165,8 +165,8 @@ fn test_jit_arsh32_high_shift() {
         arsh32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x4); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x4); }
 }
 
 #[test]
@@ -177,8 +177,8 @@ fn test_jit_arsh() {
         arsh32 r0, 16
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffff8000); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffff8000); }
 }
 
 #[test]
@@ -191,8 +191,8 @@ fn test_jit_arsh64() {
         arsh r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xfffffffffffffff8); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xfffffffffffffff8); }
 }
 
 #[test]
@@ -204,8 +204,8 @@ fn test_jit_arsh_reg() {
         arsh32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffff8000); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffff8000); }
 }
 
 #[test]
@@ -218,8 +218,8 @@ fn test_jit_be16() {
         0x11, 0x22
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1122); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1122); }
 }
 
 #[test]
@@ -232,8 +232,8 @@ fn test_jit_be16_high() {
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1122); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1122); }
 }
 
 #[test]
@@ -246,8 +246,8 @@ fn test_jit_be32() {
         0x11, 0x22, 0x33, 0x44
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11223344); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11223344); }
 }
 
 #[test]
@@ -260,8 +260,8 @@ fn test_jit_be32_high() {
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11223344); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11223344); }
 }
 
 #[test]
@@ -274,8 +274,8 @@ fn test_jit_be64() {
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1122334455667788); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1122334455667788); }
 }
 
 #[test]
@@ -289,9 +289,9 @@ fn test_jit_call() {
         call 0
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.register_helper(0, helpers::gather_bytes);
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x0102030405); }
+    vm.register_helper(0, helpers::gather_bytes).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x0102030405); }
 }
 
 #[test]
@@ -308,9 +308,9 @@ fn test_jit_call_memfrob() {
         0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.register_helper(1, helpers::memfrob);
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x102292e2f2c0708); }
+    vm.register_helper(1, helpers::memfrob).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x102292e2f2c0708); }
 }
 
 // TODO: helpers::trash_registers needs asm!().
@@ -332,8 +332,8 @@ fn test_jit_call_memfrob() {
     //];
     //let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     //vm.register_helper(2, helpers::trash_registers);
-    //vm.jit_compile();
-    //unsafe { assert_eq!(vm.prog_exec_jit(), 0x4321); }
+    //vm.jit_compile().unwrap();
+    //unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x4321); }
 //}
 
 #[test]
@@ -344,8 +344,8 @@ fn test_jit_div32_high_divisor() {
         div32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x3); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x3); }
 }
 
 #[test]
@@ -355,8 +355,8 @@ fn test_jit_div32_imm() {
         div32 r0, 4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x3); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x3); }
 }
 
 #[test]
@@ -367,8 +367,8 @@ fn test_jit_div32_reg() {
         div32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x3); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x3); }
 }
 
 #[test]
@@ -379,8 +379,8 @@ fn test_jit_div64_imm() {
         div r0, 4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x300000000); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x300000000); }
 }
 
 #[test]
@@ -392,8 +392,8 @@ fn test_jit_div64_reg() {
         div r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x300000000); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x300000000); }
 }
 
 #[test]
@@ -404,8 +404,8 @@ fn test_jit_early_exit() {
         mov r0, 4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x3); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x3); }
 }
 
 // uBPF limits the number of user functions at 64. We don't.
@@ -425,8 +425,8 @@ fn test_jit_err_call_unreg() {
         call 63
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { vm.prog_exec_jit(); }
+    vm.jit_compile().unwrap();
+    unsafe { vm.prog_exec_jit().unwrap(); }
 }
 
 // TODO: Should panic!() instead, but I could not make it panic in JIT-compiled code, so the
@@ -440,8 +440,8 @@ fn test_jit_err_div64_by_zero_reg() {
         div r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffffffffffffffff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffffffffffffffff); }
 }
 
 // TODO: Same remark as above
@@ -454,8 +454,8 @@ fn test_jit_err_div_by_zero_reg() {
         div32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffffffffffffffff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffffffffffffffff); }
 }
 
 // TODO: Same remark as above
@@ -468,8 +468,8 @@ fn test_jit_err_mod64_by_zero_reg() {
         mod r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffffffffffffffff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffffffffffffffff); }
 }
 
 // TODO: Same remark as above
@@ -482,8 +482,8 @@ fn test_jit_err_mod_by_zero_reg() {
         mod32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xffffffffffffffff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xffffffffffffffff); }
 }
 
 // TODO SKIP: JIT disabled for this testcase (stack oob check not implemented)
@@ -495,8 +495,8 @@ fn test_jit_err_mod_by_zero_reg() {
 //         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 //     ];
 //     let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-//     vm.jit_compile();
-//     unsafe { vm.prog_exec_jit(); }
+//     vm.jit_compile().unwrap();
+//     unsafe { vm.prog_exec_jit().unwrap(); }
 // }
 
 #[test]
@@ -505,8 +505,8 @@ fn test_jit_exit() {
         mov r0, 0
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x0); }
 }
 
 #[test]
@@ -517,8 +517,8 @@ fn test_jit_ja() {
         mov r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -533,8 +533,8 @@ fn test_jit_jeq_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -550,8 +550,8 @@ fn test_jit_jeq_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -566,8 +566,8 @@ fn test_jit_jge_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -583,8 +583,8 @@ fn test_jit_jle_imm() {
         mov32 r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -602,8 +602,8 @@ fn test_jit_jle_reg() {
         mov r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -618,8 +618,8 @@ fn test_jit_jgt_imm() {
         mov32 r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -636,8 +636,8 @@ fn test_jit_jgt_reg() {
         mov r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -652,8 +652,8 @@ fn test_jit_jlt_imm() {
         mov32 r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -670,8 +670,8 @@ fn test_jit_jlt_reg() {
         mov r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -685,8 +685,8 @@ fn test_jit_jit_bounce() {
         mov r0, r9
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -702,8 +702,8 @@ fn test_jit_jne_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -718,8 +718,8 @@ fn test_jit_jset_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -735,8 +735,8 @@ fn test_jit_jset_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -752,8 +752,8 @@ fn test_jit_jsge_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -771,8 +771,8 @@ fn test_jit_jsge_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -788,8 +788,8 @@ fn test_jit_jsle_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -808,8 +808,8 @@ fn test_jit_jsle_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -824,8 +824,8 @@ fn test_jit_jsgt_imm() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -841,8 +841,8 @@ fn test_jit_jsgt_reg() {
         mov32 r0, 2
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -857,8 +857,8 @@ fn test_jit_jslt_imm() {
         mov32 r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -875,8 +875,8 @@ fn test_jit_jslt_reg() {
         mov32 r0, 1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -885,8 +885,8 @@ fn test_jit_lddw() {
         lddw r0, 0x1122334455667788
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1122334455667788); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1122334455667788); }
 }
 
 #[test]
@@ -895,8 +895,8 @@ fn test_jit_lddw2() {
         lddw r0, 0x0000000080000000
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x80000000); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x80000000); }
 }
 
 #[test]
@@ -938,8 +938,8 @@ fn test_jit_ldxb_all() {
         0x08, 0x09
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x9876543210); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x9876543210); }
 }
 
 #[test]
@@ -951,8 +951,8 @@ fn test_jit_ldxb() {
         0xaa, 0xbb, 0x11, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11); }
 }
 
 #[test]
@@ -965,8 +965,8 @@ fn test_jit_ldxdw() {
         0x77, 0x88, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x8877665544332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x8877665544332211); }
 }
 
 #[test]
@@ -1019,8 +1019,8 @@ fn test_jit_ldxh_all() {
         0x00, 0x08, 0x00, 0x09
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x9876543210); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x9876543210); }
 }
 
 #[test]
@@ -1063,8 +1063,8 @@ fn test_jit_ldxh_all2() {
         0x01, 0x00, 0x02, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x3ff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x3ff); }
 }
 
 #[test]
@@ -1076,8 +1076,8 @@ fn test_jit_ldxh() {
         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x2211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x2211); }
 }
 
 #[test]
@@ -1091,8 +1091,8 @@ fn test_jit_ldxh_same_reg() {
         0xff, 0xff
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1234); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1234); }
 }
 
 #[test]
@@ -1137,8 +1137,8 @@ fn test_jit_ldxw_all() {
         0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x030f0f); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x030f0f); }
 }
 
 #[test]
@@ -1150,8 +1150,8 @@ fn test_jit_ldxw() {
         0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x44332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x44332211); }
 }
 
 #[test]
@@ -1164,8 +1164,8 @@ fn test_jit_le16() {
         0x22, 0x11
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1122); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1122); }
 }
 
 #[test]
@@ -1178,8 +1178,8 @@ fn test_jit_le32() {
         0x44, 0x33, 0x22, 0x11
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11223344); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11223344); }
 }
 
 #[test]
@@ -1192,8 +1192,8 @@ fn test_jit_le64() {
         0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1122334455667788); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1122334455667788); }
 }
 
 #[test]
@@ -1204,8 +1204,8 @@ fn test_jit_lsh_reg() {
         lsh r0, r7
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x10); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x10); }
 }
 
 #[test]
@@ -1217,8 +1217,8 @@ fn test_jit_mod() {
         mod32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x5); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x5); }
 }
 
 #[test]
@@ -1228,8 +1228,8 @@ fn test_jit_mod32() {
         mod32 r0, 3
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x0); }
 }
 
 #[test]
@@ -1245,8 +1245,8 @@ fn test_jit_mod64() {
         mod r0, 0x658f1778
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x30ba5a04); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x30ba5a04); }
 }
 
 #[test]
@@ -1256,8 +1256,8 @@ fn test_jit_mov() {
         mov32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -1267,8 +1267,8 @@ fn test_jit_mul32_imm() {
         mul32 r0, 4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xc); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xc); }
 }
 
 #[test]
@@ -1279,8 +1279,8 @@ fn test_jit_mul32_reg() {
         mul32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xc); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xc); }
 }
 
 #[test]
@@ -1291,8 +1291,8 @@ fn test_jit_mul32_reg_overflow() {
         mul32 r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x4); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x4); }
 }
 
 #[test]
@@ -1302,8 +1302,8 @@ fn test_jit_mul64_imm() {
         mul r0, 4
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x100000004); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x100000004); }
 }
 
 #[test]
@@ -1314,8 +1314,8 @@ fn test_jit_mul64_reg() {
         mul r0, r1
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x100000004); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x100000004); }
 }
 
 #[test]
@@ -1332,8 +1332,8 @@ fn test_jit_mul_loop() {
         jne r1, 0x0, -3
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x75db9c97); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x75db9c97); }
 }
 
 #[test]
@@ -1343,8 +1343,8 @@ fn test_jit_neg64() {
         neg r0
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xfffffffffffffffe); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xfffffffffffffffe); }
 }
 
 #[test]
@@ -1354,8 +1354,8 @@ fn test_jit_neg() {
         neg32 r0
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xfffffffe); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xfffffffe); }
 }
 
 #[test]
@@ -1378,8 +1378,8 @@ fn test_jit_prime() {
         jne r4, 0x0, -10
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -1390,8 +1390,8 @@ fn test_jit_rhs32() {
         rsh32 r0, 8
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x00ffffff); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x00ffffff); }
 }
 
 #[test]
@@ -1402,8 +1402,8 @@ fn test_jit_rsh_reg() {
         rsh r0, r7
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x1); }
 }
 
 #[test]
@@ -1419,8 +1419,8 @@ fn test_jit_stack() {
         ldxdw r0, [r2-16]
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0xcd); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0xcd); }
 }
 
 #[test]
@@ -1443,10 +1443,10 @@ fn test_jit_stack2() {
         xor r0, 0x2a2a2a2a
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.register_helper(0, helpers::gather_bytes);
-    vm.register_helper(1, helpers::memfrob);
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x01020304); }
+    vm.register_helper(0, helpers::gather_bytes).unwrap();
+    vm.register_helper(1, helpers::memfrob).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x01020304); }
 }
 
 #[test]
@@ -1459,8 +1459,8 @@ fn test_jit_stb() {
         0xaa, 0xbb, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11); }
 }
 
 #[test]
@@ -1474,8 +1474,8 @@ fn test_jit_stdw() {
         0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x44332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x44332211); }
 }
 
 #[test]
@@ -1488,8 +1488,8 @@ fn test_jit_sth() {
         0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x2211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x2211); }
 }
 
 #[test]
@@ -1524,9 +1524,9 @@ fn test_jit_string_stack() {
         mov r0, 0x0
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.register_helper(4, helpers::strcmp);
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(), 0x0); }
+    vm.register_helper(4, helpers::strcmp).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit().unwrap(), 0x0); }
 }
 
 #[test]
@@ -1539,8 +1539,8 @@ fn test_jit_stw() {
         0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x44332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x44332211); }
 }
 
 #[test]
@@ -1554,8 +1554,8 @@ fn test_jit_stxb() {
         0xaa, 0xbb, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x11); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x11); }
 }
 
 #[test]
@@ -1584,8 +1584,8 @@ fn test_jit_stxb_all() {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0xf0f2f3f4f5f6f7f8); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0xf0f2f3f4f5f6f7f8); }
 }
 
 #[test]
@@ -1603,8 +1603,8 @@ fn test_jit_stxb_all2() {
         0xff, 0xff
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0xf1f9); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0xf1f9); }
 }
 
 #[test]
@@ -1636,8 +1636,8 @@ fn test_jit_stxb_chain() {
         0x00, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x2a); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x2a); }
 }
 
 #[test]
@@ -1654,8 +1654,8 @@ fn test_jit_stxdw() {
         0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x8877665544332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x8877665544332211); }
 }
 
 #[test]
@@ -1669,8 +1669,8 @@ fn test_jit_stxh() {
         0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x2211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x2211); }
 }
 
 #[test]
@@ -1684,8 +1684,8 @@ fn test_jit_stxw() {
         0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x44332211); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x44332211); }
 }
 
 #[test]
@@ -1718,8 +1718,8 @@ fn test_jit_subnet() {
         0x03, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1); }
 }
 
 
@@ -1764,8 +1764,8 @@ fn test_jit_tcp_port80_match() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x1); }
 }
 
 #[test]
@@ -1787,8 +1787,8 @@ fn test_jit_tcp_port80_nomatch() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x0); }
 }
 
 #[test]
@@ -1810,8 +1810,8 @@ fn test_jit_tcp_port80_nomatch_ethertype() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x0); }
 }
 
 #[test]
@@ -1833,8 +1833,8 @@ fn test_jit_tcp_port80_nomatch_proto() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem).unwrap(), 0x0); }
 }
 
 #[test]
@@ -1842,8 +1842,8 @@ fn test_jit_tcp_sack_match() {
     let mut mem = TCP_SACK_MATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem.as_mut_slice()), 0x1); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem.as_mut_slice()).unwrap(), 0x1); }
 }
 
 #[test]
@@ -1851,6 +1851,6 @@ fn test_jit_tcp_sack_nomatch() {
     let mut mem = TCP_SACK_NOMATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.jit_compile();
-    unsafe { assert_eq!(vm.prog_exec_jit(mem.as_mut_slice()), 0x0); }
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.prog_exec_jit(mem.as_mut_slice()).unwrap(), 0x0); }
 }

@@ -41,7 +41,7 @@ fn main() {
     // Create a VM: this one takes no data. Load prog1 in it.
     let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
     // Execute prog1.
-    assert_eq!(vm.prog_exec(), 0x3);
+    assert_eq!(vm.prog_exec().unwrap(), 0x3);
 
     // As struct EbpfVmNoData does not takes any memory area, its return value is mostly
     // deterministic. So we know prog1 will always return 3. There is an exception: when it uses
@@ -52,20 +52,20 @@ fn main() {
     // reimplement uptime in eBPF, in Rust. Because why not.
 
     vm.set_prog(prog2).unwrap();
-    vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns);
+    vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns).unwrap();
 
     let time;
 
     #[cfg(not(windows))]
     {
-        vm.jit_compile();
+        vm.jit_compile().unwrap();
 
-        time = unsafe { vm.prog_exec_jit() };
+        time = unsafe { vm.prog_exec_jit().unwrap() };
     }
 
     #[cfg(windows)]
     {
-        time = vm.prog_exec();
+        time = vm.prog_exec().unwrap();
     }
 
     let days    =  time / 10u64.pow(9)  / 60   / 60  / 24;
