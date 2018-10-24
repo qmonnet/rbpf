@@ -50,6 +50,9 @@ mod verifier;
 ///   - Unknown eBPF helper index.
 pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
+/// eBPF helper function.
+pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
+
 /// eBPF Jit-compiled program.
 pub type JitProgram = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
@@ -230,7 +233,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // standard output.
     /// vm.register_helper(6, helpers::bpf_trace_printf).unwrap();
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+    pub fn register_helper(&mut self, key: u32, function: Helper) -> Result<(), Error> {
         self.helpers.insert(key, function);
         Ok(())
     }
