@@ -565,7 +565,7 @@ Other than the language, obviously? Well, there are some differences:
 
 * When an error occur while a program is run by uBPF, the function running the
   program silently returns the maximum value as an error code, while rbpf
-  returns a String describing the error.
+  Rust type `Error`.
 
 * The registration of helper functions, that can be called from within an eBPF
   program, is not handled in the same way.
@@ -617,7 +617,7 @@ not trivial, and we cannot “copy” it since it is under GPL license.
 ### What about safety then?
 
 Rust has a strong emphasize on safety. Yet to have the eBPF VM work, some
-“unsafe” blocks of code are used. The VM, taken as an eBPF interpreter can
+`unsafe` blocks of code are used. The VM, taken as an eBPF interpreter, can
 return an error but should not crash. Please file an issue otherwise.
 
 As for the JIT-compiler, it is a different story, since runtime memory checks

@@ -51,7 +51,7 @@ mod verifier;
 pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
 /// eBPF Jit-compiled program.
-pub type JitCompiled = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
+pub type JitProgram = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
@@ -98,7 +98,7 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
     verifier: Verifier,
-    jit:      Option<JitCompiled>,
+    jit:      Option<JitProgram>,
     helpers:  HashMap<u32, ebpf::Helper>,
 }
 
@@ -441,7 +441,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::ST_DW_XADD => unimplemented!(),
 
                 // BPF_ALU class
-                // Check how overflow works in kernel. Should we &= U32MAX all src register value
+                // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value
                 // before we do the operation?
                 // Cf ((0x11 << 32) - (0x1 << 32)) as u32 VS ((0x11 << 32) as u32 - (0x1 << 32) as u32
                 ebpf::ADD32_IMM  => reg[_dst] = (reg[_dst] as i32).wrapping_add(insn.imm)         as u64, //((reg[_dst] & U32MAX) + insn.imm  as u64)     & U32MAX,
@@ -1059,16 +1059,17 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
-            match self.parent.jit {
-                Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
-                                    self.mbuff.buffer.len(),
-                                    mem_ptr, mem.len(), 
-                                    self.mbuff.data_offset,
-                                    self.mbuff.data_end_offset)),
-                None => Err(Error::new(ErrorKind::Other,
-                            "Error: program has not been JIT-compiled"))
-        }
         
+        match self.parent.jit {
+            Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
+                                self.mbuff.buffer.len(),
+                                mem_ptr,
+                                mem.len(), 
+                                self.mbuff.data_offset,
+                                self.mbuff.data_end_offset)),
+            None => Err(Error::new(ErrorKind::Other,
+                                   "Error: program has not been JIT-compiled"))
+        }
     }
 }
 

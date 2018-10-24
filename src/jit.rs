@@ -18,7 +18,7 @@ use std::io::{Error, ErrorKind};
 use std::ops::{Index, IndexMut};
 
 use ebpf;
-use JitCompiled;
+use JitProgram;
 
 extern crate libc;
 
@@ -901,7 +901,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 pub fn compile(prog: &[u8],
                helpers: &HashMap<u32, ebpf::Helper>,
                use_mbuff: bool, update_data_ptr: bool)
-    -> Result<(JitCompiled), Error> {
+    -> Result<(JitProgram), Error> {
 
     // TODO: check how long the page must be to be sure to support an eBPF program of maximum
     // possible length
