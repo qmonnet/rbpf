@@ -196,8 +196,7 @@ pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
 
 pub fn register_helper(&mut self,
                        key: u32,
-                       function: Helper 
-                       -> Result<(), Error>
+                       function: Helper) -> Result<(), Error>
 ```
 
 This function is used to register a helper function. The VM stores its
