@@ -109,7 +109,7 @@ machines:
 
 * `struct EbpfVmMbuffer` mimics the kernel. When the program is run, the
   address provided to its first eBPF register will be the address of a metadata
-  buffer provided by the user, and that is expected to contains pointers to the
+  buffer provided by the user, and that is expected to contain pointers to the
   start and the end of the packet data memory area.
 
 * `struct EbpfVmFixedMbuff` has one purpose: enabling the execution of programs
@@ -128,7 +128,7 @@ machines:
   uBPF.
 
 * `struct EbpfVmNoData` does not take any data. The eBPF program takes no
-  argument whatsoever, and its return value is deterministic. Not so sure there
+  argument whatsoever and its return value is deterministic. Not so sure there
   is a valid use case for that, but if nothing else, this is very useful for
   unit tests.
 
@@ -200,7 +200,7 @@ pub fn register_helper(&mut self,
 
 This function is used to register a helper function. The VM stores its
 registers in a hashmap, so the key can be any `u32` value you want. It may be
-useful for programs that should be compatible with the Linux kernel, and
+useful for programs that should be compatible with the Linux kernel and
 therefore must use specific helper numbers.
 
 ```rust,ignore
@@ -247,7 +247,7 @@ Calls the JIT-compiled program. The arguments to provide are the same as for
 the JIT-compiled program should be the same as with the interpreter, but it
 should run faster. Note that if errors occur during the program execution, the
 JIT-compiled version does not handle it as well as the interpreter, and the
-program may crash. For this reason the functions are marked as `unsafe`.
+program may crash. For this reason, the functions are marked as `unsafe`.
 
 ## Example uses
 
@@ -369,9 +369,9 @@ It also uses a kind of VM that uses an internal buffer used to simulate the
 create a new buffer for each packet. It may be useful for programs compiled for
 the kernel and that assumes the data they receive is a `sk_buff` pointing to
 the packet data start and end addresses. So here we just provide the offsets at
-which the eBPF program expects to find those pointers, and the VM handles takes
-in charger the buffer update so that we only have to provide a reference to the
-packet data for each run of the program.
+which the eBPF program expects to find those pointers, and the VM handles the
+buffer update so that we only have to provide a reference to the packet data
+for each run of the program.
 
 ```rust
 extern crate elf;
@@ -591,7 +591,7 @@ Running and JIT-compiling eBPF programs work. There is also a mechanism to
 register user-defined helper functions. The eBPF implementation of the Linux
 kernel comes with [some additional
 features](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md):
-a high number of helpers, several kind of maps, tail calls.
+a high number of helpers, several kinds of maps, tail calls.
 
 * Additional helpers should be easy to add, but very few of the existing Linux
   helpers have been replicated in rbpf so far.
@@ -616,7 +616,7 @@ not trivial, and we cannot “copy” it since it is under GPL license.
 
 ### What about safety then?
 
-Rust has a strong emphasize on safety. Yet to have the eBPF VM work, some
+Rust has a strong emphasis on safety. Yet to have the eBPF VM work, some
 `unsafe` blocks of code are used. The VM, taken as an eBPF interpreter, can
 return an error but should not crash. Please file an issue otherwise.
 
@@ -636,9 +636,9 @@ on your own.
   runtime (yet). Use with caution.
 
 * Contrary to the interpreter, if a division by 0 is attempted, the JIT program
-  returns `0xffffffffffffffff` and exits cleanly (no `panic!()`). This is
-  because the author has not found how to make `panic!()` work from the
-  generated assembly so far.
+  returns `0xffffffffffffffff` and exits cleanly (no `Error` returned). This is
+  because the author has not found how to return something more explicit
+  from the generated assembly so far.
 
 * A very little number of eBPF instructions have not been implemented yet. This
   should not be a problem for the majority of eBPF programs.
@@ -647,7 +647,7 @@ on your own.
 
 ## _To do_ list
 
-* Implement some traits (`Clone`, `Drop`, `Debug` are good candidate).
+* Implement some traits (`Clone`, `Drop`, `Debug` are good candidates).
 * Provide built-in support for user-space array and hash BPF maps.
 * Improve safety of JIT-compiled programs with runtime memory checks.
 * Add helpers (some of those supported in the kernel, such as checksum update,
