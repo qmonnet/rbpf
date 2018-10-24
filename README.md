@@ -192,9 +192,11 @@ is not run if no program has been loaded (if `None` was passed to the `new()`
 method when creating the VM).
 
 ```rust,ignore
+pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
+
 pub fn register_helper(&mut self,
                        key: u32,
-                       function: fn (u64, u64, u64, u64, u64) -> u64) 
+                       function: Helper 
                        -> Result<(), Error>
 ```
 
