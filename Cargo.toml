@@ -3,8 +3,7 @@
 # Project metadata
 name = "solana_rbpf"
 version = "0.1.1"
-authors = ["Quentin Monnet <quentin.monnet@netronome.com>",
-           "Solana Maintainers <maintainers@solana.com>"]
+authors = ["Solana Maintainers <maintainers@solana.com>"]
 
 # Additional metadata for packaging
 description = "Virtual machine and JIT compiler for eBPF programs"
