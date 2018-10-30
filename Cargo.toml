@@ -3,7 +3,7 @@
 # Project metadata
 name = "solana-rbpf"
 version = "0.1.1"
-authors = ["Quentin Monnet <quentin.monnet@netronome.com>"
+authors = ["Quentin Monnet <quentin.monnet@netronome.com>",
            "Solana Maintainers <maintainers@solana.com>"]
 
 # Additional metadata for packaging
