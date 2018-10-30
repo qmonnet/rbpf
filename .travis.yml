@@ -1,36 +1,31 @@
 language: rust
 rust:
-  - stable
-  - beta
-  - nightly
+- stable
+- beta
+- nightly
 os:
-  - linux
-  - osx
+- linux
+- osx
 matrix:
   allow_failures:
-    - rust: nightly
-
+  - rust: nightly
 before_script:
-  - rustup update
-  - rustup component add clippy-preview
-
+- rustup update
+- rustup component add clippy-preview
 script:
-  - cargo clippy
-  - cargo test
-
+- cargo clippy -- --deny=warnings
+- export RUSTFLAGS="-D warnings"; cargo build --verbose
+- export RUSTFLAGS="-D warnings"; cargo test --verbose
 before_deploy:
-  - cargo doc
-  - cargo package
-  
+- cargo doc
+- cargo package
 deploy:
   provider: releases
-  api-key:
-    secure:
-  skip_cleanup: true
+  api_key:
+    secure: evX74a5Y+BTAV3lXYEPXqzON5UYKuTfKOUT11w4kzKYIErlwC08A4ws/1qHIz1XcpDiOel2/AKfYFQ5mXYsvpN4Bs8jKGFDAysHuvIgaYcI7I8JAmxrPbQxFnCkaqFjcYvNgMwBYvABq5Qv6STM1dcLtp8rNrDfU8iBuSdqzByeymtPWmsS5RFAxgOq6DhPhXdIcL4McmqDiTtDv8XrtHvC9WJgUttMSzRO7aqmc13MiTbcNnRi3PflNZXS1bnSAmfZziXirQdWA/orIGzfBiT7Gf+6doU7q0OWlNyBw8A/6F72qxUmVRmF2QVGW/VOWD4ZhR+40SAbpr3S+i39lC3BcZ7zT+eMNvinTwKd0KKe6Ge9STCM1A2ehwF9FmOnNWkSNYGo9tqMdn9ldYUVEkQr4pSDa1JCEMYUQxxn2100LcT+NfBoqqfFWcAQR10A//VECQGVO3GhsI1kQgVJee2ptiKvJT18L53uFhJ6LspWboP6QYsAy/DugLjmlB1Wn1Aaxc2+GGT2fohVl1c69QibQui/jhGOBK8GDKXg792vPpMW/GzT/CZd/dZdz7s4gG8aHi5BxfdO0+3zWckiOgtIeJxLMKB+xFSULbCBkL+yDj9Lh/6cEGqExsFT12nMi6u9IvFvYX+dX9OlOq6s53Q3tgqZxM0/D/mguwDNre+Q=
+  file: ''
   on:
-    tags: true
+    repo: solana-labs/rbpf
     branch: solana-master
-    condition: "$TRAVIS_RUST_VERSION = stable"
-
 after_deploy:
-  - cargo publish --token "$CRATES_IO_TOKEN"
+- cargo publish --token "$CRATES_IO_TOKEN"

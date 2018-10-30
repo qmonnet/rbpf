@@ -19,7 +19,7 @@
 // Allows old-style clippy
 #![allow(renamed_and_removed_lints)]
 
-#![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names, single_match, cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
+#![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names, single_match, cast_lossless, doc_markdown, match_same_arms, unreadable_literal, new_ret_no_self))]
 
 extern crate byteorder;
 extern crate combine;

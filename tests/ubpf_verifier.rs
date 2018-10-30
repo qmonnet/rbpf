@@ -25,7 +25,7 @@ extern crate solana_rbpf;
 
 use solana_rbpf::assembler::assemble;
 use solana_rbpf::ebpf;
-use solana_rbpf::{EbpfVmRaw, EbpfVmNoData, EbpfVmMbuff, EbpfVmFixedMbuff};
+use solana_rbpf::EbpfVmNoData;
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: division by 0 (insn #1)")]
