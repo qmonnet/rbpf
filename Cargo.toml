@@ -1,13 +1,14 @@
 [package]
 
 # Project metadata
-name = "rbpf"
-version = "0.1.0"
-authors = ["Quentin Monnet <quentin.monnet@netronome.com>"]
+name = "solana-rbpf"
+version = "0.1.1"
+authors = ["Quentin Monnet <quentin.monnet@netronome.com>"
+           "Solana Maintainers <maintainers@solana.com>"]
 
 # Additional metadata for packaging
 description = "Virtual machine and JIT compiler for eBPF programs"
-repository = "https://github.com/qmonnet/rbpf"
+repository = "https://github.com/solana-labs/rbpf"
 readme = "README.md"
 keywords = ["BPF", "eBPF", "interpreter", "JIT", "filtering"]
 license = "Apache-2.0/MIT"
