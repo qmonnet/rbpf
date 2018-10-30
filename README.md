@@ -4,8 +4,8 @@
 
 Rust (user-space) virtual machine for eBPF
 
-[![Build Status](https://travis-ci.org/solana-labs/rbpf.svg?branch=solana-master)
-[![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/solana_rbpf)
+[![Build Status](https://travis-ci.org/solana-labs/rbpf.svg?branch=solana-master)](https://travis-ci.org/solana-labs/rbpf)
+[![Crates.io](https://img.shields.io/crates/v/solana_rbpf.svg)](https://crates.io/crates/solana_rbpf)
 
 * [Description](#description)
 * [Link to the crate](#link-to-the-crate)
@@ -75,8 +75,8 @@ extern crate rbpf;
 
 The API is pretty well documented inside the source code. You should also be
 able to access [an online version of the documentation from
-here](https://docs.rs/rbpf/), automatically generated from the
-[crates.io](https://crates.io/crates/rbpf) version (may not be up-to-date with
+here](https://docs.rs/solana_rbpf/), automatically generated from the
+[crates.io](https://crates.io/crates/solana_rbpf) version (may not be up-to-date with
 master branch). [Examples](../../tree/master/examples) and [unit
 tests](../../tree/master/tests) should also prove helpful. Here is a summary of
 how to use the crate.
