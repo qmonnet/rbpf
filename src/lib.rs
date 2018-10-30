@@ -306,11 +306,17 @@ impl<'a> EbpfVmMbuff<'a> {
 
         // Loop on instructions
         let mut insn_ptr:usize = 0;
+        let mut max_executed = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
             insn_ptr += 1;
             let _dst = insn.dst as usize;
             let _src = insn.src as usize;
+
+            max_executed += 1;
+            if max_executed > ebpf::MAX_EXECUTED {
+                Err(Error::new(ErrorKind::Other,"Error: Execution exceeded maximum number of instructions"))?;
+            }
 
             match insn.opc {
 
