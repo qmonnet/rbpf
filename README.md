@@ -4,9 +4,8 @@
 
 Rust (user-space) virtual machine for eBPF
 
-[![Build Status](https://travis-ci.org/qmonnet/rbpf.svg?branch=master)](https://travis-ci.org/qmonnet/rbpf)
-[![Build status](https://ci.appveyor.com/api/projects/status/ia74coeuhxtrcvsk/branch/master?svg=true)](https://ci.appveyor.com/project/qmonnet/rbpf/branch/master)
-[![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/rbpf)
+[![Build Status](https://travis-ci.org/solana-labs/rbpf.svg?branch=solana-master)
+[![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/solana_rbpf)
 
 * [Description](#description)
 * [Link to the crate](#link-to-the-crate)
@@ -47,7 +46,7 @@ file:
 
 ```toml
 [dependencies]
-rbpf = "0.1.0"
+rbpf = "0.1.1"
 ```
 
 You can also use the development version from this GitHub repository. This
@@ -55,7 +54,7 @@ should be as simple as putting this inside your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rbpf = { git = "https://github.com/qmonnet/rbpf" }
+rbpf = { git = "https://github.com/solana-labs/rbpf" }
 ```
 
 Of course, if you prefer, you can clone it locally, possibly hack the crate,
