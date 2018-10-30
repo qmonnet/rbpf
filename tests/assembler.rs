@@ -6,12 +6,12 @@
 
 #![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
 
-extern crate rbpf;
+extern crate solana_rbpf;
 mod common;
 
 use common::{TCP_SACK_ASM, TCP_SACK_BIN};
-use rbpf::assembler::assemble;
-use rbpf::ebpf;
+use solana_rbpf::assembler::assemble;
+use solana_rbpf::ebpf;
 
 fn asm(src: &str) -> Result<Vec<ebpf::Insn>, String> {
     Ok(ebpf::to_insn_vec(&try!(assemble(src))))

@@ -208,7 +208,7 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
 /// # Examples
 ///
 /// ```
-/// use rbpf::assembler::assemble;
+/// use solana_rbpf::assembler::assemble;
 /// let prog = assemble("add64 r1, 0x605
 ///                      mov64 r2, 0x32
 ///                      mov64 r1, r0

@@ -39,7 +39,7 @@ pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let t = helpers::bpf_time_getns(0, 0, 0, 0, 0);
 /// let d =  t / 10u64.pow(9)  / 60   / 60  / 24;
@@ -70,7 +70,7 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let res = helpers::bpf_trace_printf(0, 0, 1, 15, 32);
 /// assert_eq!(res as usize, "bpf_trace_printf: 0x1, 0xf, 0x20\n".len());
@@ -120,7 +120,7 @@ pub fn bpf_trace_printf (unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5:
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let gathered = helpers::gather_bytes(0x11, 0x22, 0x33, 0x44, 0x55);
 /// assert_eq!(gathered, 0x1122334455);
@@ -140,7 +140,7 @@ pub fn gather_bytes (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let val: u64 = 0x112233;
 /// let val_ptr = &val as *const u64;
@@ -188,7 +188,7 @@ pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) ->
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let x = helpers::sqrti(9, 0, 0, 0, 0);
 /// assert_eq!(x, 3);
@@ -204,7 +204,7 @@ pub fn sqrti (arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64)
 /// # Examples
 ///
 /// ```
-/// use rbpf::helpers;
+/// use solana_rbpf::helpers;
 ///
 /// let foo = "This is a string.".as_ptr() as u64;
 /// let bar = "This is another sting.".as_ptr() as u64;
@@ -250,14 +250,14 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
 ///
 /// ```
 /// extern crate libc;
-/// extern crate rbpf;
+/// extern crate solana_rbpf;
 /// extern crate time;
 ///
 /// unsafe {
 ///     libc::srand(time::precise_time_ns() as u32)
 /// }
 ///
-/// let n = rbpf::helpers::rand(3, 6, 0, 0, 0);
+/// let n = solana_rbpf::helpers::rand(3, 6, 0, 0, 0);
 /// assert!(3 <= n && n <= 6);
 /// ```
 #[allow(dead_code)]

@@ -11,8 +11,8 @@ extern crate json;
 extern crate elf;
 use std::path::PathBuf;
 
-extern crate rbpf;
-use rbpf::disassembler;
+extern crate solana_rbpf;
+use solana_rbpf::disassembler;
 
 // Turn a program into a JSON string.
 //

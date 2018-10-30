@@ -7,11 +7,11 @@
 // copied, modified, or distributed except according to those terms.
 
 
-extern crate rbpf;
+extern crate solana_rbpf;
 mod common;
 
-use rbpf::assembler::assemble;
-use rbpf::disassembler::to_insn_vec;
+use solana_rbpf::assembler::assemble;
+use solana_rbpf::disassembler::to_insn_vec;
 
 // Using a macro to keep actual line numbers in failure output
 macro_rules! disasm {

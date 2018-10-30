@@ -9,6 +9,7 @@
 //! for example to disassemble the code into a human-readable format.
 
 use ebpf;
+// use ebpf::{OpCodes};
 
 #[inline]
 fn alu_imm_str(name: &str, insn: &ebpf::Insn) -> String {
@@ -119,7 +120,7 @@ pub struct HLInsn {
 /// # Examples
 ///
 /// ```
-/// use rbpf::disassembler;
+/// use solana_rbpf::disassembler;
 ///
 /// let prog = &[
 ///     0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
@@ -320,7 +321,7 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
 /// # Examples
 ///
 /// ```
-/// use rbpf::disassembler;
+/// use solana_rbpf::disassembler;
 /// let prog = &[
 ///     0x07, 0x01, 0x00, 0x00, 0x05, 0x06, 0x00, 0x00,
 ///     0xb7, 0x02, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00,

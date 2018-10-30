@@ -5,8 +5,8 @@
 // copied, modified, or distributed except according to those terms.
 
 
-extern crate rbpf;
-use rbpf::disassembler;
+extern crate solana_rbpf;
+use solana_rbpf::disassembler;
 
 // Simply disassemble a program into human-readable instructions.
 fn main() {

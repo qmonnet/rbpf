@@ -9,8 +9,9 @@
 extern crate elf;
 use std::path::PathBuf;
 
-extern crate rbpf;
-use rbpf::helpers;
+extern crate solana_rbpf;
+use solana_rbpf::helpers;
+use solana_rbpf::{EbpfVmFixedMbuff};
 
 // The following example uses an ELF file that has been compiled from the C program available in
 // `load_elf__block_a_port.c` in the same directory.
@@ -111,7 +112,7 @@ fn main() {
         0x64, 0x66, 0x0au8
     ];
 
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    let mut vm = EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
 
     let res = vm.execute_program(packet1).unwrap();

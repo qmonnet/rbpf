@@ -411,7 +411,7 @@ impl Insn {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// let prog: &[u8] = &[
     ///     0xb7, 0x12, 0x56, 0x34, 0xde, 0xbc, 0x9a, 0x78,
@@ -443,7 +443,7 @@ impl Insn {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// let prog: Vec<u8> = vec![
     ///     0xb7, 0x12, 0x56, 0x34, 0xde, 0xbc, 0x9a, 0x78,
@@ -482,7 +482,7 @@ impl Insn {
 /// # Examples
 ///
 /// ```
-/// use rbpf::ebpf;
+/// use solana_rbpf::ebpf;
 ///
 /// let prog = &[
 ///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -495,7 +495,7 @@ impl Insn {
 /// The example below will panic, since the last instruction is not complete and cannot be loaded.
 ///
 /// ```rust,should_panic
-/// use rbpf::ebpf;
+/// use solana_rbpf::ebpf;
 ///
 /// let prog = &[
 ///     0xb7, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -531,7 +531,7 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
 /// # Examples
 ///
 /// ```
-/// use rbpf::ebpf;
+/// use solana_rbpf::ebpf;
 ///
 /// let prog = &[
 ///     0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,

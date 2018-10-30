@@ -92,7 +92,7 @@ struct MetaBuff {
 /// }
 ///
 /// // Instantiate a VM.
-/// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+/// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 ///
 /// // Provide both a reference to the packet data, and to the metadata buffer.
 /// let res = vm.execute_program(mem, &mut mbuff).unwrap();
@@ -120,7 +120,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmMbuff<'a>, Error> {
         if let Some(prog) = prog {
@@ -151,7 +151,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// vm.set_program(prog2).unwrap();
     /// ```
     pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error> {
@@ -168,7 +168,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// ```
     /// use std::io::{Error, ErrorKind};
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
@@ -186,7 +186,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
@@ -208,7 +208,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// use solana_rbpf::helpers;
     ///
     /// // This program was compiled with clang, from a C program containing the following single
     /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
@@ -226,7 +226,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// // Register a helper.
     /// // On running the program this helper will print the content of registers r3, r4 and r5 to
@@ -268,7 +268,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
     /// let res = vm.execute_program(mem, &mut mbuff).unwrap();
@@ -614,7 +614,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -668,7 +668,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -758,7 +758,7 @@ impl<'a> EbpfVmMbuff<'a> {
 /// ];
 ///
 /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-/// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+/// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
 ///
 /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
 /// let res = vm.execute_program(mem1).unwrap();
@@ -791,7 +791,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     /// ```
     pub fn new(prog: Option<&'a [u8]>, data_offset: usize, data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
@@ -834,7 +834,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog1), 0, 0).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog1), 0, 0).unwrap();
     /// vm.set_program(prog2, 0x40, 0x50);
     ///
     /// let res = vm.execute_program(mem).unwrap();
@@ -858,7 +858,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// ```
     /// use std::io::{Error, ErrorKind};
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
@@ -876,7 +876,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
@@ -894,7 +894,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// use solana_rbpf::helpers;
     ///
     /// // This program was compiled with clang, from a C program containing the following single
     /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
@@ -918,7 +918,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -954,7 +954,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
     /// let res = vm.execute_program(mem).unwrap();
@@ -991,7 +991,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -1039,7 +1039,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ];
     ///
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -1093,7 +1093,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+/// let vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.execute_program(mem).unwrap();
@@ -1119,7 +1119,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmRaw<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
@@ -1148,7 +1148,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27,
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog1)).unwrap();
     /// vm.set_program(prog2);
     ///
     /// let res = vm.execute_program(mem).unwrap();
@@ -1167,7 +1167,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// ```
     /// use std::io::{Error, ErrorKind};
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
@@ -1185,7 +1185,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
@@ -1203,7 +1203,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// use solana_rbpf::helpers;
     ///
     /// let prog = &[
     ///     0x79, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r1, r1[0x00]
@@ -1220,7 +1220,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti);
@@ -1248,7 +1248,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
@@ -1272,7 +1272,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
     /// vm.jit_compile();
     /// ```
@@ -1313,7 +1313,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x27
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();
@@ -1363,7 +1363,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+/// let vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.execute_program().unwrap();
@@ -1388,7 +1388,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let vm = rbpf::EbpfVmNoData::new(Some(prog));
+    /// let vm = solana_rbpf::EbpfVmNoData::new(Some(prog));
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmNoData<'a>, Error> {
         let parent = EbpfVmRaw::new(prog)?;
@@ -1412,7 +1412,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
     ///
     /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x2211);
@@ -1435,7 +1435,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// ```
     /// use std::io::{Error, ErrorKind};
-    /// use rbpf::ebpf;
+    /// use solana_rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
@@ -1453,7 +1453,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// ];
     ///
     /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// // Change the verifier.
     /// vm.set_verifier(verifier).unwrap();
     /// ```
@@ -1471,7 +1471,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// use solana_rbpf::helpers;
     ///
     /// let prog = &[
     ///     0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // mov r1, 0x010000000
@@ -1483,7 +1483,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// // Register a helper. This helper will store the result of the square root of r1 into r0.
     /// vm.register_helper(1, helpers::sqrti).unwrap();
@@ -1509,7 +1509,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     ///
     /// vm.jit_compile();
@@ -1530,7 +1530,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// // For this kind of VM, the `execute_program()` function needs no argument.
     /// let res = vm.execute_program().unwrap();
@@ -1561,7 +1561,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// # #[cfg(not(windows))]
     /// vm.jit_compile();

@@ -5,8 +5,9 @@
 // copied, modified, or distributed except according to those terms.
 
 
-extern crate rbpf;
-use rbpf::helpers;
+extern crate solana_rbpf;
+use solana_rbpf::helpers;
+use solana_rbpf::{EbpfVmNoData};
 
 // The main objectives of this example is to show:
 //
@@ -24,7 +25,7 @@ fn main() {
     ];
 
     // We use helper `bpf_time_getns()`, which is similar to helper `bpf_ktime_getns()` from Linux
-    // kernel. Hence rbpf::helpers module provides the index of this in-kernel helper as a
+    // kernel. Hence helpers module provides the index of this in-kernel helper as a
     // constant, so that we can remain compatible with programs for the kernel. Here we also cast
     // it to a u8 so as to use it directly in program instructions.
     let hkey = helpers::BPF_KTIME_GETNS_IDX as u8;
@@ -39,7 +40,7 @@ fn main() {
     ];
 
     // Create a VM: this one takes no data. Load prog1 in it.
-    let mut vm = rbpf::EbpfVmNoData::new(Some(prog1)).unwrap();
+    let mut vm = EbpfVmNoData::new(Some(prog1)).unwrap();
     // Execute prog1.
     assert_eq!(vm.execute_program().unwrap(), 0x3);
 
