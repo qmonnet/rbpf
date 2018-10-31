@@ -46,7 +46,7 @@ file:
 
 ```toml
 [dependencies]
-solana_rbpf = "0.1.1"
+solana_rbpf = "0.1.2"
 ```
 
 You can also use the development version from this GitHub repository. This
@@ -360,7 +360,7 @@ to your `Cargo.toml` file.
 
 ```toml
 [dependencies]
-rbpf = "0.1.0"
+solana_rbpf = "0.1.2"
 elf = "0.0.10"
 ```
 
