@@ -22,8 +22,6 @@ use byteorder::{ByteOrder, LittleEndian};
 
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 4096;
-/// Maximum number of instructions to execute
-pub const MAX_EXECUTED: usize = 32768;
 /// Size of an eBPF instructions, in bytes.
 pub const INSN_SIZE: usize = 8;
 /// Maximum size of an eBPF program, in bytes.

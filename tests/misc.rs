@@ -281,7 +281,7 @@ fn test_vm_mbuff() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = EbpfVmMbuff::new(Some(prog)).unwrap();
+    let mut vm = EbpfVmMbuff::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem, &mbuff).unwrap(), 0x2211);
 }
 
@@ -308,7 +308,7 @@ fn test_vm_mbuff_with_rust_api() {
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
-    let vm = EbpfVmMbuff::new(Some(program.into_bytes())).unwrap();
+    let mut vm = EbpfVmMbuff::new(Some(program.into_bytes())).unwrap();
     assert_eq!(vm.execute_program(mem, &mbuff).unwrap(), 0x2211);
 }
 
@@ -349,16 +349,17 @@ fn test_vm_jit_ldabsb() {
         0x30, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x33);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x33);
 
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x33);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x33);
     };
 }
 
@@ -369,16 +370,17 @@ fn test_vm_jit_ldabsh() {
         0x28, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x4433);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x4433);
 
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x4433);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x4433);
     };
 }
 
@@ -389,16 +391,17 @@ fn test_vm_jit_ldabsw() {
         0x20, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 =[
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x66554433);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x66554433);
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x66554433);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x66554433);
     };
 }
 
@@ -409,16 +412,17 @@ fn test_vm_jit_ldabsdw() {
         0x38, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xaa99887766554433);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0xaa99887766554433);
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xaa99887766554433);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0xaa99887766554433);
     };
 }
 
@@ -433,7 +437,7 @@ fn test_vm_err_ldabsb_oob() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let vm = EbpfVmRaw::new(Some(prog)).unwrap();
+    let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
     vm.execute_program(mem).unwrap();
 
     // Memory check not implemented for JIT yet.
@@ -446,7 +450,7 @@ fn test_vm_err_ldabsb_nomem() {
         0x38, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = EbpfVmNoData::new(Some(prog)).unwrap();
+    let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
     vm.execute_program().unwrap();
 
     // Memory check not implemented for JIT yet.
@@ -460,16 +464,17 @@ fn test_vm_jit_ldindb() {
         0x50, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x88);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x88);
 
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x88);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x88);
     };
 }
 
@@ -481,16 +486,17 @@ fn test_vm_jit_ldindh() {
         0x48, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x9988);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x9988);
 
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x9988);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x9988);
     };
 }
 
@@ -502,16 +508,17 @@ fn test_vm_jit_ldindw() {
         0x40, 0x10, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x88776655);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0x88776655);
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x88776655);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0x88776655);
     };
 }
 
@@ -523,16 +530,17 @@ fn test_vm_jit_ldinddw() {
         0x58, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
+    let mut mem1 = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
+    let mut mem2 = mem1.clone();
     let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xccbbaa9988776655);
+    assert_eq!(vm.execute_program(&mut mem1).unwrap(), 0xccbbaa9988776655);
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xccbbaa9988776655);
+        assert_eq!(vm.execute_program_jit(&mut mem2).unwrap(), 0xccbbaa9988776655);
     };
 }
 
@@ -548,7 +556,7 @@ fn test_vm_err_ldindb_oob() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let vm = EbpfVmRaw::new(Some(prog)).unwrap();
+    let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
     vm.execute_program(mem).unwrap();
 
     // Memory check not implemented for JIT yet.
@@ -562,7 +570,7 @@ fn test_vm_err_ldindb_nomem() {
         0x38, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let vm = EbpfVmNoData::new(Some(prog)).unwrap();
+    let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
     vm.execute_program().unwrap();
 
     // Memory check not implemented for JIT yet.
@@ -571,7 +579,7 @@ fn test_vm_err_ldindb_nomem() {
 #[test]
 #[should_panic(expected = "Error: No program set, call prog_set() to load one")]
 fn test_vm_exec_no_program() {
-    let vm = EbpfVmNoData::new(None).unwrap();
+    let mut vm = EbpfVmNoData::new(None).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 0xBEE);
 }
 
@@ -606,7 +614,7 @@ fn test_verifier_fail() {
     let mut vm = EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(verifier_fail).unwrap();
     vm.set_program(&prog).unwrap();
-    assert_eq!(vm.execute_program().unwrap(), 0xBEE);
+    //assert_eq!(vm.execute_program().unwrap(), 0xBEE);
 }
 
 #[test]
@@ -626,5 +634,60 @@ fn test_non_terminating() {
     ];
     let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.set_max_instruction_count(1000).unwrap();
     vm.execute_program().unwrap();
+}
+
+#[test]
+fn test_non_terminate_capped() {
+    let prog = &[
+        0xb7, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xbf, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x85, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+        0x07, 0x06, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0xf8, 0xff, 0x00, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.set_max_instruction_count(6).unwrap();
+    let _ = vm.execute_program();
+    assert!(vm.get_last_instruction_count() == 6);
+}
+
+#[test]
+fn test_non_terminate_early() {
+    let prog = &[
+        0xb7, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xbf, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x85, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+        0x07, 0x06, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0xf8, 0xff, 0x00, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.set_max_instruction_count(1000).unwrap();
+    let _ = vm.execute_program();
+    assert!(vm.get_last_instruction_count() == 1000);
+}
+
+#[test]
+fn test_get_last_instruction_count() {
+    let prog = &[
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    let _ = vm.execute_program();
+    println!("count {:?}", vm.get_last_instruction_count());
+    assert!(vm.get_last_instruction_count() == 1);
 }

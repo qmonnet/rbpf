@@ -99,10 +99,12 @@ struct MetaBuff {
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
-    prog:     Option<&'a [u8]>,
-    verifier: Verifier,
-    jit:      Option<JitProgram>,
-    helpers:  HashMap<u32, ebpf::Helper>,
+    prog:            Option<&'a [u8]>,
+    verifier:        Verifier,
+    jit:             Option<JitProgram>,
+    helpers:         HashMap<u32, ebpf::Helper>,
+    max_insn_count:  usize,
+    last_insn_count: usize,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
@@ -128,10 +130,12 @@ impl<'a> EbpfVmMbuff<'a> {
         }
 
         Ok(EbpfVmMbuff {
-            prog:     prog,
-            verifier: verifier::check,
-            jit:      None,
-            helpers:  HashMap::new(),
+            prog:            prog,
+            verifier:        verifier::check,
+            jit:             None,
+            helpers:         HashMap::new(),
+            max_insn_count:  0,
+            last_insn_count: 0,
         })
     }
 
@@ -196,6 +200,68 @@ impl<'a> EbpfVmMbuff<'a> {
         }
         self.verifier = verifier;
         Ok(())
+    }
+
+    /// Set a cap on the maximum number of instructions that a program may execute.
+    /// If the maximum is set to zero, then no cap will be applied.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Set maximum instruction count.
+    /// vm.set_max_instruction_count(1000).unwrap();
+    /// ```
+    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+        self.max_insn_count = count;
+        Ok(())
+    }
+
+    /// Returns the number of instructions executed by the last program.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// 
+    /// let mem = &mut [
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+    /// ];
+    /// 
+    /// // Just for the example we create our metadata buffer from scratch, and we store the
+    /// // pointers to packet data start and end in it.
+    /// let mut mbuff = [0u8; 32];
+    /// unsafe {
+    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
+    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+    ///     *data     = mem.as_ptr() as u64;
+    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+    /// }
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Execute the program.
+    /// let res = vm.execute_program(mem, &mut mbuff).unwrap();
+    /// // Get the number of instructions executed.
+    /// let count = vm.get_last_instruction_count();
+    /// ```
+    pub fn get_last_instruction_count(&self) -> usize {
+        self.last_insn_count
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -276,7 +342,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     #[allow(unknown_lints)]
     #[allow(cyclomatic_complexity)]
-    pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
+    pub fn execute_program(&mut self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         const U32MAX: u64 = u32::MAX as u64;
 
         let prog = match self.prog { 
@@ -306,17 +372,13 @@ impl<'a> EbpfVmMbuff<'a> {
 
         // Loop on instructions
         let mut insn_ptr:usize = 0;
-        let mut max_executed = 0;
+        self.last_insn_count = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
-            insn_ptr += 1;
             let _dst = insn.dst as usize;
             let _src = insn.src as usize;
-
-            max_executed += 1;
-            if max_executed > ebpf::MAX_EXECUTED {
-                Err(Error::new(ErrorKind::Other,"Error: Execution exceeded maximum number of instructions"))?;
-            }
+            insn_ptr += 1;
+            self.last_insn_count += 1;
 
             match insn.opc {
 
@@ -578,6 +640,9 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::EXIT       => return Ok(reg[0]),
 
                 _                => unreachable!()
+            }
+            if (self.max_insn_count != 0) && (self.last_insn_count >= self.max_insn_count) {
+                Err(Error::new(ErrorKind::Other, "Error: Execution exceeded maximum number of instructions allowed"))?;
             }
         }
 
@@ -890,6 +955,57 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.set_verifier(verifier)
     }
 
+    /// Set a cap on the maximum number of instructions that a program may execute.
+    /// If the maximum is set to zero, then no cap will be applied.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Set maximum instruction count.
+    /// vm.set_max_instruction_count(1000).unwrap();
+    /// ```
+    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+        self.parent.set_max_instruction_count(count)
+    }
+
+    /// Returns the number of instructions executed by the last program.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// 
+    /// let mem = &mut [
+    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x09,
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// // Execute the program.
+    /// let res = vm.execute_program(mem).unwrap();
+    /// // Get the number of instructions executed.
+    /// let count = vm.get_last_instruction_count();
+    /// ```
+    pub fn get_last_instruction_count(&self) -> usize {
+        self.parent.get_last_instruction_count()
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -966,7 +1082,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0xdd);
     /// ```
-    pub fn execute_program(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program(&mut self, mem: & mut [u8]) -> Result<u64, Error> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
@@ -1099,7 +1215,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+/// let mut vm = solana_rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.execute_program(mem).unwrap();
@@ -1199,6 +1315,57 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.set_verifier(verifier)
     }
 
+    /// Set a cap on the maximum number of instructions that a program may execute.
+    /// If the maximum is set to zero, then no cap will be applied.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Set maximum instruction count.
+    /// vm.set_max_instruction_count(1000).unwrap();
+    /// ```
+    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+        self.parent.set_max_instruction_count(count)
+    }
+
+    /// Returns the number of instructions executed by the last program.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// 
+    /// let mem = &mut [
+    ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Execute the program.
+    /// let res = vm.execute_program(mem, mem).unwrap();
+    /// // Get the number of instructions executed.
+    /// let count = vm.get_last_instruction_count();
+    /// ```
+    pub fn get_last_instruction_count(&self) -> usize {
+        self.parent.get_last_instruction_count()
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1259,7 +1426,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn execute_program(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program(&mut self, mem: & mut [u8]) -> Result<u64, Error> {
         self.parent.execute_program(mem, &[])
     }
 
@@ -1330,7 +1497,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(&self, mem: &mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
     }
@@ -1369,7 +1536,7 @@ impl<'a> EbpfVmRaw<'a> {
 /// ];
 ///
 /// // Instantiate a VM.
-/// let vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+/// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
 ///
 /// // Provide only a reference to the packet data.
 /// let res = vm.execute_program().unwrap();
@@ -1467,6 +1634,53 @@ impl<'a> EbpfVmNoData<'a> {
         self.parent.set_verifier(verifier)
     }
 
+    /// Set a cap on the maximum number of instructions that a program may execute.
+    /// If the maximum is set to zero, then no cap will be applied.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// // Set maximum instruction count.
+    /// vm.set_max_instruction_count(1000).unwrap();
+    /// ```
+    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+        self.parent.set_max_instruction_count(count)
+    }
+
+    /// Returns the number of instruction executed by the last program.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Error, ErrorKind};
+    /// use solana_rbpf::ebpf;
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// // Execute the program.
+    /// let res = vm.execute_program().unwrap();
+    /// // Get the number of instructions executed.
+    /// let count = vm.get_last_instruction_count();
+    /// ```
+    pub fn get_last_instruction_count(&self) -> usize {
+        self.parent.get_last_instruction_count()
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1517,7 +1731,6 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
-    ///
     /// vm.jit_compile();
     /// ```
     #[cfg(not(windows))]
@@ -1536,13 +1749,13 @@ impl<'a> EbpfVmNoData<'a> {
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
     ///
-    /// let vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let mut vm = solana_rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
     /// // For this kind of VM, the `execute_program()` function needs no argument.
     /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn execute_program(&self) -> Result<(u64), Error> {
+    pub fn execute_program(&mut self) -> Result<(u64), Error> {
         self.parent.execute_program(&mut [])
     }
 
