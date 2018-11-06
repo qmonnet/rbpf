@@ -18,6 +18,9 @@
 //! <https://www.kernel.org/doc/Documentation/networking/filter.txt>, or for a shorter version of
 //! the list of the operation codes: <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
 
+use std::io::Error;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use byteorder::{ByteOrder, LittleEndian};
 
 /// Maximum number of instructions in an eBPF program.
@@ -384,7 +387,27 @@ pub const BPF_CLS_MASK    : u8 = 0x07;
 pub const BPF_ALU_OP_MASK : u8 = 0xf0;
 
 /// Prototype of an eBPF helper function.
-pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
+pub type HelperFunction = fn (u64, u64, u64, u64, u64) -> u64;
+
+/// Prototype of an eBPF helper verification function.
+pub type HelperVerifier = fn (u64, u64, u64, u64, u64, &[&[u8]], &[&[u8]]) -> Result<(()), Error>;
+
+/// eBPF Helper pair
+/// 
+/// Includes both the helper function itself, but also an optional helper verification function
+/// that if present will be called first to validate the helper parameters.  A verification
+/// function is not needed if the helper treats its arguments as values but if one of
+/// the arguments represent a pointer then that pointer must be verified by the 
+/// verification function.
+/// 
+/// Note: native jitted programs do not have the ability to call the verification programs
+/// so all helpers provided to a jitted function must treat their arguments as values only.
+pub struct Helper {
+    /// Called first to verify the helper function's arguments
+    pub verifier: Option<HelperVerifier>,
+    /// Actual helper function that does the work
+    pub function: HelperFunction,
+}
 
 /// An eBPF instruction.
 ///
@@ -579,4 +602,15 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<Insn> {
         insn_ptr += 1;
     };
     res
+}
+
+/// Hash a symbol name
+///
+/// This function is used by both the relocator and the VM to translate symbol names
+/// into a 32 bit id used to identify a helper function.  The 32 bit id is used in the
+/// eBPF `call` instruction's imm field.
+pub fn hash_symbol_name(name: &[u8]) -> u32 {
+    let mut hasher = DefaultHasher::new();
+    Hash::hash_slice(name, &mut hasher);
+    hasher.finish() as u32
 }

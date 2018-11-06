@@ -28,6 +28,8 @@ combine = "2.5"
 libc = "0.2"
 time = "0.1"
 byteorder = "1.2"
+elfkit = "0.0.6"
+num-traits = "0.2.5"
 
 [dev-dependencies]
 

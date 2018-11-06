@@ -127,10 +127,10 @@ pub fn bpf_trace_printf (unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5:
 /// ```
 pub fn gather_bytes (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
     arg1.wrapping_shl(32) |
-    arg2.wrapping_shl(24) |
-    arg3.wrapping_shl(16) |
-    arg4.wrapping_shl(8)  |
-    arg5
+       arg2.wrapping_shl(24) |
+       arg3.wrapping_shl(16) |
+       arg4.wrapping_shl(8)  |
+       arg5
 }
 
 /// Same as `void *memfrob(void *s, size_t n);` in `string.h` in C. See the GNU manual page (in

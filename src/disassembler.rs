@@ -345,7 +345,7 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
 /// exit
 /// ```
 pub fn disassemble(prog: &[u8]) {
-    for insn in to_insn_vec(prog) {
-        println!("{}", insn.desc);
+    for (i, insn) in to_insn_vec(prog).iter().enumerate() {
+        println!("{:5} {}", i, insn.desc);
     }
 }

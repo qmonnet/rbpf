@@ -20,10 +20,18 @@
 // extern crate elf;
 // use std::path::PathBuf;
 
+extern crate byteorder;
+extern crate libc;
 extern crate solana_rbpf;
 
 use std::io::{Error, ErrorKind};
+use std::fs::File;
+use std::io::Read;
+use std::ffi::CStr;
+use byteorder::{ByteOrder, LittleEndian};
+use libc::c_char;
 use solana_rbpf::assembler::assemble;
+use solana_rbpf::ebpf;
 use solana_rbpf::helpers;
 use solana_rbpf::{EbpfVmRaw, EbpfVmNoData, EbpfVmMbuff, EbpfVmFixedMbuff};
 
@@ -577,7 +585,7 @@ fn test_vm_err_ldindb_nomem() {
 }
 
 #[test]
-#[should_panic(expected = "Error: No program set, call prog_set() to load one")]
+#[should_panic(expected = "Error: no program or elf set")]
 fn test_vm_exec_no_program() {
     let mut vm = EbpfVmNoData::new(None).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 0xBEE);
@@ -691,3 +699,142 @@ fn test_get_last_instruction_count() {
     println!("count {:?}", vm.get_last_instruction_count());
     assert!(vm.get_last_instruction_count() == 1);
 }
+
+#[allow(unused_variables)]
+pub fn bpf_helper_string_verify(addr: u64, unused2: u64, unused3: u64, unused4: u64,
+                                unused5: u64, ro_regions: &[&[u8]], unused7: &[&[u8]]) -> Result<(()), Error> {
+    for region in ro_regions.iter() {
+        if region.as_ptr() as u64 <= addr && addr as u64 <= region.as_ptr() as u64 + region.len() as u64 {
+            let c_buf: *const c_char = addr as *const c_char;
+            let max_size = (region.as_ptr() as u64 + region.len() as u64) - addr;
+            unsafe {
+                for i in 0..max_size {
+                    if std::ptr::read(c_buf.offset(i as isize)) == 0 {
+                        return Ok(());
+                    }
+                }
+            }
+            return Err(Error::new(ErrorKind::Other, "Error: Unterminated string"));
+       }
+       
+    }
+    Err(Error::new(ErrorKind::Other, "Error: Load segfault, bad string pointer"))
+}
+
+#[allow(unused_variables)]
+pub fn bpf_helper_string(addr: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+    let c_buf: *const c_char = addr as *const c_char;
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
+    match c_str.to_str() {
+        Ok(slice) => println!("log: {:?}", slice),
+        Err(e) => println!("Error: Cannot print invalid string"),
+    };
+    0
+}
+
+pub fn bpf_dump_u64 (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
+    println!("dump_64: {:#x}, {:#x}, {:#x}, {:#x}, {:#x}", arg1, arg2, arg3, arg4, arg5);
+    0
+}
+
+#[test]
+fn test_load_elf() {
+    let mut file = File::open("tests/noop.o").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmNoData::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.register_helper_ex("log_64", None, bpf_dump_u64).unwrap();
+    vm.set_elf(&elf).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
+#[should_panic(expected ="Error: Multiple text sections")]
+fn test_load_elf_multiple_text() {
+    let mut file = File::open("tests/noop_multiple_text.o").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmNoData::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.register_helper_ex("log_64", None, bpf_dump_u64).unwrap();
+    vm.set_elf(&elf).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
+fn test_symbol_relocation() {
+        let prog = &mut [
+        0x85, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // call -1
+        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r0 = 0
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    LittleEndian::write_u32(&mut prog[4..8], ebpf::hash_symbol_name(b"log"));
+
+    let mut mem = [72, 101, 108, 108, 111, 0];
+
+    let mut vm = EbpfVmRaw::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.execute_program(&mut mem).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error: Load segfault, bad string pointer")]
+fn test_null_string() {
+    let prog = &mut [
+        0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r1 = 0
+        0x85, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // call -1
+        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r0 = 0
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    LittleEndian::write_u32(&mut prog[12..16], ebpf::hash_symbol_name(b"log"));
+
+    let mut mem = [72, 101, 108, 108, 111, 0];
+
+    let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.execute_program(&mut mem).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error: Unterminated string")]
+fn test_unterminated_string() {
+    let prog = &mut [
+        0x85, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // call -1
+        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r0 = 0
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    LittleEndian::write_u32(&mut prog[4..8], ebpf::hash_symbol_name(b"log"));
+
+    let mut mem = [72, 101, 108, 108, 111];
+
+    let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.execute_program(&mut mem).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "[JIT] Error: helper verifier function not supported by jit")]
+fn test_jit_call_helper_wo_verifier() {
+    let prog = &mut [
+        0x85, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // call -1
+        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r0 = 0
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    LittleEndian::write_u32(&mut prog[4..8], ebpf::hash_symbol_name(b"log"));
+
+    let mut mem = [72, 101, 108, 108, 111, 0];
+
+    let mut vm = EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit(&mut mem).unwrap(), 0); }
+}
+
+
+
+
+

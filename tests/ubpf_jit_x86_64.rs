@@ -26,7 +26,7 @@
 extern crate solana_rbpf;
 mod common;
 
-use solana_rbpf::{helpers};
+use solana_rbpf::helpers;
 use solana_rbpf::assembler::assemble;
 use solana_rbpf::{EbpfVmRaw, EbpfVmNoData};
 use common::{TCP_SACK_ASM, TCP_SACK_MATCH, TCP_SACK_NOMATCH};
