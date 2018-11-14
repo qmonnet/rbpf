@@ -377,7 +377,7 @@ fn muldivmod(jit: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) 
         }
 
         // jz div_by_zero
-        emit_jcc(jit, 0x84, TARGET_PC_DIV_BY_ZERO);
+        //emit_jcc(jit, 0x84, TARGET_PC_DIV_BY_ZERO);
     }
 
     if dst != RAX {

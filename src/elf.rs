@@ -75,6 +75,14 @@ impl EBpfElf {
             .filter(|section| section.name.starts_with(b".rodata"))
             .map(EBpfElf::content_to_bytes)
             .collect();
+        if let Ok(ref v) = rodata {
+                if v.is_empty() {
+                    Err(Error::new(
+                    ErrorKind::Other,
+                    "Error: No RO data",
+                ))?;
+            }
+        }
         rodata
     }
 

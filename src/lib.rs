@@ -103,8 +103,8 @@ pub struct EbpfVmMbuff<'a> {
     verifier:        Verifier,
     jit:             Option<JitProgram>,
     helpers:         HashMap<u32, ebpf::Helper>,
-    max_insn_count:  usize,
-    last_insn_count: usize,
+    max_insn_count:  u64,
+    last_insn_count: u64,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
@@ -204,7 +204,9 @@ impl<'a> EbpfVmMbuff<'a> {
     /// vm.set_verifier(verifier).unwrap();
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
-        if let Some(prog) = self.prog {
+        if let Some(ref elf) = self.elf {
+            verifier(elf.get_text_section()?)?;elf.get_text_section()?;
+        } else if let Some(ref prog) = self.prog {
             verifier(prog)?;
         }
         self.verifier = verifier;
@@ -230,7 +232,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Set maximum instruction count.
     /// vm.set_max_instruction_count(1000).unwrap();
     /// ```
-    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+    pub fn set_max_instruction_count(&mut self, count: u64) -> Result<(), Error> {
         self.max_insn_count = count;
         Ok(())
     }
@@ -269,7 +271,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Get the number of instructions executed.
     /// let count = vm.get_last_instruction_count();
     /// ```
-    pub fn get_last_instruction_count(&self) -> usize {
+    pub fn get_last_instruction_count(&self) -> u64 {
         self.last_insn_count
     }
 
@@ -399,7 +401,9 @@ impl<'a> EbpfVmMbuff<'a> {
 
         let prog =
         if let Some(ref elf) = self.elf {
-            ro_regions.extend(elf.get_rodata()?);
+            if let Ok(regions) = elf.get_rodata() {
+                ro_regions.extend(regions);
+            }
             elf.get_text_section()?
         } else if let Some(ref prog) = self.prog {
             prog
@@ -751,9 +755,18 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.prog { 
-            Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
+        let prog =
+        if let Some(ref elf) = self.elf {
+            if elf.get_rodata().is_ok() {
+                Err(Error::new(ErrorKind::Other,
+                           "Error: JIT does not support RO data"))?
+            }
+            elf.get_text_section()?
+        } else if let Some(ref prog) = self.prog {
+            prog
+        } else {
+            Err(Error::new(ErrorKind::Other,
+                           "Error: no program or elf set"))?
         };
         self.jit = Some(jit::compile(prog, &self.helpers, true, false)?);
         Ok(())
@@ -1034,7 +1047,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Set maximum instruction count.
     /// vm.set_max_instruction_count(1000).unwrap();
     /// ```
-    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+    pub fn set_max_instruction_count(&mut self, count: u64) -> Result<(), Error> {
         self.parent.set_max_instruction_count(count)
     }
 
@@ -1062,7 +1075,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Get the number of instructions executed.
     /// let count = vm.get_last_instruction_count();
     /// ```
-    pub fn get_last_instruction_count(&self) -> usize {
+    pub fn get_last_instruction_count(&self) -> u64 {
         self.parent.get_last_instruction_count()
     }
 
@@ -1210,10 +1223,19 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.parent.prog { 
-            Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
-        };
+        let prog =
+            if let Some(ref elf) = self.parent.elf {
+                if elf.get_rodata().is_ok() {
+                    Err(Error::new(ErrorKind::Other,
+                            "Error: JIT does not support RO data"))?
+                }
+                elf.get_text_section()?
+            } else if let Some(ref prog) = self.parent.prog {
+                prog
+            } else {
+                Err(Error::new(ErrorKind::Other,
+                            "Error: no program or elf set"))?
+            };
         self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, true, true)?);
         Ok(())
     }
@@ -1431,7 +1453,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Set maximum instruction count.
     /// vm.set_max_instruction_count(1000).unwrap();
     /// ```
-    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+    pub fn set_max_instruction_count(&mut self, count: u64) -> Result<(), Error> {
         self.parent.set_max_instruction_count(count)
     }
 
@@ -1459,7 +1481,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Get the number of instructions executed.
     /// let count = vm.get_last_instruction_count();
     /// ```
-    pub fn get_last_instruction_count(&self) -> usize {
+    pub fn get_last_instruction_count(&self) -> u64 {
         self.parent.get_last_instruction_count()
     }
 
@@ -1579,11 +1601,19 @@ impl<'a> EbpfVmRaw<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.parent.prog { 
-            Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other,
-                        "Error: No program set, call prog_set() to load one"))?,
-        };
+        let prog =
+            if let Some(ref elf) = self.parent.elf {
+                if elf.get_rodata().is_ok() {
+                    Err(Error::new(ErrorKind::Other,
+                            "Error: JIT does not support RO data"))?
+                }
+                elf.get_text_section()?
+            } else if let Some(ref prog) = self.parent.prog {
+                prog
+            } else {
+                Err(Error::new(ErrorKind::Other,
+                            "Error: no program or elf set"))?
+            };
         self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, false, false)?);
         Ok(())
     }
@@ -1787,7 +1817,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Set maximum instruction count.
     /// vm.set_max_instruction_count(1000).unwrap();
     /// ```
-    pub fn set_max_instruction_count(&mut self, count: usize) -> Result<(), Error> {
+    pub fn set_max_instruction_count(&mut self, count: u64) -> Result<(), Error> {
         self.parent.set_max_instruction_count(count)
     }
 
@@ -1811,7 +1841,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Get the number of instructions executed.
     /// let count = vm.get_last_instruction_count();
     /// ```
-    pub fn get_last_instruction_count(&self) -> usize {
+    pub fn get_last_instruction_count(&self) -> u64 {
         self.parent.get_last_instruction_count()
     }
 
