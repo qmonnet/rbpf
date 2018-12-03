@@ -30,7 +30,7 @@ pub const INSN_SIZE: usize = 8;
 /// Maximum size of an eBPF program, in bytes.
 pub const PROG_MAX_SIZE: usize = PROG_MAX_INSNS * INSN_SIZE;
 /// Stack for the eBPF stack, in bytes.
-pub const STACK_SIZE: usize = 512;
+pub const STACK_SIZE: usize = 2048;
 
 // eBPF op codes.
 // See also https://www.kernel.org/doc/Documentation/networking/filter.txt
