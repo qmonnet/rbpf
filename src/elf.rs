@@ -1,6 +1,13 @@
 //! This module relocates a BPF ELF
 
+// Note: Typically ELF shared objects are loaded using the program headers and
+// not the section headers.  Since we are leveraging the elfkit crate its much
+// easier to use the section headers.  There are cases (reduced size, obfuscation)
+// where the section headers may be removed from the ELF.  If that happens then
+// this loader will need to be re-written to use the program headers instead.
+
 extern crate elfkit;
+// extern crate enum_primitive_derive;
 extern crate num_traits;
 
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
@@ -8,6 +15,56 @@ use ebpf;
 use elf::num_traits::FromPrimitive;
 use std::io::Cursor;
 use std::io::{Error, ErrorKind};
+
+// For more information on the BPF instruction set:
+// https://github.com/iovisor/bpf-docs/blob/master/eBPF.md
+
+// msb                                                        lsb
+// +------------------------+----------------+----+----+--------+
+// |immediate               |offset          |src |dst |opcode  |
+// +------------------------+----------------+----+----+--------+
+
+// From least significant to most significant bit:
+//   8 bit opcode
+//   4 bit destination register (dst)
+//   4 bit source register (src)
+//   16 bit offset
+//   32 bit immediate (imm)
+
+const BYTE_OFFSET_IMMEDIATE: usize = 4;
+const BYTE_LENGTH_IMMEIDATE: usize = 4;
+
+/// BPF relocation types.
+#[allow(non_camel_case_types)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum BPFRelocationType {
+    /// none none
+    R_BPF_NONE = 0,
+    /// word64 S + A
+    R_BPF_64_64 = 1,
+    /// wordclass B + A
+    R_BPF_64_RELATIVE = 8,
+    /// word32 S + A
+    R_BPF_64_32 = 10,
+}
+
+impl BPFRelocationType {
+    fn from_x86_relocation_type(
+        from: &elfkit::relocation::RelocationType,
+    ) -> Option<BPFRelocationType> {
+        match *from {
+            elfkit::relocation::RelocationType::R_X86_64_NONE => {
+                Some(BPFRelocationType::R_BPF_NONE)
+            }
+            elfkit::relocation::RelocationType::R_X86_64_64 => Some(BPFRelocationType::R_BPF_64_64),
+            elfkit::relocation::RelocationType::R_X86_64_RELATIVE => {
+                Some(BPFRelocationType::R_BPF_64_RELATIVE)
+            }
+            elfkit::relocation::RelocationType::R_X86_64_32 => Some(BPFRelocationType::R_BPF_64_32),
+            _ => None,
+        }
+    }
+}
 
 /// Elf loader/relocator
 pub struct EBpfElf {
@@ -76,11 +133,8 @@ impl EBpfElf {
             .map(EBpfElf::content_to_bytes)
             .collect();
         if let Ok(ref v) = rodata {
-                if v.is_empty() {
-                    Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: No RO data",
-                ))?;
+            if v.is_empty() {
+                Err(Error::new(ErrorKind::Other, "Error: No RO data"))?;
             }
         }
         rodata
@@ -124,7 +178,7 @@ impl EBpfElf {
                 "Error: Incompatible ELF: wrong machine",
             ));
         }
-        if self.elf.header.etype != elfkit::types::ElfType::REL {
+        if self.elf.header.etype != elfkit::types::ElfType::DYN {
             return Err(Error::new(
                 ErrorKind::Other,
                 "Error: Incompatible ELF: wrong type",
@@ -144,20 +198,6 @@ impl EBpfElf {
             ));
         }
 
-        // No writable sections
-        for section in self.elf.sections.iter() {
-            if section
-                .header
-                .flags
-                .intersects(elfkit::types::SectionFlags::WRITE)
-            {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: Incompatible ELF: writable sections not supported",
-                ));
-            }
-        }
-
         Ok(())
     }
 
@@ -168,35 +208,51 @@ impl EBpfElf {
                 .elf
                 .sections
                 .iter()
-                .find(|section| section.name.starts_with(b".rel.text"))
+                .find(|section| section.name.starts_with(b".rel.dyn"))
             {
                 Some(section) => match section.content {
                     elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
                     _ => Err(Error::new(
                         ErrorKind::Other,
-                        "Error: Failed to get .rel.text contents",
+                        "Error: Failed to get .rel.dyn contents",
                     ))?,
                 },
                 None => return Ok(()), // no relocation section, no need to relocate
             };
             let relocations = EBpfElf::get_relocations(&raw_relocation_bytes[..])?;
 
-            let mut text_bytes = match self
+            let (mut text_bytes, text_va) = match self
                 .elf
                 .sections
                 .iter()
                 .find(|section| section.name.starts_with(b".text"))
             {
-                Some(section) => match section.content {
-                    elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
-                    _ => Err(Error::new(
-                        ErrorKind::Other,
-                        "Error: Failed to get .text contents",
-                    ))?,
-                },
+                Some(section) => (
+                    match section.content {
+                        elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
+                        _ => Err(Error::new(
+                            ErrorKind::Other,
+                            "Error: Failed to get .text contents",
+                        ))?,
+                    },
+                    section.header.addr,
+                ),
                 None => Err(Error::new(
                     ErrorKind::Other,
                     "Error: No .text section found",
+                ))?,
+            };
+
+            let rodata_section = match self
+                .elf
+                .sections
+                .iter()
+                .find(|section| section.name.starts_with(b".rodata"))
+            {
+                Some(section) => section,
+                None => Err(Error::new(
+                    ErrorKind::Other,
+                    "Error: No .rodata section found",
                 ))?,
             };
 
@@ -204,7 +260,7 @@ impl EBpfElf {
                 .elf
                 .sections
                 .iter()
-                .find(|section| section.name.starts_with(b".symtab"))
+                .find(|section| section.name.starts_with(b".dynsym"))
             {
                 Some(section) => match section.content {
                     elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
@@ -220,39 +276,33 @@ impl EBpfElf {
             };
 
             for relocation in relocations.iter() {
-                // elfkit uses x86 relocation types, R_x86_64_64 == R_BPF_64_64
-                match relocation.rtype {
-                    elfkit::relocation::RelocationType::R_X86_64_64 => {
-                        // The .text section has a reference to a symbol in another section
-                        // (probably .rodata)
-                        //
-                        // Get the 64 bit address of the symbol and fix-up the lddw instruction's
-                        // imm field
+                match BPFRelocationType::from_x86_relocation_type(&relocation.rtype) {
+                    Some(BPFRelocationType::R_BPF_64_RELATIVE) => {
+                        // The .text section has a reference to a symbol in the .rodata section
 
-                        let symbol = &symbols[relocation.sym as usize];
-                        let shndx = match symbol.shndx {
-                            elfkit::symbol::SymbolSectionIndex::Section(shndx) => shndx,
-                            _ => Err(Error::new(
-                                ErrorKind::Other,
-                                "Error: Failed to get relocations",
-                            ))?,
-                        } as usize;
-
-                        let section_base_address = match self.elf.sections[shndx].content {
+                        // Offset of the instruction in the text section being relocated
+                        let mut imm_offset =
+                            (relocation.addr - text_va) as usize + BYTE_OFFSET_IMMEDIATE;
+                        // Read the instruction's immediate field which contains the rodata symbol's virtual address
+                        let ro_va = LittleEndian::read_u32(
+                            &text_bytes[imm_offset..imm_offset + BYTE_LENGTH_IMMEIDATE],
+                        ) as u64;
+                        // Convert into an offset into the rodata section by subtracting the rodata section's base virtual address
+                        let ro_offset = ro_va - rodata_section.header.addr;
+                        // Get the rodata's physical address
+                        let rodata_pa = match rodata_section.content {
                             elfkit::SectionContent::Raw(ref raw) => raw,
                             _ => Err(Error::new(
                                 ErrorKind::Other,
                                 "Error: Failed to get .rodata contents",
                             ))?,
                         }.as_ptr() as u64;
-
-                        // base address of containing section plus offset from relocation
-                        let symbol_addr: u64 = section_base_address + symbol.value;
+                        // Calculator the symbol's physical address within the rodata section
+                        let symbol_addr = rodata_pa + ro_offset;
 
                         // Instruction lddw spans two instruction slots, split
                         // symbol's address into two and write into both
                         // slot's imm field
-                        let mut imm_offset = relocation.addr as usize + 4;
                         let imm_length = 4;
                         LittleEndian::write_u32(
                             &mut text_bytes[imm_offset..imm_offset + imm_length],
@@ -264,19 +314,18 @@ impl EBpfElf {
                             (symbol_addr >> 32) as u32,
                         );
                     }
-                    elfkit::relocation::RelocationType::R_X86_64_32 => {
+                    Some(BPFRelocationType::R_BPF_64_32) => {
                         // The .text section has an unresolved call instruction
                         //
-                        // Hash the symbol name and stick it
-                        // into the call instruction's imm field.  Later
-                        // that hash will be used to look up the actual
-                        // helper.
+                        // Hash the symbol name and stick it into the call
+                        // instruction's imm field.  Later  that hash will be
+                        // used to look up the actual helper.
 
                         let name = &symbols[relocation.sym as usize].name;
-                        let mut imm_offset = relocation.addr as usize + 4;
-                        let imm_length = 4;
+                        let imm_offset =
+                            (relocation.addr - text_va) as usize + BYTE_OFFSET_IMMEDIATE;
                         LittleEndian::write_u32(
-                            &mut text_bytes[imm_offset..imm_offset + imm_length],
+                            &mut text_bytes[imm_offset..imm_offset + BYTE_LENGTH_IMMEIDATE],
                             ebpf::hash_symbol_name(name),
                         );
                     }
@@ -373,45 +422,41 @@ mod test {
 
     #[test]
     fn test_validate() {
-        let mut file = File::open("tests/noop.o").expect("file open failed");
+        let mut file = File::open("tests/noop.so").expect("file open failed");
         let mut elf_bytes = Vec::new();
         file.read_to_end(&mut elf_bytes)
             .expect("failed to read elf file");
         let mut elf = EBpfElf::load(&elf_bytes).unwrap();
 
-        elf.validate().unwrap();
+        elf.validate().expect("validation failed");
         elf.elf.header.ident_class = elfkit::types::Class::Class32;
-        elf.validate().unwrap_err();
+        elf.validate().expect_err("allowed bad class");
         elf.elf.header.ident_class = elfkit::types::Class::Class64;
-        elf.validate().unwrap();
+        elf.validate().expect("validation failed");
         elf.elf.header.ident_endianness = elfkit::types::Endianness::BigEndian;
-        elf.validate().unwrap_err();
+        elf.validate().expect_err("allowed big endian");
         elf.elf.header.ident_endianness = elfkit::types::Endianness::LittleEndian;
-        elf.validate().unwrap();
+        elf.validate().expect("validation failed");
         elf.elf.header.ident_abi = elfkit::types::Abi::ARM;
-        elf.validate().unwrap_err();
+        elf.validate().expect_err("allowed wrong abi");
         elf.elf.header.ident_abi = elfkit::types::Abi::SYSV;
-        elf.validate().unwrap();
+        elf.validate().expect("validation failed");
         elf.elf.header.machine = elfkit::types::Machine::QDSP6;
-        elf.validate().unwrap_err();
+        elf.validate().expect_err("allowed wrong machine");
         elf.elf.header.machine = elfkit::types::Machine::BPF;
-        elf.validate().unwrap();
-        elf.elf.header.etype = elfkit::types::ElfType::DYN;
-        elf.validate().unwrap_err();
+        elf.validate().expect("validation failed");
         elf.elf.header.etype = elfkit::types::ElfType::REL;
-        elf.validate().unwrap();
-        let flags = elf.elf.sections[0].header.flags;
-        elf.elf.sections[0].header.flags = elfkit::types::SectionFlags::WRITE;
-        elf.validate().unwrap_err();
-        elf.elf.sections[0].header.flags = flags;
+        elf.validate().expect_err("allowed wrong type");
+        elf.elf.header.etype = elfkit::types::ElfType::DYN;
+        elf.validate().expect("validation failed");
     }
 
     #[test]
     fn test_relocate() {
-        let mut file = File::open("tests/noop.o").expect("file open failed");
+        let mut file = File::open("tests/noop.so").expect("file open failed");
         let mut elf_bytes = Vec::new();
         file.read_to_end(&mut elf_bytes)
             .expect("failed to read elf file");
-        EBpfElf::load(&elf_bytes).unwrap();
+        EBpfElf::load(&elf_bytes).expect("validation failed");
     }
 }

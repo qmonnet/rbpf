@@ -1,13 +1,10 @@
 #!/bin/bash -ex
 
-# Requires LLVM 7.x or newer
-#http://releases.llvm.org/download.html
+# Requires Latest release of Solana's custom LLVM
+#https://github.com/solana-labs/llvm-builder/releases
 
-/usr/local/opt/llvm/bin/clang -Werror -target bpf -O2 -emit-llvm -fno-builtin -o noop.bc -c noop.c
-/usr/local/opt/llvm/bin/llc -march=bpf -filetype=obj -o noop.o noop.bc
+<path to custom Solana llvm>/clang -Werror -target bpf -O2 -emit-llvm -fno-builtin -fPIC -o noop.bc -c noop.c
+<path to custom Solana llvm>/llc -march=bpf -filetype=obj -o noop.o noop.bc
+<path to custom Solana llvm>/ld.lld -z notext -shared --Bdynamic -o noop.so noop.o
 rm noop.bc
-
-/usr/local/opt/llvm/bin/clang -Werror -target bpf -O2 -emit-llvm -fno-builtin -o noop_multiple_text.bc -c noop.c
-/usr/local/opt/llvm/bin/llc -march=bpf -filetype=obj -function-sections -o noop_multiple_text.o noop_multiple_text.bc
-rm noop_multiple_text.bc
-
+rm noop.o
