@@ -399,11 +399,13 @@ impl<'a> EbpfVmMbuff<'a> {
         ro_regions.push(mem);
         rw_regions.push(mem);
 
+        let mut entry: usize = 0;
         let prog =
         if let Some(ref elf) = self.elf {
             if let Ok(regions) = elf.get_rodata() {
                 ro_regions.extend(regions);
             }
+            entry = elf.get_entrypoint_instruction_offset()?;
             elf.get_text_bytes()?
         } else if let Some(ref prog) = self.prog {
             prog
@@ -431,7 +433,7 @@ impl<'a> EbpfVmMbuff<'a> {
         };
 
         // Loop on instructions
-        let mut insn_ptr:usize = 0;
+        let mut insn_ptr: usize = entry;
         self.last_insn_count = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);

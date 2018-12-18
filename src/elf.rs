@@ -118,25 +118,30 @@ impl EBpfElf {
         rodata
     }
 
-    fn get_section(&self, name: &str) -> Result<(&elfkit::Section), Error> {
-        match self
-            .elf
-            .sections
-            .iter()
-            .find(|section| section.name == name.as_bytes())
-        {
-            Some(section) => Ok(section),
-            None => Err(Error::new(
+    /// Get the entry point offset into the text section
+    pub fn get_entrypoint_instruction_offset(&self) -> Result<usize, Error> {
+        let entry = self.elf.header.entry;
+        let text = self.get_section(".text")?;
+        if entry < text.header.addr || entry > text.header.addr + text.header.size {
+            Err(Error::new(
                 ErrorKind::Other,
-                format!("Error: No {} section found", name),
-            ))?,
+                "Error: Entrypoint out of bounds",
+            ))?
         }
+        let offset = (entry - text.header.addr) as usize;
+        if offset % ebpf::INSN_SIZE != 0 {
+            Err(Error::new(
+                ErrorKind::Other,
+                "Error: Entrypoint not multple of instruction size",
+            ))?
+        }
+        Ok(offset / ebpf::INSN_SIZE)
     }
 
     /// Report information on a symbol that failed to be resolved
-    pub fn report_unresolved_symbol(&self, offset: usize) -> Result<(), Error> {
+    pub fn report_unresolved_symbol(&self, insn_offset: usize) -> Result<(), Error> {
         let file_offset =
-            offset * ebpf::INSN_SIZE + self.get_section(".text")?.header.addr as usize;
+            insn_offset * ebpf::INSN_SIZE + self.get_section(".text")?.header.addr as usize;
 
         let symbols = match self.get_section(".dynsym")?.content {
             elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
@@ -178,6 +183,21 @@ impl EBpfElf {
                 file_offset / ebpf::INSN_SIZE
             ),
         ))?
+    }
+
+    fn get_section(&self, name: &str) -> Result<(&elfkit::Section), Error> {
+        match self
+            .elf
+            .sections
+            .iter()
+            .find(|section| section.name == name.as_bytes())
+        {
+            Some(section) => Ok(section),
+            None => Err(Error::new(
+                ErrorKind::Other,
+                format!("Error: No {} section found", name),
+            ))?,
+        }
     }
 
     /// Converts a section's raw contents to a slice
@@ -472,4 +492,58 @@ mod test {
             .expect("failed to read elf file");
         EBpfElf::load(&elf_bytes).expect("validation failed");
     }
+
+    #[test]
+    fn test_entrypoint() {
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let mut elf = EBpfElf::load(&elf_bytes).expect("validation failed");
+
+        assert_eq!(0, elf.get_entrypoint_instruction_offset().expect("failed to get entrypoint"));
+        elf.elf.header.entry = elf.elf.header.entry + 8;
+        assert_eq!(1, elf.get_entrypoint_instruction_offset().expect("failed to get entrypoint"));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error: Entrypoint out of bounds")]
+    fn test_entrypoint_before_text() {
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let mut elf = EBpfElf::load(&elf_bytes).expect("validation failed");
+
+        elf.elf.header.entry = 1;
+        elf.get_entrypoint_instruction_offset().unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Error: Entrypoint out of bounds")]
+    fn test_entrypoint_after_text() {
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let mut elf = EBpfElf::load(&elf_bytes).expect("validation failed");
+
+        elf.elf.header.entry = 1;
+        elf.get_entrypoint_instruction_offset().unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Error: Entrypoint not multple of instruction size")]
+    fn test_entrypoint_not_multiple_of_instruction_size() {
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let mut elf = EBpfElf::load(&elf_bytes).expect("validation failed");
+
+        elf.elf.header.entry = elf.elf.header.entry + ebpf::INSN_SIZE as u64 + 1 ;
+        elf.get_entrypoint_instruction_offset().unwrap();
+    }
 }
+
+

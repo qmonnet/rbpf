@@ -850,6 +850,21 @@ fn test_symbol_unresolved_elf() {
     vm.execute_program().unwrap();
 }
 
+#[test]
+fn test_symbol_custom_entrypoint() {
+    let mut file = File::open("tests/elfs/unresolved_helper.so").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    elf[24] = 72; // nine instructions should leave only two left in text section
+
+    let mut vm = EbpfVmNoData::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_elf(&elf).unwrap();
+    vm.execute_program().unwrap();
+    assert_eq!(2, vm.get_last_instruction_count());
+}
+
 
 
 
