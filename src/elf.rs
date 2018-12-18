@@ -15,6 +15,7 @@ use ebpf;
 use elf::num_traits::FromPrimitive;
 use std::io::Cursor;
 use std::io::{Error, ErrorKind};
+use std::str;
 
 // For more information on the BPF instruction set:
 // https://github.com/iovisor/bpf-docs/blob/master/eBPF.md
@@ -95,41 +96,18 @@ impl EBpfElf {
         Ok(ebpf_elf)
     }
 
-    /// Gets the .text section
-    pub fn get_text_section(&self) -> Result<&[u8], Error> {
-        Ok(match self
-            .elf
-            .sections
-            .iter()
-            .find(|section| section.name == b".text")
-        {
-            Some(section) => match section.content {
-                elfkit::SectionContent::Raw(ref bytes) => {
-                    if bytes.is_empty() {
-                        return Err(Error::new(ErrorKind::Other, "Error: Empty .text section"))?;
-                    } else {
-                        bytes
-                    }
-                }
-                _ => Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: Failed to get .text contents",
-                ))?,
-            },
-            None => Err(Error::new(
-                ErrorKind::Other,
-                "Error: No .text section found",
-            ))?,
-        })
+    /// Get the .text section bytes
+    pub fn get_text_bytes(&self) -> Result<&[u8], Error> {
+        EBpfElf::content_to_bytes(self.get_section(".text")?)
     }
 
     /// Get a vector of read-only data sections
-    pub fn get_rodata<'a>(&'a self) -> Result<Vec<&'a [u8]>, Error> {
+    pub fn get_rodata(&self) -> Result<Vec<&[u8]>, Error> {
         let rodata: Result<Vec<_>, _> = self
             .elf
             .sections
             .iter()
-            .filter(|section| section.name.starts_with(b".rodata"))
+            .filter(|section| section.name == b".rodata")
             .map(EBpfElf::content_to_bytes)
             .collect();
         if let Ok(ref v) = rodata {
@@ -140,13 +118,75 @@ impl EBpfElf {
         rodata
     }
 
+    fn get_section(&self, name: &str) -> Result<(&elfkit::Section), Error> {
+        match self
+            .elf
+            .sections
+            .iter()
+            .find(|section| section.name == name.as_bytes())
+        {
+            Some(section) => Ok(section),
+            None => Err(Error::new(
+                ErrorKind::Other,
+                format!("Error: No {} section found", name),
+            ))?,
+        }
+    }
+
+    /// Report information on a symbol that failed to be resolved
+    pub fn report_unresolved_symbol(&self, offset: usize) -> Result<(), Error> {
+        let file_offset =
+            offset * ebpf::INSN_SIZE + self.get_section(".text")?.header.addr as usize;
+
+        let symbols = match self.get_section(".dynsym")?.content {
+            elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                "Error: Failed to get .dynsym contents",
+            ))?,
+        };
+
+        let raw_relocation_bytes = match self.get_section(".rel.dyn")?.content {
+            elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                "Error: Failed to get .rel.dyn contents",
+            ))?,
+        };
+        let relocations = EBpfElf::get_relocations(&raw_relocation_bytes[..])?;
+
+        let mut name = "Unknown";
+        for relocation in relocations.iter() {
+            match BPFRelocationType::from_x86_relocation_type(&relocation.rtype) {
+                Some(BPFRelocationType::R_BPF_64_32) => {
+                    if relocation.addr as usize == file_offset {
+                        name = match str::from_utf8(&symbols[relocation.sym as usize].name) {
+                            Ok(string) => string,
+                            Err(_) => "Malformed symbol name",
+                        };
+                    }
+                }
+                _ => (),
+            }
+        }
+        Err(Error::new(
+            ErrorKind::Other,
+            format!(
+                "Error: Unresolved symbol ({}) at instruction #{:?} (ELF file offset {:#x})",
+                name,
+                file_offset,
+                file_offset / ebpf::INSN_SIZE
+            ),
+        ))?
+    }
+
     /// Converts a section's raw contents to a slice
     fn content_to_bytes(section: &elfkit::section::Section) -> Result<&[u8], Error> {
         match section.content {
             elfkit::SectionContent::Raw(ref bytes) => Ok(bytes),
             _ => Err(Error::new(
                 ErrorKind::Other,
-                "Error: Failed to get .rodata contents",
+                "Error: Failed to get section contents",
             )),
         }
     }
@@ -204,50 +244,33 @@ impl EBpfElf {
     /// Performs relocation on the text section
     fn relocate(&mut self) -> Result<(), Error> {
         let text_bytes = {
-            let raw_relocation_bytes = match self
-                .elf
-                .sections
-                .iter()
-                .find(|section| section.name.starts_with(b".rel.dyn"))
-            {
-                Some(section) => match section.content {
+            let raw_relocation_bytes = match self.get_section(".rel.dyn") {
+                Ok(section) => match section.content {
                     elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
                     _ => Err(Error::new(
                         ErrorKind::Other,
                         "Error: Failed to get .rel.dyn contents",
                     ))?,
                 },
-                None => return Ok(()), // no relocation section, no need to relocate
+                Err(_) => return Ok(()), // no relocation section, no need to relocate
             };
             let relocations = EBpfElf::get_relocations(&raw_relocation_bytes[..])?;
 
-            let (mut text_bytes, text_va) = match self
-                .elf
-                .sections
-                .iter()
-                .find(|section| section.name.starts_with(b".text"))
-            {
-                Some(section) => (
-                    match section.content {
-                        elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
-                        _ => Err(Error::new(
-                            ErrorKind::Other,
-                            "Error: Failed to get .text contents",
-                        ))?,
-                    },
-                    section.header.addr,
-                ),
-                None => Err(Error::new(
+            let text_section = self.get_section(".text")?;
+            let mut text_bytes = match text_section.content {
+                elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
+                _ => Err(Error::new(
                     ErrorKind::Other,
-                    "Error: No .text section found",
+                    "Error: Failed to get .text contents",
                 ))?,
             };
+            let text_va = text_section.header.addr;
 
             let rodata_section = match self
                 .elf
                 .sections
                 .iter()
-                .find(|section| section.name.starts_with(b".rodata"))
+                .find(|section| section.name == b".rodata")
             {
                 Some(section) => section,
                 None => Err(Error::new(
@@ -256,22 +279,11 @@ impl EBpfElf {
                 ))?,
             };
 
-            let symbols = match self
-                .elf
-                .sections
-                .iter()
-                .find(|section| section.name.starts_with(b".dynsym"))
-            {
-                Some(section) => match section.content {
-                    elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
-                    _ => Err(Error::new(
-                        ErrorKind::Other,
-                        "Error: Failed to get .symtab contents",
-                    ))?,
-                },
-                None => Err(Error::new(
+            let symbols = match self.get_section(".dynsym")?.content {
+                elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
+                _ => Err(Error::new(
                     ErrorKind::Other,
-                    "Error: No .symtab section found",
+                    "Error: Failed to get .dynsym contents",
                 ))?,
             };
 
@@ -296,7 +308,8 @@ impl EBpfElf {
                                 ErrorKind::Other,
                                 "Error: Failed to get .rodata contents",
                             ))?,
-                        }.as_ptr() as u64;
+                        }
+                        .as_ptr() as u64;
                         // Calculator the symbol's physical address within the rodata section
                         let symbol_addr = rodata_pa + ro_offset;
 
@@ -343,7 +356,7 @@ impl EBpfElf {
             .elf
             .sections
             .iter_mut()
-            .find(|section| section.name.starts_with(b".text"))
+            .find(|section| section.name == b".text")
         {
             Some(section) => &mut section.content,
             None => Err(Error::new(
@@ -422,7 +435,7 @@ mod test {
 
     #[test]
     fn test_validate() {
-        let mut file = File::open("tests/noop.so").expect("file open failed");
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
         let mut elf_bytes = Vec::new();
         file.read_to_end(&mut elf_bytes)
             .expect("failed to read elf file");
@@ -453,7 +466,7 @@ mod test {
 
     #[test]
     fn test_relocate() {
-        let mut file = File::open("tests/noop.so").expect("file open failed");
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
         let mut elf_bytes = Vec::new();
         file.read_to_end(&mut elf_bytes)
             .expect("failed to read elf file");

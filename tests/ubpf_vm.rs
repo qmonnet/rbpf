@@ -390,7 +390,7 @@ fn test_vm_early_exit() {
 //}
 
 #[test]
-#[should_panic(expected = "Error: unknown helper function (id: 0x3f)")]
+#[should_panic(expected = "Error: Unresolved symbol at instruction #5")]
 fn test_vm_err_call_unreg() {
     let prog = assemble("
         mov r1, 1

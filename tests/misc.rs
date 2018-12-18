@@ -739,7 +739,7 @@ pub fn bpf_dump_u64 (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u
 
 #[test]
 fn test_load_elf() {
-    let mut file = File::open("tests/noop.so").expect("file open failed");
+    let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
     let mut elf = Vec::new();
     file.read_to_end(&mut elf).unwrap();
 
@@ -818,6 +818,36 @@ fn test_jit_call_helper_wo_verifier() {
     vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
     vm.jit_compile().unwrap();
     unsafe { assert_eq!(vm.execute_program_jit(&mut mem).unwrap(), 0); }
+}
+
+#[test]
+#[should_panic(expected = "Error: Unresolved symbol at instruction #0")]
+fn test_symbol_unresolved() {
+        let prog = &mut [
+        0x85, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // call -1
+        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // r0 = 0
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    LittleEndian::write_u32(&mut prog[4..8], ebpf::hash_symbol_name(b"log"));
+
+    let mut mem = [72, 101, 108, 108, 111, 0];
+
+    let mut vm = EbpfVmRaw::new(None).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.execute_program(&mut mem).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error: Unresolved symbol (log_64) at instruction #4160 (ELF file offset 0x208)")]
+fn test_symbol_unresolved_elf() {
+    let mut file = File::open("tests/elfs/unresolved_helper.so").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmNoData::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_elf(&elf).unwrap();
+    vm.execute_program().unwrap();
 }
 
 

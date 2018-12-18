@@ -168,7 +168,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// Load a new eBPF program into the virtual machine instance.
     pub fn set_elf(&mut self, elf_bytes: &'a [u8]) -> Result<(), Error> {
         let elf = EBpfElf::load(elf_bytes)?;
-        (self.verifier)(elf.get_text_section()?)?;
+        (self.verifier)(elf.get_text_bytes()?)?;
         self.elf = Some(elf);
         Ok(())
     }
@@ -205,7 +205,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
         if let Some(ref elf) = self.elf {
-            verifier(elf.get_text_section()?)?;elf.get_text_section()?;
+            verifier(elf.get_text_bytes()?)?;
         } else if let Some(ref prog) = self.prog {
             verifier(prog)?;
         }
@@ -404,7 +404,7 @@ impl<'a> EbpfVmMbuff<'a> {
             if let Ok(regions) = elf.get_rodata() {
                 ro_regions.extend(regions);
             }
-            elf.get_text_section()?
+            elf.get_text_bytes()?
         } else if let Some(ref prog) = self.prog {
             prog
         } else {
@@ -691,14 +691,18 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::JSLE_REG   => if (reg[_dst] as i64) <= reg[_src] as i64 { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
-                ebpf::CALL       => if let Some(helper) = self.helpers.get(&(insn.imm as u32)) {
-                    if let Some(function) = helper.verifier {
-                        function(reg[1], reg[2], reg[3], reg[4], reg[5], &ro_regions, &rw_regions)?;
+                ebpf::CALL       => {
+                    if let Some(helper) = self.helpers.get(&(insn.imm as u32)) {
+                        if let Some(function) = helper.verifier {
+                            function(reg[1], reg[2], reg[3], reg[4], reg[5], &ro_regions, &rw_regions)?;
+                        }
+                        reg[0] = (helper.function)(reg[1], reg[2], reg[3], reg[4], reg[5]);
+                    } else if let Some(ref elf) = self.elf {
+                        elf.report_unresolved_symbol(insn_ptr - 1)?;
+                    } else {
+                        Err(Error::new(ErrorKind::Other,
+                                       format!("Error: Unresolved symbol at instruction #{:?}", insn_ptr - 1)))?;
                     }
-                    reg[0] = (helper.function)(reg[1], reg[2], reg[3], reg[4], reg[5]);
-                } else {
-                    // TODO need a better way to print out the offending function's name, maybe up front during relocation?
-                    Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
                 },
                 ebpf::TAIL_CALL  => unimplemented!(),
                 ebpf::EXIT       => return Ok(reg[0]),
@@ -761,7 +765,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 Err(Error::new(ErrorKind::Other,
                            "Error: JIT does not support RO data"))?
             }
-            elf.get_text_section()?
+            elf.get_text_bytes()?
         } else if let Some(ref prog) = self.prog {
             prog
         } else {
@@ -1229,7 +1233,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
                     Err(Error::new(ErrorKind::Other,
                             "Error: JIT does not support RO data"))?
                 }
-                elf.get_text_section()?
+                elf.get_text_bytes()?
             } else if let Some(ref prog) = self.parent.prog {
                 prog
             } else {
@@ -1607,7 +1611,7 @@ impl<'a> EbpfVmRaw<'a> {
                     Err(Error::new(ErrorKind::Other,
                             "Error: JIT does not support RO data"))?
                 }
-                elf.get_text_section()?
+                elf.get_text_bytes()?
             } else if let Some(ref prog) = self.parent.prog {
                 prog
             } else {
