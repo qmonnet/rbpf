@@ -286,19 +286,12 @@ impl EBpfElf {
             };
             let text_va = text_section.header.addr;
 
-            let rodata_section = match self
+            let rodata_section = self
                 .elf
                 .sections
                 .iter()
-                .find(|section| section.name == b".rodata")
-            {
-                Some(section) => section,
-                None => Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: No .rodata section found",
-                ))?,
-            };
-
+                .find(|section| section.name == b".rodata");
+            
             let symbols = match self.get_section(".dynsym")?.content {
                 elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
                 _ => Err(Error::new(
@@ -311,6 +304,14 @@ impl EBpfElf {
                 match BPFRelocationType::from_x86_relocation_type(&relocation.rtype) {
                     Some(BPFRelocationType::R_BPF_64_RELATIVE) => {
                         // The .text section has a reference to a symbol in the .rodata section
+
+                        let rodata_section = match rodata_section {
+                            Some(section) => section,
+                            None => Err(Error::new(
+                                ErrorKind::Other,
+                                "Error: No .rodata section found",
+                            ))?,
+                        };
 
                         // Offset of the instruction in the text section being relocated
                         let mut imm_offset =
