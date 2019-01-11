@@ -13,8 +13,10 @@ extern crate num_traits;
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
 use ebpf;
 use elf::num_traits::FromPrimitive;
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::io::{Error, ErrorKind};
+use std::mem;
 use std::str;
 
 // For more information on the BPF instruction set:
@@ -71,6 +73,7 @@ impl BPFRelocationType {
 pub struct EBpfElf {
     /// Elf representation
     elf: elfkit::Elf,
+    calls: HashMap<u32, usize>,
 }
 
 impl EBpfElf {
@@ -90,7 +93,7 @@ impl EBpfElf {
                 format!("Error: Failed to parse elf: {:?}", e),
             ))?;
         }
-        let mut ebpf_elf = EBpfElf { elf };
+        let mut ebpf_elf = EBpfElf { elf, calls: HashMap::new() };
         ebpf_elf.validate()?;
         ebpf_elf.relocate()?;
         Ok(ebpf_elf)
@@ -138,13 +141,18 @@ impl EBpfElf {
         Ok(offset / ebpf::INSN_SIZE)
     }
 
+    /// Get a symbol's instruction offset
+    pub fn lookup_bpf_call(&self, hash: u32) -> Option<&usize> {
+        self.calls.get(&hash)
+    }
+
     /// Report information on a symbol that failed to be resolved
     pub fn report_unresolved_symbol(&self, insn_offset: usize) -> Result<(), Error> {
         let file_offset =
             insn_offset * ebpf::INSN_SIZE + self.get_section(".text")?.header.addr as usize;
 
         let symbols = match self.get_section(".dynsym")?.content {
-            elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
+            elfkit::SectionContent::Symbols(ref bytes) => bytes,
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "Error: Failed to get .dynsym contents",
@@ -152,7 +160,7 @@ impl EBpfElf {
         };
 
         let raw_relocation_bytes = match self.get_section(".rel.dyn")?.content {
-            elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
+            elfkit::SectionContent::Raw(ref bytes) => bytes,
             _ => Err(Error::new(
                 ErrorKind::Other,
                 "Error: Failed to get .rel.dyn contents",
@@ -263,10 +271,11 @@ impl EBpfElf {
 
     /// Performs relocation on the text section
     fn relocate(&mut self) -> Result<(), Error> {
+        let mut calls: HashMap<u32, usize> = HashMap::new();
         let text_bytes = {
             let raw_relocation_bytes = match self.get_section(".rel.dyn") {
                 Ok(section) => match section.content {
-                    elfkit::SectionContent::Raw(ref bytes) => bytes.clone(),
+                    elfkit::SectionContent::Raw(ref bytes) => bytes,
                     _ => Err(Error::new(
                         ErrorKind::Other,
                         "Error: Failed to get .rel.dyn contents",
@@ -293,7 +302,7 @@ impl EBpfElf {
                 .find(|section| section.name == b".rodata");
             
             let symbols = match self.get_section(".dynsym")?.content {
-                elfkit::SectionContent::Symbols(ref bytes) => bytes.clone(),
+                elfkit::SectionContent::Symbols(ref symbols) => symbols,
                 _ => Err(Error::new(
                     ErrorKind::Other,
                     "Error: Failed to get .dynsym contents",
@@ -316,11 +325,13 @@ impl EBpfElf {
                         // Offset of the instruction in the text section being relocated
                         let mut imm_offset =
                             (relocation.addr - text_va) as usize + BYTE_OFFSET_IMMEDIATE;
-                        // Read the instruction's immediate field which contains the rodata symbol's virtual address
+                        // Read the instruction's immediate field which contains the rodata
+                        // symbol's virtual address
                         let ro_va = LittleEndian::read_u32(
                             &text_bytes[imm_offset..imm_offset + BYTE_LENGTH_IMMEIDATE],
                         ) as u64;
-                        // Convert into an offset into the rodata section by subtracting the rodata section's base virtual address
+                        // Convert into an offset into the rodata section by subtracting
+                        // the rodata section's base virtual address
                         let ro_offset = ro_va - rodata_section.header.addr;
                         // Get the rodata's physical address
                         let rodata_pa = match rodata_section.content {
@@ -334,9 +345,8 @@ impl EBpfElf {
                         // Calculator the symbol's physical address within the rodata section
                         let symbol_addr = rodata_pa + ro_offset;
 
-                        // Instruction lddw spans two instruction slots, split
-                        // symbol's address into two and write into both
-                        // slot's imm field
+                        // Instruction lddw spans two instruction slots, split the
+                        // symbol's address into two and write into both slot's imm field
                         let imm_length = 4;
                         LittleEndian::write_u32(
                             &mut text_bytes[imm_offset..imm_offset + imm_length],
@@ -352,16 +362,18 @@ impl EBpfElf {
                         // The .text section has an unresolved call instruction
                         //
                         // Hash the symbol name and stick it into the call
-                        // instruction's imm field.  Later  that hash will be
-                        // used to look up the actual helper.
+                        // instruction's imm field.  Later that hash will be
+                        // used to look up the function location.
 
-                        let name = &symbols[relocation.sym as usize].name;
+                        let symbol = &symbols[relocation.sym as usize];
+                        let hash = ebpf::hash_symbol_name(&symbol.name);
                         let imm_offset =
                             (relocation.addr - text_va) as usize + BYTE_OFFSET_IMMEDIATE;
                         LittleEndian::write_u32(
-                            &mut text_bytes[imm_offset..imm_offset + BYTE_LENGTH_IMMEIDATE],
-                            ebpf::hash_symbol_name(name),
-                        );
+                            &mut text_bytes[imm_offset..imm_offset + BYTE_LENGTH_IMMEIDATE], hash);
+                        if symbol.stype == elfkit::types::SymbolType::FUNC && symbol.value != 0 { 
+                            calls.insert(hash, (symbol.value - text_va) as usize / ebpf::INSN_SIZE);
+                        }
                     }
                     _ => Err(Error::new(
                         ErrorKind::Other,
@@ -371,6 +383,8 @@ impl EBpfElf {
             }
             text_bytes
         };
+
+        mem::swap(&mut self.calls, &mut calls);
 
         // Write back fixed-up text section
         let mut text_section = match self
@@ -393,8 +407,7 @@ impl EBpfElf {
 
     /// Builds a vector of Relocations from raw bytes
     ///
-    /// Elfkit does not form BPF relocations and instead just provides
-    /// raw bytes
+    /// Elfkit does not form BPF relocations and instead just provides raw bytes
     fn get_relocations<R>(mut io: R) -> Result<Vec<elfkit::Relocation>, Error>
     where
         R: std::io::Read,

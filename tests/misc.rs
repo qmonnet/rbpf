@@ -851,7 +851,7 @@ fn test_symbol_unresolved_elf() {
 }
 
 #[test]
-fn test_symbol_custom_entrypoint() {
+fn test_custom_entrypoint() {
     let mut file = File::open("tests/elfs/unresolved_helper.so").expect("file open failed");
     let mut elf = Vec::new();
     file.read_to_end(&mut elf).unwrap();
@@ -863,6 +863,38 @@ fn test_symbol_custom_entrypoint() {
     vm.set_elf(&elf).unwrap();
     vm.execute_program().unwrap();
     assert_eq!(2, vm.get_last_instruction_count());
+}
+
+#[test]
+fn test_bpf_to_bpf_depth() {
+    let mut file = File::open("tests/elfs/multiple_file.so").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmRaw::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_elf(&elf).unwrap();
+    
+    for i in 0..ebpf::MAX_CALL_DEPTH {
+        println!("Depth: {:?}", i);
+        let mut mem = [i as u8];
+        assert_eq!(vm.execute_program(&mut mem).unwrap(), 0);
+    }
+}
+
+#[test]
+#[should_panic(expected = "Exceeded max BPF to BPF call depth of")]
+fn test_bpf_to_bpf_too_deep() {
+    let mut file = File::open("tests/elfs/multiple_file.so").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmRaw::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_elf(&elf).unwrap();
+
+    let mut mem = [ebpf::MAX_CALL_DEPTH as u8];
+    vm.execute_program(&mut mem).unwrap();
 }
 
 

@@ -31,6 +31,10 @@ pub const INSN_SIZE: usize = 8;
 pub const PROG_MAX_SIZE: usize = PROG_MAX_INSNS * INSN_SIZE;
 /// Stack for the eBPF stack, in bytes.
 pub const STACK_SIZE: usize = 2048;
+/// Stack register
+pub const STACK_REG: usize = 10;
+/// Max BPF to BPF call depth
+pub const MAX_CALL_DEPTH: usize = 5;
 
 // eBPF op codes.
 // See also https://www.kernel.org/doc/Documentation/networking/filter.txt

@@ -5,14 +5,16 @@
 
 LLVM_DIR=../../../solana/sdk/bpf/llvm-native/bin/
 
-"$LLVM_DIR"clang -Werror -target bpf -O2 -emit-llvm -fno-builtin -fPIC -o noop.bc -c noop.c
-"$LLVM_DIR"llc -march=bpf -filetype=obj -o noop.o noop.bc
+"$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o noop.o -c noop.c
 "$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -o noop.so noop.o
-rm noop.bc
 rm noop.o
 
-"$LLVM_DIR"clang -Werror -target bpf -O2 -emit-llvm -fno-builtin -fPIC -o unresolved_helper.bc -c unresolved_helper.c
-"$LLVM_DIR"llc -march=bpf -filetype=obj -o unresolved_helper.o unresolved_helper.bc
+"$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o unresolved_helper.o -c unresolved_helper.c
 "$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -o unresolved_helper.so unresolved_helper.o
-rm unresolved_helper.bc
 rm unresolved_helper.o
+
+"$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o entrypoint.o -c entrypoint.c
+"$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o helper.o -c helper.c
+"$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -entry entrypoint -o multiple_file.so entrypoint.o helper.o
+rm entrypoint.o
+rm helper.o

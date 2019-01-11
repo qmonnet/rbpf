@@ -152,8 +152,8 @@ pub struct HLInsn {
 /// ```
 pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
-        panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
-               ebpf::INSN_SIZE);
+        panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets is {:?}",
+               ebpf::INSN_SIZE, prog.len());
     }
     if prog.is_empty() {
         return vec![];
