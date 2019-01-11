@@ -435,7 +435,7 @@ fn test_vm_jit_ldabsdw() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
+#[should_panic(expected = "Error: out of bounds memory load (insn #0),")]
 fn test_vm_err_ldabsb_oob() {
     let prog = &[
         0x38, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00,
@@ -452,7 +452,7 @@ fn test_vm_err_ldabsb_oob() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
+#[should_panic(expected = "Error: out of bounds memory load (insn #0),")]
 fn test_vm_err_ldabsb_nomem() {
     let prog = &[
         0x38, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
@@ -553,7 +553,7 @@ fn test_vm_jit_ldinddw() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #2),")]
+#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
 fn test_vm_err_ldindb_oob() {
     let prog = &[
         0xb7, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
@@ -571,7 +571,7 @@ fn test_vm_err_ldindb_oob() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #2),")]
+#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
 fn test_vm_err_ldindb_nomem() {
     let prog = &[
         0xb7, 0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
@@ -894,6 +894,20 @@ fn test_bpf_to_bpf_too_deep() {
     vm.set_elf(&elf).unwrap();
 
     let mut mem = [ebpf::MAX_CALL_DEPTH as u8];
+    vm.execute_program(&mut mem).unwrap();
+}
+
+#[test]
+fn test_relative_call() {
+    let mut file = File::open("tests/elfs/relative_call.so").expect("file open failed");
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let mut vm = EbpfVmRaw::new(None).unwrap();
+    vm.register_helper_ex("log", Some(bpf_helper_string_verify), bpf_helper_string).unwrap();
+    vm.set_elf(&elf).unwrap();
+
+    let mut mem = [1 as u8];
     vm.execute_program(&mut mem).unwrap();
 }
 

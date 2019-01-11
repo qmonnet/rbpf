@@ -829,7 +829,7 @@ impl<'a> EbpfVmMbuff<'a> {
 
         Err(Error::new(ErrorKind::Other, format!(
             "Error: out of bounds memory {} (insn #{:?}), addr {:#x}/{:?} {}",
-            access_type, insn_ptr, addr, len, regions_string
+            access_type, insn_ptr - 1 , addr, len, regions_string
         )))
     }
 
