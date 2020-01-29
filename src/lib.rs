@@ -1536,7 +1536,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1122);
     /// ```
-    pub fn execute_program(&self) -> Result<(u64), Error> {
+    pub fn execute_program(&self) -> Result<u64, Error> {
         self.parent.execute_program(&mut [])
     }
 
@@ -1572,7 +1572,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    pub unsafe fn execute_program_jit(&self) -> Result<(u64), Error> {
+    pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
     }
 }

@@ -437,13 +437,14 @@ struct JitMemory<'a> {
 impl<'a> JitMemory<'a> {
     fn new(num_pages: usize) -> JitMemory<'a> {
         let contents: &mut[u8];
+        let mut raw: mem::MaybeUninit<*mut libc::c_void> = mem::MaybeUninit::uninit();
         unsafe {
             let size = num_pages * PAGE_SIZE;
-            let mut raw: *mut libc::c_void = mem::uninitialized();
-            libc::posix_memalign(&mut raw, PAGE_SIZE, size);
-            libc::mprotect(raw, size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
-            std::ptr::write_bytes(raw, 0xc3, size);  // for now, prepopulate with 'RET' calls
-            contents = std::slice::from_raw_parts_mut(raw as *mut u8, num_pages * PAGE_SIZE);
+            libc::posix_memalign(raw.as_mut_ptr(), PAGE_SIZE, size);
+            libc::mprotect(*raw.as_mut_ptr(), size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
+            std::ptr::write_bytes(*raw.as_mut_ptr(), 0xc3, size);  // for now, prepopulate with 'RET' calls
+            contents = std::slice::from_raw_parts_mut(*raw.as_mut_ptr() as *mut u8, num_pages * PAGE_SIZE);
+            raw.assume_init();
         }
 
         JitMemory {
@@ -901,7 +902,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
 pub fn compile(prog: &[u8],
                helpers: &HashMap<u32, ebpf::Helper>,
                use_mbuff: bool, update_data_ptr: bool)
-    -> Result<(JitProgram), Error> {
+    -> Result<JitProgram, Error> {
 
     // TODO: check how long the page must be to be sure to support an eBPF program of maximum
     // possible length

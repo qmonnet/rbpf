@@ -154,7 +154,7 @@ fn operands_tuple(operands: &[Operand]) -> Result<(Operand, Operand, Operand), S
 }
 
 fn encode(inst_type: InstructionType, opc: u8, operands: &[Operand]) -> Result<Insn, String> {
-    let (a, b, c) = try!(operands_tuple(operands));
+    let (a, b, c) = (operands_tuple(operands))?;
     match (inst_type, a, b, c) {
         (AluBinary, Register(dst), Register(src), Nil) => insn(opc | ebpf::BPF_X, dst, src, 0, 0),
         (AluBinary, Register(dst), Integer(imm), Nil) => insn(opc | ebpf::BPF_K, dst, 0, 0, imm),
@@ -236,8 +236,8 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
 ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 /// ```
 pub fn assemble(src: &str) -> Result<Vec<u8>, String> {
-    let parsed = try!(parse(src));
-    let insns = try!(assemble_internal(&parsed));
+    let parsed = (parse(src))?;
+    let insns = (assemble_internal(&parsed))?;
     let mut result: Vec<u8> = vec![];
     for insn in insns {
         result.extend_from_slice(&insn.to_array());

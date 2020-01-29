@@ -103,7 +103,7 @@ fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<()
     }
 
     match (insn.dst, store) {
-        (0 ... 9, _) | (10, true) => Ok(()),
+        (0 ..= 9, _) | (10, true) => Ok(()),
         (10, false) => reject(format!("cannot write into register r10 (insn #{:?})", insn_ptr)),
         (_, _)      => reject(format!("invalid destination register (insn #{:?})", insn_ptr))
     }
