@@ -263,7 +263,7 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
             ebpf::ARSH64_REG => { name = "arsh64"; desc = alu_reg_str(name, &insn); },
 
             // BPF_JMP class
-            ebpf::JA         => { name = "ja";   desc = format!("{} {:+#x}", name, insn.off); },
+            ebpf::JA         => { name = "ja";   desc = if insn.off >= 0 { format!("{} +{:#x}", name, insn.off) } else { format!("{} -{:#x}", name, -insn.off) } },
             ebpf::JEQ_IMM    => { name = "jeq";  desc = jmp_imm_str(name, &insn); },
             ebpf::JEQ_REG    => { name = "jeq";  desc = jmp_reg_str(name, &insn); },
             ebpf::JGT_IMM    => { name = "jgt";  desc = jmp_imm_str(name, &insn); },
