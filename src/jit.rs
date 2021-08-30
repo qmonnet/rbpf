@@ -837,7 +837,7 @@ impl<'a> JitMemory<'a> {
             //         Err(_) => -1
             //     }
             pc as i64 // Just to prevent warnings
-        };
+        }
         emit_mov(self, RCX, RDI); // muldivmod stored pc in RCX
         emit_call(self, log as usize);
         emit_load_imm(self, map_register(0), -1);
