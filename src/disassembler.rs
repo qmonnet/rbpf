@@ -31,17 +31,29 @@ fn byteswap_str(name: &str, insn: &ebpf::Insn) -> String {
 
 #[inline]
 fn ld_st_imm_str(name: &str, insn: &ebpf::Insn) -> String {
-    format!("{} [r{}+{:#x}], {:#x}", name, insn.dst, insn.off, insn.imm)
+    if insn.off >= 0 {
+        format!("{} [r{}+{:#x}], {:#x}", name, insn.dst, insn.off, insn.imm)
+    } else {
+        format!("{} [r{}-{:#x}], {:#x}", name, insn.dst, -insn.off, insn.imm)
+    }
 }
 
 #[inline]
 fn ld_reg_str(name: &str, insn: &ebpf::Insn) -> String {
-    format!("{} r{}, [r{}+{:#x}]", name, insn.dst, insn.src, insn.off)
+    if insn.off >= 0 {
+        format!("{} r{}, [r{}+{:#x}]", name, insn.dst, insn.src, insn.off)
+    } else {
+        format!("{} r{}, [r{}-{:#x}]", name, insn.dst, insn.src, -insn.off)
+    }
 }
 
 #[inline]
 fn st_reg_str(name: &str, insn: &ebpf::Insn) -> String {
-    format!("{} [r{}+{:#x}], r{}", name, insn.dst, insn.off, insn.src)
+    if insn.off >= 0 {
+        format!("{} [r{}+{:#x}], r{}", name, insn.dst, insn.off, insn.src)
+    } else {
+        format!("{} [r{}-{:#x}], r{}", name, insn.dst, -insn.off, insn.src)
+    }
 }
 
 #[inline]
@@ -56,12 +68,20 @@ fn ldind_str(name: &str, insn: &ebpf::Insn) -> String {
 
 #[inline]
 fn jmp_imm_str(name: &str, insn: &ebpf::Insn) -> String {
-    format!("{} r{}, {:#x}, {:+#x}", name, insn.dst, insn.imm, insn.off)
+    if insn.off >= 0 {
+        format!("{} r{}, {:#x}, +{:#x}", name, insn.dst, insn.imm, insn.off)
+    } else {
+        format!("{} r{}, {:#x}, -{:#x}", name, insn.dst, insn.imm, -insn.off)
+    }
 }
 
 #[inline]
 fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
-    format!("{} r{}, r{}, {:+#x}", name, insn.dst, insn.src, insn.off)
+    if insn.off >= 0 {
+        format!("{} r{}, r{}, +{:#x}", name, insn.dst, insn.src, insn.off)
+    } else {
+        format!("{} r{}, r{}, -{:#x}", name, insn.dst, insn.src, -insn.off)
+    }
 }
 
 /// High-level representation of an eBPF instruction.
