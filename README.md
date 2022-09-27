@@ -1,6 +1,9 @@
 # rbpf
 
-![](misc/rbpf_256.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="misc/rbpf_256_border.png">
+  <img src="misc/rbpf_256.png">
+</picture>
 
 Rust (user-space) virtual machine for eBPF
 
