@@ -53,7 +53,7 @@ fn integer<I>(input: I) -> ParseResult<i64, I>
     let hex = string("0x")
         .with(many1(hex_digit()))
         .map(|x: String| u64::from_str_radix(&x, 16).unwrap() as i64);
-    let dec = many1(digit()).map(|x: String| i64::from_str_radix(&x, 10).unwrap());
+    let dec = many1(digit()).map(|x: String| x.parse::<i64>().unwrap());
     (sign, try(hex).or(dec)).map(|(s, x)| s * x).parse_stream(input)
 }
 
@@ -62,7 +62,7 @@ fn register<I>(input: I) -> ParseResult<i64, I>
 {
     char('r')
         .with(many1(digit()))
-        .map(|x: String| i64::from_str_radix(&x, 10).unwrap())
+        .map(|x: String| x.parse::<i64>().unwrap())
         .parse_stream(input)
 }
 
