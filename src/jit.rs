@@ -83,7 +83,6 @@ macro_rules! emit_bytes {
         let size = mem::size_of::<$t>() as usize;
         assert!($jit.offset + size <= $jit.contents.len());
         unsafe {
-            #[allow(cast_ptr_alignment)]
             let mut ptr = $jit.contents.as_ptr().add($jit.offset) as *mut $t;
             *ptr = $data as $t;
         }
