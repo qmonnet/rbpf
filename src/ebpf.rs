@@ -175,7 +175,7 @@ pub const LD_IND_W   : u8 = BPF_LD    | BPF_IND | BPF_W;
 pub const LD_IND_DW  : u8 = BPF_LD    | BPF_IND | BPF_DW;
 
 #[allow(unknown_lints)]
-#[allow(eq_op)]
+#[allow(clippy::eq_op)]
 /// BPF opcode: `lddw dst, imm` /// `dst = imm`.
 pub const LD_DW_IMM  : u8 = BPF_LD    | BPF_IMM | BPF_DW;
 /// BPF opcode: `ldxb dst, [src + off]` /// `dst = (src + off) as u8`.
@@ -391,7 +391,7 @@ pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
 /// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
 /// documentation about eBPF, or <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a
 /// more concise version.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Insn {
     /// Operation code.
     pub opc: u8,

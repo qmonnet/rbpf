@@ -16,7 +16,7 @@ use combine::{between, eof, many, many1, one_of, optional, Parser, ParseError, P
 use combine::primitives::{Error, Info};
 
 /// Operand of an instruction.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Operand {
     /// Register number.
     Register(i64),
@@ -29,7 +29,7 @@ pub enum Operand {
 }
 
 /// Parsed instruction.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Instruction {
     /// Instruction name.
     pub name: String,

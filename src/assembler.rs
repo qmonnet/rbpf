@@ -121,16 +121,16 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
 }
 
 fn insn(opc: u8, dst: i64, src: i64, off: i64, imm: i64) -> Result<Insn, String> {
-    if dst < 0 || dst >= 16 {
+    if !(0..16).contains(&dst) {
         return Err(format!("Invalid destination register {}", dst));
     }
     if dst < 0 || src >= 16 {
         return Err(format!("Invalid source register {}", src));
     }
-    if off < -32768 || off >= 32768 {
+    if !(-32768..32768).contains(&off) {
         return Err(format!("Invalid offset {}", off));
     }
-    if imm < -2147483648 || imm >= 2147483648 {
+    if !(-2147483648..2147483648).contains(&imm) {
         return Err(format!("Invalid immediate {}", imm));
     }
     Ok(Insn {
