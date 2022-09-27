@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+jobs:
+  build_and_test:
+    name: Build and test package
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - toolchain: stable
+          - toolchain: beta
+          - toolchain: nightly
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install toolchain (${{ matrix.toolchain }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+          components: clippy
+
+      - name: Build with ${{ matrix.toolchain }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+      - name: Test with ${{ matrix.toolchain }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: Lint with ${{ matrix.toolchain }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
