@@ -132,7 +132,7 @@ fn emit_modrm_reg2reg(jit: &mut JitMemory, r: u8, m: u8) {
 fn emit_modrm_and_displacement(jit: &mut JitMemory, r: u8, m: u8, d: i32) {
     if d == 0 && (m & 0b111) != RBP {
         emit_modrm(jit, 0x00, r, m);
-    } else if d >= -128 && d <= 127 {
+    } else if (-128..=127).contains(&d) {
         emit_modrm(jit, 0x40, r, m);
         emit1(jit, d as u8);
     } else {

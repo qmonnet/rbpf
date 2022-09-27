@@ -10,7 +10,7 @@
 // Assembly code and data for tcp_sack testcases.
 
 #[allow(dead_code)]
-pub const TCP_SACK_ASM: &'static str = "
+pub const TCP_SACK_ASM: &str = "
     ldxb r2, [r1+12]
     ldxb r3, [r1+13]
     lsh r3, 0x8

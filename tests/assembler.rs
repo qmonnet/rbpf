@@ -4,7 +4,7 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
 
 extern crate rbpf;
 mod common;
@@ -19,11 +19,11 @@ fn asm(src: &str) -> Result<Vec<ebpf::Insn>, String> {
 
 fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> ebpf::Insn {
     ebpf::Insn {
-        opc: opc,
-        dst: dst,
-        src: src,
-        off: off,
-        imm: imm,
+        opc,
+        dst,
+        src,
+        off,
+        imm,
     }
 }
 

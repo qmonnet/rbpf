@@ -362,7 +362,7 @@ impl<'i> Instruction for Move<'i> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 /// The source of ALU and JMP instructions
 pub enum Source {
     /// immediate field will be used as a source
@@ -556,7 +556,7 @@ impl<'i> Instruction for Jump<'i> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 /// Conditions for JMP instructions
 pub enum Cond {
     /// Absolute or unconditional

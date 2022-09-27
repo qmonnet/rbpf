@@ -99,7 +99,7 @@ fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
 /// See <https://www.kernel.org/doc/Documentation/networking/filter.txt> for the Linux kernel
 /// documentation about eBPF, or <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md> for a
 /// more concise version.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct HLInsn {
     /// Operation code.
     pub opc:  u8,

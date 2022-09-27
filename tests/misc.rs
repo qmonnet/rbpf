@@ -6,7 +6,7 @@
 
 // There are unused mut warnings due to unsafe code.
 #![allow(unused_mut)]
-#![cfg_attr(feature = "cargo-clippy", allow(unreadable_literal))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
 
 // This crate would be needed to load bytecode from a BPF-compiled object file. Since the crate
 // is not used anywhere else in the library, it is deactivated: we do not want to load and compile
