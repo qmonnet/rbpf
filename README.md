@@ -547,11 +547,6 @@ better advantage of Rust features.
 
 ## Questions / Answers
 
-### What Rust version is needed?
-
-This crate is known to be compatible with Rust version 1.14.0. Older versions
-of Rust have not been tested.
-
 ### Why implementing an eBPF virtual machine in Rust?
 
 As of this writing, there is no particular use case for this crate at the best
@@ -644,7 +639,7 @@ on your own.
   because the author has not found how to return something more explicit
   from the generated assembly so far.
 
-* A very little number of eBPF instructions have not been implemented yet. This
+* A small number of eBPF instructions have not been implemented yet. This
   should not be a problem for the majority of eBPF programs.
 
 * Beware of turnips. Turnips are disgusting.
