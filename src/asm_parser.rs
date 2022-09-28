@@ -1,9 +1,5 @@
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
 // Copyright 2017 Rich Lane <lanerl@gmail.com>
-//
-// Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
-// the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
-
 
 // Rust-doc comments were left in the module, but it is no longer publicly exposed from the root
 // file of the crate. Do not expect to find those comments in the documentation of the crate.
