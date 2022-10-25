@@ -80,7 +80,7 @@ macro_rules! emit_bytes {
         assert!($jit.offset + size <= $jit.contents.len());
         unsafe {
             let mut ptr = $jit.contents.as_ptr().add($jit.offset) as *mut $t;
-            *ptr = $data as $t;
+            *ptr = $data;
         }
         $jit.offset += size;
     }}
@@ -791,8 +791,8 @@ impl<'a> JitMemory<'a> {
 
                 _                => {
                     Err(Error::new(ErrorKind::Other,
-                                   format!("[JIT] Error: unknown eBPF opcode {:#2x} (insn #{:?})",
-                                           insn.opc, insn_ptr)))?;
+                                   format!("[JIT] Error: unknown eBPF opcode {:#2x} (insn #{insn_ptr:?})",
+                                           insn.opc)))?;
                 },
             }
 
@@ -881,7 +881,7 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
         fmt.write_str("JIT contents: [")?;
         for i in self.contents as &[u8] {
-            fmt.write_fmt(format_args!(" {:#04x},", i))?;
+            fmt.write_fmt(format_args!(" {i:#04x},"))?;
         };
         fmt.write_str(" ] | ")?;
         fmt.debug_struct("JIT state")

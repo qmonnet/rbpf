@@ -332,7 +332,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::LD_ABS_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    *x
                 },
                 ebpf::LD_IND_B   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
@@ -352,7 +352,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::LD_IND_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    *x
                 },
 
                 ebpf::LD_DW_IMM  => {
@@ -384,7 +384,7 @@ impl<'a> EbpfVmMbuff<'a> {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    *x
                 },
 
                 // BPF_ST class
@@ -434,7 +434,7 @@ impl<'a> EbpfVmMbuff<'a> {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
                     check_mem_store(x as u64, 8, insn_ptr)?;
-                    *x = reg[_src] as u64;
+                    *x = reg[_src];
                 },
                 ebpf::ST_W_XADD  => unimplemented!(),
                 ebpf::ST_DW_XADD => unimplemented!(),

@@ -50,7 +50,7 @@ fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
 
 fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     if insn.imm == 0 {
-        reject(format!("division by 0 (insn #{:?})", insn_ptr))?;
+        reject(format!("division by 0 (insn #{insn_ptr:?})"))?;
     }
 
     Ok(())
@@ -59,7 +59,7 @@ fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
 fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     match insn.imm {
         16 | 32 | 64 => Ok(()),
-        _ => reject(format!("unsupported argument for LE/BE (insn #{:?})", insn_ptr))
+        _ => reject(format!("unsupported argument for LE/BE (insn #{insn_ptr:?})"))
     }
 }
 
@@ -68,7 +68,7 @@ fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     // this function should be called only for LD_DW insn, that cannot be last in program.
     let next_insn = ebpf::get_insn(prog, insn_ptr + 1);
     if next_insn.opc != 0 {
-        reject(format!("incomplete LD_DW instruction (insn #{:?})", insn_ptr))?;
+        reject(format!("incomplete LD_DW instruction (insn #{insn_ptr:?})"))?;
     }
 
     Ok(())
@@ -77,17 +77,17 @@ fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
 fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     let insn = ebpf::get_insn(prog, insn_ptr);
     if insn.off == -1 {
-        reject(format!("infinite loop (insn #{:?})", insn_ptr))?;
+        reject(format!("infinite loop (insn #{insn_ptr:?})"))?;
     }
 
     let dst_insn_ptr = insn_ptr as isize + 1 + insn.off as isize;
     if dst_insn_ptr < 0 || dst_insn_ptr as usize >= (prog.len() / ebpf::INSN_SIZE) {
-        reject(format!("jump out of code to #{:?} (insn #{:?})", dst_insn_ptr, insn_ptr))?;
+        reject(format!("jump out of code to #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
     }
 
     let dst_insn = ebpf::get_insn(prog, dst_insn_ptr as usize);
     if dst_insn.opc == 0 {
-        reject(format!("jump to middle of LD_DW at #{:?} (insn #{:?})", dst_insn_ptr, insn_ptr))?;
+        reject(format!("jump to middle of LD_DW at #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
     }
 
     Ok(())
@@ -95,13 +95,13 @@ fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
 
 fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<(), Error> {
     if insn.src > 10 {
-        reject(format!("invalid source register (insn #{:?})", insn_ptr))?;
+        reject(format!("invalid source register (insn #{insn_ptr:?})"))?;
     }
 
     match (insn.dst, store) {
         (0 ..= 9, _) | (10, true) => Ok(()),
-        (10, false) => reject(format!("cannot write into register r10 (insn #{:?})", insn_ptr)),
-        (_, _)      => reject(format!("invalid destination register (insn #{:?})", insn_ptr))
+        (10, false) => reject(format!("cannot write into register r10 (insn #{insn_ptr:?})")),
+        (_, _)      => reject(format!("invalid destination register (insn #{insn_ptr:?})"))
     }
 }
 
@@ -236,7 +236,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::EXIT       => {},
 
             _                => {
-                reject(format!("unknown eBPF opcode {:#2x} (insn #{:?})", insn.opc, insn_ptr))?;
+                reject(format!("unknown eBPF opcode {:#2x} (insn #{insn_ptr:?})", insn.opc))?;
             },
         }
 
@@ -247,7 +247,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
 
     // insn_ptr should now be equal to number of instructions.
     if insn_ptr != prog.len() / ebpf::INSN_SIZE {
-        reject(format!("jumped out of code to #{:?}", insn_ptr))?;
+        reject(format!("jumped out of code to #{insn_ptr:?}"))?;
     }
 
     Ok(())
