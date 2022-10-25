@@ -10,6 +10,13 @@ jobs:
   build_and_test:
     name: Build and test package
     runs-on: ubuntu-latest
+    env:
+      # Exclude features not supported by rbpf yet.
+      # 32-bit jump - https://github.com/qmonnet/rbpf/issues/47
+      # atomic operations - https://github.com/qmonnet/rbpf/issues/47
+      # exit-not-last - https://github.com/qmonnet/rbpf/issues/62
+      # mem-len - Tests assume r2 contains the length of the memory.
+      KNOWN_FAILURES: "(j.*32|lock|by-zero|exit-not-last|mem-len)"
     strategy:
       matrix:
         include:
@@ -32,12 +39,32 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all-features
+          args: --release --all-features --all-targets
+
       - name: Test with ${{ matrix.toolchain }}
         uses: actions-rs/cargo@v1
         with:
           command: test
+
       - name: Lint with ${{ matrix.toolchain }}
         uses: actions-rs/cargo@v1
         with:
           command: clippy
+
+      - name: Run BPF conformance tests - Interpreter
+        run: |
+          docker run -v ${{github.workspace}}:/rbpf --rm \
+          ghcr.io/alan-jowett/bpf_conformance@sha256:b88246eee0474f0a114fedadd7b9d8c79940647f44b0e499dfd10e70d1300a6f \
+          bin/bpf_conformance_runner --test_file_directory tests \
+          --plugin_path /rbpf/target/release/examples/rbpf_plugin \
+          --exclude_regex "${{ env.KNOWN_FAILURES }}"
+
+      # JIT tests results are ignored due to https://github.com/qmonnet/rbpf/issues/60
+      - name: Run BPF conformance tests - JIT
+        run: |
+          docker run -v ${{github.workspace}}:/rbpf --rm \
+          ghcr.io/alan-jowett/bpf_conformance@sha256:b88246eee0474f0a114fedadd7b9d8c79940647f44b0e499dfd10e70d1300a6f \
+          bin/bpf_conformance_runner --test_file_directory tests \
+          --plugin_path /rbpf/target/release/examples/rbpf_plugin \
+          --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
+          --plugin_options "--jit" || true
