@@ -58,7 +58,7 @@ fn main() {
     let filename = "examples/load_elf__block_a_port.o";
 
     let path = PathBuf::from(filename);
-    let file = match elf::File::open_path(&path) {
+    let file = match elf::File::open_path(path) {
         Ok(f) => f,
         Err(e) => panic!("Error: {:?}", e),
     };

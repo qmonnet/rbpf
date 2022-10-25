@@ -52,7 +52,7 @@ fn main() {
     let filename = "examples/load_elf__block_a_port.o";
 
     let path = PathBuf::from(filename);
-    let file = match elf::File::open_path(&path) {
+    let file = match elf::File::open_path(path) {
         Ok(f) => f,
         Err(e) => panic!("Error: {:?}", e),
     };
@@ -112,7 +112,7 @@ fn main() {
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
 
     let res = vm.execute_program(packet1).unwrap();
-    println!("Packet #1, program returned: {:?} ({:#x})", res, res);
+    println!("Packet #1, program returned: {res:?} ({res:#x})");
     assert_eq!(res, 0xffffffff);
 
     #[cfg(not(windows))]
@@ -120,7 +120,7 @@ fn main() {
         vm.jit_compile().unwrap();
 
         let res = unsafe { vm.execute_program_jit(packet2).unwrap() };
-        println!("Packet #2, program returned: {:?} ({:#x})", res, res);
+        println!("Packet #2, program returned: {res:?} ({res:#x})");
         assert_eq!(res, 0);
     }
 

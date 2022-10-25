@@ -90,8 +90,8 @@ fn instruction<I>(input: I) -> ParseResult<Instruction, I>
 
 fn format_info(info: &Info<char, &str>) -> String {
     match *info {
-        Info::Token(x) => format!("{:?}", x),
-        Info::Range(x) => format!("{:?}", x),
+        Info::Token(x) => format!("{x:?}"),
+        Info::Range(x) => format!("{x:?}"),
         Info::Owned(ref x) => x.clone(),
         Info::Borrowed(x) => x.to_string(),
     }
@@ -102,7 +102,7 @@ fn format_error(error: &Error<char, &str>) -> String {
         Error::Unexpected(ref x) => format!("unexpected {}", format_info(x)),
         Error::Expected(ref x) => format!("expected {}", format_info(x)),
         Error::Message(ref x) => format_info(x),
-        Error::Other(ref x) => format!("{:?}", x),
+        Error::Other(ref x) => format!("{x:?}"),
     }
 }
 

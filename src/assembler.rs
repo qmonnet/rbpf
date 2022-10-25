@@ -78,25 +78,25 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
         // AluBinary.
         for &(name, opc) in &alu_binary_ops {
             entry(name, AluBinary, ebpf::BPF_ALU64 | opc);
-            entry(&format!("{}32", name), AluBinary, ebpf::BPF_ALU | opc);
-            entry(&format!("{}64", name), AluBinary, ebpf::BPF_ALU64 | opc);
+            entry(&format!("{name}32"), AluBinary, ebpf::BPF_ALU | opc);
+            entry(&format!("{name}64"), AluBinary, ebpf::BPF_ALU64 | opc);
         }
 
         // LoadAbs, LoadInd, LoadReg, StoreImm, and StoreReg.
         for &(suffix, size) in &mem_sizes {
-            entry(&format!("ldabs{}", suffix),
+            entry(&format!("ldabs{suffix}"),
                   LoadAbs,
                   ebpf::BPF_ABS | ebpf::BPF_LD | size);
-            entry(&format!("ldind{}", suffix),
+            entry(&format!("ldind{suffix}"),
                   LoadInd,
                   ebpf::BPF_IND | ebpf::BPF_LD | size);
-            entry(&format!("ldx{}", suffix),
+            entry(&format!("ldx{suffix}"),
                   LoadReg,
                   ebpf::BPF_MEM | ebpf::BPF_LDX | size);
-            entry(&format!("st{}", suffix),
+            entry(&format!("st{suffix}"),
                   StoreImm,
                   ebpf::BPF_MEM | ebpf::BPF_ST | size);
-            entry(&format!("stx{}", suffix),
+            entry(&format!("stx{suffix}"),
                   StoreReg,
                   ebpf::BPF_MEM | ebpf::BPF_STX | size);
         }
@@ -108,8 +108,8 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
 
         // Endian.
         for &size in &[16, 32, 64] {
-            entry(&format!("be{}", size), Endian(size), ebpf::BE);
-            entry(&format!("le{}", size), Endian(size), ebpf::LE);
+            entry(&format!("be{size}"), Endian(size), ebpf::BE);
+            entry(&format!("le{size}"), Endian(size), ebpf::LE);
         }
     }
 
@@ -118,16 +118,16 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
 
 fn insn(opc: u8, dst: i64, src: i64, off: i64, imm: i64) -> Result<Insn, String> {
     if !(0..16).contains(&dst) {
-        return Err(format!("Invalid destination register {}", dst));
+        return Err(format!("Invalid destination register {dst}"));
     }
     if dst < 0 || src >= 16 {
-        return Err(format!("Invalid source register {}", src));
+        return Err(format!("Invalid source register {src}"));
     }
     if !(-32768..32768).contains(&off) {
-        return Err(format!("Invalid offset {}", off));
+        return Err(format!("Invalid offset {off}"));
     }
     if !(-2147483648..2147483648).contains(&imm) {
-        return Err(format!("Invalid immediate {}", imm));
+        return Err(format!("Invalid immediate {imm}"));
     }
     Ok(Insn {
         opc: opc,
@@ -171,7 +171,7 @@ fn encode(inst_type: InstructionType, opc: u8, operands: &[Operand]) -> Result<I
         (Call, Integer(imm), Nil, Nil) => insn(opc, 0, 0, 0, imm),
         (Endian(size), Register(dst), Nil, Nil) => insn(opc, dst, 0, 0, size),
         (LoadImm, Register(dst), Integer(imm), Nil) => insn(opc, dst, 0, 0, (imm << 32) >> 32),
-        _ => Err(format!("Unexpected operands: {:?}", operands)),
+        _ => Err(format!("Unexpected operands: {operands:?}")),
     }
 }
 
@@ -184,7 +184,7 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
             Some(&(inst_type, opc)) => {
                 match encode(inst_type, opc, &instruction.operands) {
                     Ok(insn) => result.push(insn),
-                    Err(msg) => return Err(format!("Failed to encode {}: {}", name, msg)),
+                    Err(msg) => return Err(format!("Failed to encode {name}: {msg}")),
                 }
                 // Special case for lddw.
                 if let LoadImm = inst_type {
@@ -193,7 +193,7 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
                     }
                 }
             }
-            None => return Err(format!("Invalid instruction {:?}", name)),
+            None => return Err(format!("Invalid instruction {name:?}")),
         }
     }
     Ok(result)

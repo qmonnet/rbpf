@@ -166,7 +166,7 @@ fn test_vm_block_port() {
     vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
 
     let res = vm.execute_program(packet).unwrap();
-    println!("Program returned: {:?} ({:#x})", res, res);
+    println!("Program returned: {res:?} ({res:#x})");
     assert_eq!(res, 0xffffffff);
 }
 
@@ -250,7 +250,7 @@ fn test_jit_block_port() {
 
     unsafe {
         let res = vm.execute_program_jit(packet).unwrap();
-        println!("Program returned: {:?} ({:#x})", res, res);
+        println!("Program returned: {res:?} ({res:#x})");
         assert_eq!(res, 0xffffffff);
     }
 }
