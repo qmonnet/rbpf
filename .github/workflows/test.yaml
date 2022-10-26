@@ -14,9 +14,8 @@ jobs:
       # Exclude features not supported by rbpf yet.
       # 32-bit jump - https://github.com/qmonnet/rbpf/issues/47
       # atomic operations - https://github.com/qmonnet/rbpf/issues/47
-      # exit-not-last - https://github.com/qmonnet/rbpf/issues/62
       # mem-len - Tests assume r2 contains the length of the memory.
-      KNOWN_FAILURES: "(j.*32|lock|by-zero|exit-not-last|mem-len)"
+      KNOWN_FAILURES: "(j.*32|lock|by-zero|mem-len)"
     strategy:
       matrix:
         include:
