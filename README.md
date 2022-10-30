@@ -634,11 +634,6 @@ on your own.
 * The JIT compiler produces an unsafe program: memory access are not tested at
   runtime (yet). Use with caution.
 
-* Contrary to the interpreter, if a division by 0 is attempted, the JIT program
-  returns `0xffffffffffffffff` and exits cleanly (no `Error` returned). This is
-  because the author has not found how to return something more explicit
-  from the generated assembly so far.
-
 * A small number of eBPF instructions have not been implemented yet. This
   should not be a problem for the majority of eBPF programs.
 
