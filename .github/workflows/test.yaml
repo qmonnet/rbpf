@@ -15,7 +15,7 @@ jobs:
       # 32-bit jump - https://github.com/qmonnet/rbpf/issues/47
       # atomic operations - https://github.com/qmonnet/rbpf/issues/47
       # mem-len - Tests assume r2 contains the length of the memory.
-      KNOWN_FAILURES: "(j.*32|lock|by-zero|mem-len)"
+      KNOWN_FAILURES: "(j.*32|lock|mem-len)"
     strategy:
       matrix:
         include:
