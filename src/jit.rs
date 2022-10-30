@@ -253,6 +253,13 @@ fn set_anchor(jit: &mut JitMemory, target: isize) {
     jit.special_targets.insert(target, jit.offset);
 }
 
+#[inline]
+fn emit_direct_jcc(jit: &mut JitMemory, code: u8, offset: u32) {
+    emit1(jit, 0x0f);
+    emit1(jit, code);
+    emit_bytes!(jit, offset, u32);
+}
+
 // Load [src + offset] into dst
 #[inline]
 fn emit_load(jit: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
@@ -360,8 +367,19 @@ fn muldivmod(jit: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) 
     let div = (opc & ebpf::BPF_ALU_OP_MASK) == (ebpf::DIV32_IMM & ebpf::BPF_ALU_OP_MASK);
     let modrm = (opc & ebpf::BPF_ALU_OP_MASK) == (ebpf::MOD32_IMM & ebpf::BPF_ALU_OP_MASK);
     let is64 = (opc & ebpf::BPF_CLS_MASK) == ebpf::BPF_ALU64;
+    let is_reg = (opc & ebpf::BPF_X) == ebpf::BPF_X;
 
-    if div || modrm {
+    if div && !is_reg && imm == 0 {
+        // Division by zero returns 0
+        // Set register to 0: xor with itself
+        emit_alu32(jit, 0x31, dst, dst);
+        return;
+    }
+    if modrm && !is_reg && imm == 0 {
+        // Modulo remainder of division by zero keeps destination register unchanged
+        return;
+    }
+    if (div || modrm) && is_reg {
         emit_load_imm(jit, RCX, pc as i64);
 
         // test src,src
@@ -371,8 +389,18 @@ fn muldivmod(jit: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) 
             emit_alu32(jit, 0x85, src, src);
         }
 
-        // jz div_by_zero
-        emit_jcc(jit, 0x84, TARGET_PC_DIV_BY_ZERO);
+        if div {
+            // No division by 0: skip next instructions
+            emit_direct_jcc(jit, 0x85, 7);
+            // Division by 0: set dst to 0 then go to next instruction
+            // Set register to 0: xor with itself
+            emit_alu32(jit, 0x31, dst, dst);
+            emit_jmp(jit, (pc + 1) as isize);
+        }
+        if modrm {
+            // Modulo by zero: keep destination register unchanged
+            emit_jcc(jit, 0x84, (pc + 1) as isize);
+        }
     }
 
     if dst != RAX {
@@ -390,7 +418,7 @@ fn muldivmod(jit: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) 
     emit_mov(jit, dst, RAX);
 
     if div || modrm {
-        // xor %edx,%edx
+        // Set register to 0: xor %edx,%edx
         emit_alu32(jit, 0x31, RDX, RDX);
     }
 
@@ -651,7 +679,7 @@ impl<'a> JitMemory<'a> {
                 ebpf::SUB64_REG  => emit_alu64(self, 0x29, src, dst),
                 ebpf::MUL64_IMM | ebpf::MUL64_REG |
                     ebpf::DIV64_IMM | ebpf::DIV64_REG |
-                    ebpf::MOD64_IMM | ebpf::MOD64_REG  =>
+                    ebpf::MOD64_IMM | ebpf::MOD64_REG =>
                     muldivmod(self, insn_ptr as u16, insn.opc, src, dst, insn.imm),
                 ebpf::OR64_IMM   => emit_alu64_imm32(self, 0x81, 1, dst, insn.imm),
                 ebpf::OR64_REG   => emit_alu64(self, 0x09, src, dst),
@@ -662,7 +690,7 @@ impl<'a> JitMemory<'a> {
                     emit_mov(self, src, RCX);
                     emit_alu64(self, 0xd3, 4, dst);
                 },
-                ebpf::RSH64_IMM  =>  emit_alu64_imm8(self, 0xc1, 5, dst, insn.imm as i8),
+                ebpf::RSH64_IMM  => emit_alu64_imm8(self, 0xc1, 5, dst, insn.imm as i8),
                 ebpf::RSH64_REG  => {
                     emit_mov(self, src, RCX);
                     emit_alu64(self, 0xd3, 5, dst);
