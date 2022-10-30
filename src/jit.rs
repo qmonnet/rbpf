@@ -368,7 +368,7 @@ fn muldivmod(jit: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) 
     let is64 = (opc & ebpf::BPF_CLS_MASK) == ebpf::BPF_ALU64;
     let is_reg = (opc & ebpf::BPF_X) == ebpf::BPF_X;
 
-    if div && !is_reg && imm == 0 {
+    if (div || mul) && !is_reg && imm == 0 {
         // Division by zero returns 0
         // Set register to 0: xor with itself
         emit_alu32(jit, 0x31, dst, dst);
