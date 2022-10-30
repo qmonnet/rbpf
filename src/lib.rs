@@ -449,13 +449,10 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::SUB32_REG  => reg[_dst] = (reg[_dst] as i32).wrapping_sub(reg[_src] as i32) as u64,
                 ebpf::MUL32_IMM  => reg[_dst] = (reg[_dst] as i32).wrapping_mul(insn.imm)         as u64,
                 ebpf::MUL32_REG  => reg[_dst] = (reg[_dst] as i32).wrapping_mul(reg[_src] as i32) as u64,
+                ebpf::DIV32_IMM if insn.imm == 0 => reg[_dst] = 0,
                 ebpf::DIV32_IMM  => reg[_dst] = (reg[_dst] as u32 / insn.imm              as u32) as u64,
-                ebpf::DIV32_REG  => {
-                    if reg[_src] == 0 {
-                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
-                    }
-                    reg[_dst] = (reg[_dst] as u32 / reg[_src] as u32) as u64;
-                },
+                ebpf::DIV32_REG if reg[_src] == 0 => reg[_dst] = 0,
+                ebpf::DIV32_REG  => reg[_dst] = (reg[_dst] as u32 / reg[_src]             as u32) as u64,
                 ebpf::OR32_IMM   =>   reg[_dst] = (reg[_dst] as u32             | insn.imm  as u32) as u64,
                 ebpf::OR32_REG   =>   reg[_dst] = (reg[_dst] as u32             | reg[_src] as u32) as u64,
                 ebpf::AND32_IMM  =>   reg[_dst] = (reg[_dst] as u32             & insn.imm  as u32) as u64,
@@ -465,13 +462,10 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::RSH32_IMM  =>   reg[_dst] = (reg[_dst] as u32).wrapping_shr(insn.imm  as u32) as u64,
                 ebpf::RSH32_REG  =>   reg[_dst] = (reg[_dst] as u32).wrapping_shr(reg[_src] as u32) as u64,
                 ebpf::NEG32      => { reg[_dst] = (reg[_dst] as i32).wrapping_neg()                 as u64; reg[_dst] &= U32MAX; },
+                ebpf::MOD32_IMM if insn.imm == 0 => (),
                 ebpf::MOD32_IMM  =>   reg[_dst] = (reg[_dst] as u32             % insn.imm  as u32) as u64,
-                ebpf::MOD32_REG  => {
-                    if reg[_src] == 0 {
-                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
-                    }
-                    reg[_dst] = (reg[_dst] as u32 % reg[_src] as u32) as u64;
-                },
+                ebpf::MOD32_REG if reg[_src] == 0 => (),
+                ebpf::MOD32_REG  =>   reg[_dst] = (reg[_dst] as u32 % reg[_src]             as u32) as u64,
                 ebpf::XOR32_IMM  =>   reg[_dst] = (reg[_dst] as u32             ^ insn.imm  as u32) as u64,
                 ebpf::XOR32_REG  =>   reg[_dst] = (reg[_dst] as u32             ^ reg[_src] as u32) as u64,
                 ebpf::MOV32_IMM  =>   reg[_dst] = insn.imm   as u32                                 as u64,
@@ -502,13 +496,10 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::SUB64_REG  => reg[_dst] = reg[_dst].wrapping_sub(reg[_src]),
                 ebpf::MUL64_IMM  => reg[_dst] = reg[_dst].wrapping_mul(insn.imm as u64),
                 ebpf::MUL64_REG  => reg[_dst] = reg[_dst].wrapping_mul(reg[_src]),
+                ebpf::DIV64_IMM if insn.imm == 0 => reg[_dst] = 0,
                 ebpf::DIV64_IMM  => reg[_dst]                       /= insn.imm as u64,
-                ebpf::DIV64_REG  => {
-                    if reg[_src] == 0 {
-                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
-                    }
-                    reg[_dst] /= reg[_src];
-                },
+                ebpf::DIV64_REG if reg[_src] == 0 => reg[_dst] = 0,
+                ebpf::DIV64_REG  => reg[_dst] /= reg[_src],
                 ebpf::OR64_IMM   => reg[_dst] |=  insn.imm as u64,
                 ebpf::OR64_REG   => reg[_dst] |=  reg[_src],
                 ebpf::AND64_IMM  => reg[_dst] &=  insn.imm as u64,
@@ -518,13 +509,10 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::RSH64_IMM  => reg[_dst] >>= insn.imm as u64,
                 ebpf::RSH64_REG  => reg[_dst] >>= reg[_src],
                 ebpf::NEG64      => reg[_dst] = -(reg[_dst] as i64) as u64,
+                ebpf::MOD64_IMM if insn.imm == 0 => (),
                 ebpf::MOD64_IMM  => reg[_dst] %=  insn.imm as u64,
-                ebpf::MOD64_REG  => {
-                    if reg[_src] == 0 {
-                        Err(Error::new(ErrorKind::Other,"Error: division by 0"))?;
-                    }
-                    reg[_dst] %= reg[_src];
-                },
+                ebpf::MOD64_REG if reg[_src] == 0 => (),
+                ebpf::MOD64_REG  => reg[_dst] %= reg[_src],
                 ebpf::XOR64_IMM  => reg[_dst] ^= insn.imm  as u64,
                 ebpf::XOR64_REG  => reg[_dst] ^= reg[_src],
                 ebpf::MOV64_IMM  => reg[_dst] =  insn.imm  as u64,
@@ -1058,7 +1046,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             0 => std::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8
         };
-        
+
         match self.parent.jit {
             Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
                                 self.mbuff.buffer.len(),

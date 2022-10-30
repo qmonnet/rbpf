@@ -401,51 +401,87 @@ fn test_vm_err_call_unreg() {
 }
 
 #[test]
-#[should_panic(expected = "Error: division by 0")]
-fn test_vm_err_div64_by_zero_reg() {
+fn test_vm_div64_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        div r0, 0
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
+}
+
+#[test]
+fn test_vm_div_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        div32 r0, 0
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
+}
+
+#[test]
+fn test_vm_mod64_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        mod r0, 0
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_mod_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        mod32 r0, 0
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_div64_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
         div r0, r1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_program().unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
 }
 
 #[test]
-#[should_panic(expected = "Error: division by 0")]
-fn test_vm_err_div_by_zero_reg() {
+fn test_vm_div_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
         div32 r0, r1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_program().unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
 }
 
 #[test]
-#[should_panic(expected = "Error: division by 0")]
-fn test_vm_err_mod64_by_zero_reg() {
+fn test_vm_mod64_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
         mod r0, r1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_program().unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
 }
 
 #[test]
-#[should_panic(expected = "Error: division by 0")]
-fn test_vm_err_mod_by_zero_reg() {
+fn test_vm_mod_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
         mod32 r0, r1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_program().unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
 }
 
 #[test]
