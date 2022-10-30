@@ -425,11 +425,52 @@ fn test_jit_err_call_unreg() {
     unsafe { vm.execute_program_jit().unwrap(); }
 }
 
-// TODO: Should panic!() instead, but I could not make it panic in JIT-compiled code, so the
-// program returns -1 instead. We can make it write on stderr, though.
 #[test]
-//#[should_panic(expected = "[JIT] Error: division by 0")]
-fn test_jit_err_div64_by_zero_reg() {
+fn test_jit_div64_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        div r0, 0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x0); }
+}
+
+#[test]
+fn test_jit_div_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        div32 r0, 0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x0); }
+}
+
+#[test]
+fn test_jit_mod64_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        mod r0, 0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x1); }
+}
+
+#[test]
+fn test_jit_mod_by_zero_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        mod32 r0, 0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x1); }
+}
+
+#[test]
+fn test_jit_div64_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
@@ -437,13 +478,11 @@ fn test_jit_err_div64_by_zero_reg() {
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.jit_compile().unwrap();
-    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0xffffffffffffffff); }
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x0); }
 }
 
-// TODO: Same remark as above
 #[test]
-//#[should_panic(expected = "[JIT] Error: division by 0")]
-fn test_jit_err_div_by_zero_reg() {
+fn test_jit_div_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
@@ -451,13 +490,11 @@ fn test_jit_err_div_by_zero_reg() {
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.jit_compile().unwrap();
-    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0xffffffffffffffff); }
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x0); }
 }
 
-// TODO: Same remark as above
 #[test]
-//#[should_panic(expected = "[JIT] Error: division by 0")]
-fn test_jit_err_mod64_by_zero_reg() {
+fn test_jit_mod64_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
@@ -465,13 +502,11 @@ fn test_jit_err_mod64_by_zero_reg() {
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.jit_compile().unwrap();
-    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0xffffffffffffffff); }
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x1); }
 }
 
-// TODO: Same remark as above
 #[test]
-//#[should_panic(expected = "[JIT] Error: division by 0")]
-fn test_jit_err_mod_by_zero_reg() {
+fn test_jit_mod_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
@@ -479,7 +514,7 @@ fn test_jit_err_mod_by_zero_reg() {
         exit").unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.jit_compile().unwrap();
-    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0xffffffffffffffff); }
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x1); }
 }
 
 // TODO SKIP: JIT disabled for this testcase (stack oob check not implemented)
