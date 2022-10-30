@@ -22,17 +22,6 @@ use rbpf::assembler::assemble;
 use rbpf::ebpf;
 
 #[test]
-#[should_panic(expected = "[Verifier] Error: division by 0 (insn #1)")]
-fn test_verifier_err_div_by_zero_imm() {
-    let prog = assemble("
-        mov32 r0, 1
-        div32 r0, 0
-        exit").unwrap();
-    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_program().unwrap();
-}
-
-#[test]
 #[should_panic(expected = "[Verifier] Error: unsupported argument for LE/BE (insn #0)")]
 fn test_verifier_err_endian_size() {
     let prog = &[

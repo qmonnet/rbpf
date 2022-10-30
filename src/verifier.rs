@@ -48,14 +48,6 @@ fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
     Ok(())
 }
 
-fn check_imm_nonzero(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
-    if insn.imm == 0 {
-        reject(format!("division by 0 (insn #{insn_ptr:?})"))?;
-    }
-
-    Ok(())
-}
-
 fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     match insn.imm {
         16 | 32 | 64 => Ok(()),
@@ -158,7 +150,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::SUB32_REG  => {},
             ebpf::MUL32_IMM  => {},
             ebpf::MUL32_REG  => {},
-            ebpf::DIV32_IMM  => { check_imm_nonzero(&insn, insn_ptr)?; },
+            ebpf::DIV32_IMM  => {},
             ebpf::DIV32_REG  => {},
             ebpf::OR32_IMM   => {},
             ebpf::OR32_REG   => {},
@@ -169,7 +161,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::RSH32_IMM  => {},
             ebpf::RSH32_REG  => {},
             ebpf::NEG32      => {},
-            ebpf::MOD32_IMM  => { check_imm_nonzero(&insn, insn_ptr)?; },
+            ebpf::MOD32_IMM  => {},
             ebpf::MOD32_REG  => {},
             ebpf::XOR32_IMM  => {},
             ebpf::XOR32_REG  => {},
@@ -187,7 +179,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::SUB64_REG  => {},
             ebpf::MUL64_IMM  => {},
             ebpf::MUL64_REG  => {},
-            ebpf::DIV64_IMM  => { check_imm_nonzero(&insn, insn_ptr)?; },
+            ebpf::DIV64_IMM  => {},
             ebpf::DIV64_REG  => {},
             ebpf::OR64_IMM   => {},
             ebpf::OR64_REG   => {},
@@ -198,7 +190,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::RSH64_IMM  => {},
             ebpf::RSH64_REG  => {},
             ebpf::NEG64      => {},
-            ebpf::MOD64_IMM  => { check_imm_nonzero(&insn, insn_ptr)?; },
+            ebpf::MOD64_IMM  => {},
             ebpf::MOD64_REG  => {},
             ebpf::XOR64_IMM  => {},
             ebpf::XOR64_REG  => {},
