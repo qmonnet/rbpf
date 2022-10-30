@@ -22,8 +22,7 @@ const PAGE_SIZE: usize = 4096;
 
 // Special values for target_pc in struct Jump
 const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
-const TARGET_PC_EXIT:         isize = TARGET_OFFSET + 1;
-const TARGET_PC_DIV_BY_ZERO:  isize = TARGET_OFFSET + 2;
+const TARGET_PC_EXIT: isize = TARGET_OFFSET + 1;
 
 #[derive(Copy, Clone)]
 enum OperandSize {
@@ -846,25 +845,6 @@ impl<'a> JitMemory<'a> {
 
         emit1(self, 0xc3); // ret
 
-        // Division by zero handler
-        set_anchor(self, TARGET_PC_DIV_BY_ZERO);
-        fn log(pc: u64) -> i64 {
-            // Write error message on stderr.
-            // We would like to panic!() instead (but does not work here), or maybe return an
-            // error, that is, if we also turn all other panics into errors someday.
-            // Note: needs `use std::io::Write;`
-            //     let res = writeln!(&mut std::io::stderr(),
-            //                        "[JIT] Error: division by zero (insn {:?})\n", pc);
-            //     match res {
-            //         Ok(_)  => 0,
-            //         Err(_) => -1
-            //     }
-            pc as i64 // Just to prevent warnings
-        }
-        emit_mov(self, RCX, RDI); // muldivmod stored pc in RCX
-        emit_call(self, log as usize);
-        emit_load_imm(self, map_register(0), -1);
-        emit_jmp(self, TARGET_PC_EXIT);
         Ok(())
     }
 
