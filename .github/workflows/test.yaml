@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Exclude features not supported by rbpf yet.
-      # 32-bit jump - https://github.com/qmonnet/rbpf/issues/47
       # atomic operations - https://github.com/qmonnet/rbpf/issues/47
       # mem-len - Tests assume r2 contains the length of the memory.
-      KNOWN_FAILURES: "(j.*32|lock|mem-len)"
+      KNOWN_FAILURES: "(lock|mem-len)"
+      CONFORMANCE_IMAGE: "ghcr.io/alan-jowett/bpf_conformance@sha256:547765717557e0f222de71fbf26f4bd9621c0149911aa03296024b469dd4598b"
     strategy:
       matrix:
         include:
@@ -53,7 +53,7 @@ jobs:
       - name: Run BPF conformance tests - Interpreter
         run: |
           docker run -v ${{github.workspace}}:/rbpf --rm \
-          ghcr.io/alan-jowett/bpf_conformance@sha256:b88246eee0474f0a114fedadd7b9d8c79940647f44b0e499dfd10e70d1300a6f \
+          "${{ env.CONFORMANCE_IMAGE }}" \
           bin/bpf_conformance_runner --test_file_directory tests \
           --plugin_path /rbpf/target/release/examples/rbpf_plugin \
           --exclude_regex "${{ env.KNOWN_FAILURES }}"
@@ -62,7 +62,7 @@ jobs:
       - name: Run BPF conformance tests - JIT
         run: |
           docker run -v ${{github.workspace}}:/rbpf --rm \
-          ghcr.io/alan-jowett/bpf_conformance@sha256:b88246eee0474f0a114fedadd7b9d8c79940647f44b0e499dfd10e70d1300a6f \
+          "${{ env.CONFORMANCE_IMAGE }}" \
           bin/bpf_conformance_runner --test_file_directory tests \
           --plugin_path /rbpf/target/release/examples/rbpf_plugin \
           --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
