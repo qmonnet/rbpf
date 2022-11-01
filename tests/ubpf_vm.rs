@@ -852,6 +852,429 @@ fn test_vm_jslt_reg() {
 }
 
 #[test]
+fn test_vm_jeq32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0x0
+        mov32 r1, 0xa
+        jeq32 r1, 0xb, +5
+        mov32 r0, 1
+        mov r1, 0xb
+        or r1, r9
+        jeq32 r1, 0xb, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jeq32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0xa
+        mov32 r2, 0xb
+        jeq32 r1, r2, +5
+        mov32 r0, 1
+        mov32 r1, 0xb
+        or r1, r9
+        jeq32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jge32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0xa
+        jge32 r1, 0xb, +5
+        mov32 r0, 1
+        or r1, r9
+        mov32 r1, 0xc
+        jge32 r1, 0xb, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jge32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0xa
+        mov32 r2, 0xb
+        jge32 r1, r2, +5
+        mov32 r0, 1
+        or r1, r9
+        mov32 r1, 0xc
+        jge32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jgt32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 5
+        or r1, r9
+        jgt32 r1, 6, +4
+        jgt32 r1, 5, +3
+        jgt32 r1, 4, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jgt32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov r0, 0
+        mov r1, 5
+        mov32 r1, 5
+        or r1, r9
+        mov r2, 6
+        mov r3, 4
+        jgt32 r1, r2, +4
+        jgt32 r1, r1, +3
+        jgt32 r1, r3, +1
+        exit
+        mov r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jle32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 5
+        or r1, r9
+        jle32 r1, 4, +5
+        jle32 r1, 6, +1
+        exit
+        jle32 r1, 5, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jle32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        or r1, r9
+        jle32 r1, r2, +5
+        jle32 r1, r1, +1
+        exit
+        jle32 r1, r3, +1
+        exit
+        mov r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jlt32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 5
+        or r1, r9
+        jlt32 r1, 4, +4
+        jlt32 r1, 5, +3
+        jlt32 r1, 6, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jlt32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        or r1, r9
+        jlt32 r1, r2, +4
+        jlt32 r1, r1, +3
+        jlt32 r1, r3, +1
+        exit
+        mov r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jne32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0xb
+        or r1, r9
+        jne32 r1, 0xb, +4
+        mov32 r0, 1
+        mov32 r1, 0xa
+        or r1, r9
+        jne32 r1, 0xb, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jne32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0xb
+        or r1, r9
+        mov32 r2, 0xb
+        jne32 r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0xa
+        or r1, r9
+        jne32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jset32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0x7
+        or r1, r9
+        jset32 r1, 0x8, +4
+        mov32 r0, 1
+        mov32 r1, 0x9
+        jset32 r1, 0x8, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jset32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, 0x7
+        or r1, r9
+        mov32 r2, 0x8
+        jset32 r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0x9
+        jset32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsge32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        jsge32 r1, -1, +5
+        jsge32 r1, 0, +4
+        mov32 r0, 1
+        mov r1, -1
+        jsge32 r1, -1, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsge32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        mov r2, -1
+        mov32 r3, 0
+        jsge32 r1, r2, +5
+        jsge32 r1, r3, +4
+        mov32 r0, 1
+        mov r1, r2
+        jsge32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsgt32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        jsgt32 r1, -1, +4
+        mov32 r0, 1
+        mov32 r1, 0
+        jsgt32 r1, -1, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsgt32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        mov r2, -1
+        jsgt32 r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0
+        jsgt32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsle32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        jsle32 r1, -3, +5
+        jsle32 r1, -1, +1
+        exit
+        mov32 r0, 1
+        jsle32 r1, -2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jsle32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        mov r2, -3
+        mov32 r3, 0
+        jsle32 r1, r2, +6
+        jsle32 r1, r3, +1
+        exit
+        mov32 r0, 1
+        mov r1, r2
+        jsle32 r1, r2, +1
+        mov32 r0, 2
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jslt32_imm() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        jslt32 r1, -3, +4
+        jslt32 r1, -2, +3
+        jslt32 r1, -1, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_jslt32_reg() {
+    let prog = assemble("
+        mov r9, 1
+        lsh r9, 32
+        mov32 r0, 0
+        mov32 r1, -2
+        or r1, r9
+        mov r2, -3
+        mov r3, -1
+        jslt32 r1, r1, +4
+        jslt32 r1, r2, +3
+        jslt32 r1, r3, +1
+        exit
+        mov32 r0, 1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
 fn test_vm_lddw() {
     let prog = assemble("lddw r0, 0x1122334455667788
                          exit").unwrap();
