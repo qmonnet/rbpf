@@ -306,6 +306,30 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
             ebpf::TAIL_CALL  => { name = "tail_call"; desc = name.to_string(); },
             ebpf::EXIT       => { name = "exit";      desc = name.to_string(); },
 
+            // BPF_JMP32 class
+            ebpf::JEQ_IMM32  => { name = "jeq32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JEQ_REG32  => { name = "jeq32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JGT_IMM32  => { name = "jgt32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JGT_REG32  => { name = "jgt32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JGE_IMM32  => { name = "jge32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JGE_REG32  => { name = "jge32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JLT_IMM32  => { name = "jlt32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JLT_REG32  => { name = "jlt32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JLE_IMM32  => { name = "jle32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JLE_REG32  => { name = "jle32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JSET_IMM32 => { name = "jset32"; desc = jmp_imm_str(name, &insn); },
+            ebpf::JSET_REG32 => { name = "jset32"; desc = jmp_reg_str(name, &insn); },
+            ebpf::JNE_IMM32  => { name = "jne32";  desc = jmp_imm_str(name, &insn); },
+            ebpf::JNE_REG32  => { name = "jne32";  desc = jmp_reg_str(name, &insn); },
+            ebpf::JSGT_IMM32 => { name = "jsgt32"; desc = jmp_imm_str(name, &insn); },
+            ebpf::JSGT_REG32 => { name = "jsgt32"; desc = jmp_reg_str(name, &insn); },
+            ebpf::JSGE_IMM32 => { name = "jsge32"; desc = jmp_imm_str(name, &insn); },
+            ebpf::JSGE_REG32 => { name = "jsge32"; desc = jmp_reg_str(name, &insn); },
+            ebpf::JSLT_IMM32 => { name = "jslt32"; desc = jmp_imm_str(name, &insn); },
+            ebpf::JSLT_REG32 => { name = "jslt32"; desc = jmp_reg_str(name, &insn); },
+            ebpf::JSLE_IMM32 => { name = "jsle32"; desc = jmp_imm_str(name, &insn); },
+            ebpf::JSLE_REG32 => { name = "jsle32"; desc = jmp_reg_str(name, &insn); },
+
             _                => {
                 panic!("[Disassembler] Error: unknown eBPF opcode {:#2x} (insn #{:?})",
                        insn.opc, insn_ptr);
