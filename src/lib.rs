@@ -44,7 +44,7 @@ mod verifier;
 ///   - Unknown instructions.
 ///   - Bad formed instruction.
 ///   - Unknown eBPF helper index.
-pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
+pub type Verifier = fn (prog: &[u8]) -> Result<(), Error>;
 
 /// eBPF helper function.
 pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
@@ -308,6 +308,10 @@ impl<'a> EbpfVmMbuff<'a> {
             let _dst = insn.dst as usize;
             let _src = insn.src as usize;
 
+            let mut do_jump = || {
+                insn_ptr = (insn_ptr as i16 + insn.off) as usize;
+            };
+
             match insn.opc {
 
                 // BPF_LD class
@@ -522,29 +526,29 @@ impl<'a> EbpfVmMbuff<'a> {
 
                 // BPF_JMP class
                 // TODO: check this actually works as expected for signed / unsigned ops
-                ebpf::JA         =>                                             insn_ptr = (insn_ptr as i16 + insn.off) as usize,
-                ebpf::JEQ_IMM    => if  reg[_dst] == insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JEQ_REG    => if  reg[_dst] == reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JGT_IMM    => if  reg[_dst] >  insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JGT_REG    => if  reg[_dst] >  reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JGE_IMM    => if  reg[_dst] >= insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JGE_REG    => if  reg[_dst] >= reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JLT_IMM    => if  reg[_dst] <  insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JLT_REG    => if  reg[_dst] <  reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JLE_IMM    => if  reg[_dst] <= insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JLE_REG    => if  reg[_dst] <= reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSET_IMM   => if  reg[_dst] &  insn.imm as u64 != 0     { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSET_REG   => if  reg[_dst] &  reg[_src]       != 0     { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JNE_IMM    => if  reg[_dst] != insn.imm as u64          { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JNE_REG    => if  reg[_dst] != reg[_src]                { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSGT_IMM   => if  reg[_dst] as i64 >  insn.imm  as i64  { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSGT_REG   => if  reg[_dst] as i64 >  reg[_src] as i64  { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSGE_IMM   => if  reg[_dst] as i64 >= insn.imm  as i64  { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSGE_REG   => if  reg[_dst] as i64 >= reg[_src] as i64  { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSLT_IMM   => if (reg[_dst] as i64) <  insn.imm  as i64 { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSLT_REG   => if (reg[_dst] as i64) <  reg[_src] as i64 { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSLE_IMM   => if (reg[_dst] as i64) <= insn.imm  as i64 { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
-                ebpf::JSLE_REG   => if (reg[_dst] as i64) <= reg[_src] as i64 { insn_ptr = (insn_ptr as i16 + insn.off) as usize; },
+                ebpf::JA         =>                                             do_jump(),
+                ebpf::JEQ_IMM    => if  reg[_dst] == insn.imm as u64          { do_jump(); },
+                ebpf::JEQ_REG    => if  reg[_dst] == reg[_src]                { do_jump(); },
+                ebpf::JGT_IMM    => if  reg[_dst] >  insn.imm as u64          { do_jump(); },
+                ebpf::JGT_REG    => if  reg[_dst] >  reg[_src]                { do_jump(); },
+                ebpf::JGE_IMM    => if  reg[_dst] >= insn.imm as u64          { do_jump(); },
+                ebpf::JGE_REG    => if  reg[_dst] >= reg[_src]                { do_jump(); },
+                ebpf::JLT_IMM    => if  reg[_dst] <  insn.imm as u64          { do_jump(); },
+                ebpf::JLT_REG    => if  reg[_dst] <  reg[_src]                { do_jump(); },
+                ebpf::JLE_IMM    => if  reg[_dst] <= insn.imm as u64          { do_jump(); },
+                ebpf::JLE_REG    => if  reg[_dst] <= reg[_src]                { do_jump(); },
+                ebpf::JSET_IMM   => if  reg[_dst] &  insn.imm as u64 != 0     { do_jump(); },
+                ebpf::JSET_REG   => if  reg[_dst] &  reg[_src]       != 0     { do_jump(); },
+                ebpf::JNE_IMM    => if  reg[_dst] != insn.imm as u64          { do_jump(); },
+                ebpf::JNE_REG    => if  reg[_dst] != reg[_src]                { do_jump(); },
+                ebpf::JSGT_IMM   => if  reg[_dst] as i64  >  insn.imm  as i64 { do_jump(); },
+                ebpf::JSGT_REG   => if  reg[_dst] as i64  >  reg[_src] as i64 { do_jump(); },
+                ebpf::JSGE_IMM   => if  reg[_dst] as i64  >= insn.imm  as i64 { do_jump(); },
+                ebpf::JSGE_REG   => if  reg[_dst] as i64  >= reg[_src] as i64 { do_jump(); },
+                ebpf::JSLT_IMM   => if (reg[_dst] as i64) <  insn.imm  as i64 { do_jump(); },
+                ebpf::JSLT_REG   => if (reg[_dst] as i64) <  reg[_src] as i64 { do_jump(); },
+                ebpf::JSLE_IMM   => if  reg[_dst] as i64  <= insn.imm  as i64 { do_jump(); },
+                ebpf::JSLE_REG   => if  reg[_dst] as i64  <= reg[_src] as i64 { do_jump(); },
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
                 ebpf::CALL       => if let Some(function) = self.helpers.get(&(insn.imm as u32)) {
