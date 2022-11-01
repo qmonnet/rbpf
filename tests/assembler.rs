@@ -421,6 +421,52 @@ fn test_jump_conditional() {
                        insn(ebpf::JSGE_IMM, 1, 0, 3, 2),
                        insn(ebpf::JSLT_IMM, 1, 0, 3, 2),
                        insn(ebpf::JSLE_IMM, 1, 0, 3, 2)]));
+
+    assert_eq!(asm("jeq32 r1, r2, +3
+                    jgt32 r1, r2, +3
+                    jge32 r1, r2, +3
+                    jlt32 r1, r2, +3
+                    jle32 r1, r2, +3
+                    jset32 r1, r2, +3
+                    jne32 r1, r2, +3
+                    jsgt32 r1, r2, +3
+                    jsge32 r1, r2, +3
+                    jslt32 r1, r2, +3
+                    jsle32 r1, r2, +3"),
+               Ok(vec![insn(ebpf::JEQ_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JGT_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JGE_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JLT_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JLE_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JSET_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JNE_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JSGT_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JSGE_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JSLT_REG32, 1, 2, 3, 0),
+                       insn(ebpf::JSLE_REG32, 1, 2, 3, 0)]));
+
+    assert_eq!(asm("jeq32 r1, 2, +3
+                    jgt32 r1, 2, +3
+                    jge32 r1, 2, +3
+                    jlt32 r1, 2, +3
+                    jle32 r1, 2, +3
+                    jset32 r1, 2, +3
+                    jne32 r1, 2, +3
+                    jsgt32 r1, 2, +3
+                    jsge32 r1, 2, +3
+                    jslt32 r1, 2, +3
+                    jsle32 r1, 2, +3"),
+               Ok(vec![insn(ebpf::JEQ_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JGT_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JGE_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JLT_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JLE_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JSET_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JNE_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JSGT_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JSGE_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JSLT_IMM32, 1, 0, 3, 2),
+                       insn(ebpf::JSLE_IMM32, 1, 0, 3, 2)]));
 }
 
 // Test all supported Endian mnemonics.

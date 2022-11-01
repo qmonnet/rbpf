@@ -104,6 +104,7 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
         // JumpConditional.
         for &(name, condition) in &jump_conditions {
             entry(name, JumpConditional, ebpf::BPF_JMP | condition);
+            entry(&format!("{name}32"), JumpConditional, ebpf::BPF_JMP32 | condition);
         }
 
         // Endian.
