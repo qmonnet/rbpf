@@ -39,8 +39,10 @@ pub const BPF_ST    : u8 = 0x02;
 pub const BPF_STX   : u8 = 0x03;
 /// BPF operation class: 32 bits arithmetic operation.
 pub const BPF_ALU   : u8 = 0x04;
-/// BPF operation class: jump.
+/// BPF operation class: jump (64-bit wide operands for comparisons).
 pub const BPF_JMP   : u8 = 0x05;
+/// BPF operation class: jump (32-bit wide operands for comparisons).
+pub const BPF_JMP32 : u8 = 0x06;
 // [ class 6 unused, reserved for future use ]
 /// BPF operation class: 64 bits arithmetic operation.
 pub const BPF_ALU64 : u8 = 0x07;
@@ -119,7 +121,7 @@ pub const BPF_ARSH  : u8 = 0xc0;
 /// BPF ALU/ALU64 operation code: endianness conversion.
 pub const BPF_END   : u8 = 0xd0;
 
-// Operation codes -- BPF_JMP class:
+// Operation codes -- BPF_JMP or BPF_JMP32 classes:
 /// BPF JMP operation code: jump.
 pub const BPF_JA    : u8 = 0x00;
 /// BPF JMP operation code: jump if equal.
@@ -365,6 +367,51 @@ pub const JSLT_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSLT;
 pub const JSLE_IMM   : u8 = BPF_JMP   | BPF_K   | BPF_JSLE;
 /// BPF opcode: `jsle dst, src, +off` /// `PC += off if dst <= src (signed)`.
 pub const JSLE_REG   : u8 = BPF_JMP   | BPF_X   | BPF_JSLE;
+
+/// BPF opcode: `jeq dst, imm, +off` /// `PC += off if (dst as u32) == imm`.
+pub const JEQ_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JEQ;
+/// BPF opcode: `jeq dst, src, +off` /// `PC += off if (dst as u32) == (src as u32)`.
+pub const JEQ_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JEQ;
+/// BPF opcode: `jgt dst, imm, +off` /// `PC += off if (dst as u32) > imm`.
+pub const JGT_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JGT;
+/// BPF opcode: `jgt dst, src, +off` /// `PC += off if (dst as u32) > (src as u32)`.
+pub const JGT_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JGT;
+/// BPF opcode: `jge dst, imm, +off` /// `PC += off if (dst as u32) >= imm`.
+pub const JGE_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JGE;
+/// BPF opcode: `jge dst, src, +off` /// `PC += off if (dst as u32) >= (src as u32)`.
+pub const JGE_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JGE;
+/// BPF opcode: `jlt dst, imm, +off` /// `PC += off if (dst as u32) < imm`.
+pub const JLT_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JLT;
+/// BPF opcode: `jlt dst, src, +off` /// `PC += off if (dst as u32) < (src as u32)`.
+pub const JLT_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JLT;
+/// BPF opcode: `jle dst, imm, +off` /// `PC += off if (dst as u32) <= imm`.
+pub const JLE_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JLE;
+/// BPF opcode: `jle dst, src, +off` /// `PC += off if (dst as u32) <= (src as u32)`.
+pub const JLE_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JLE;
+/// BPF opcode: `jset dst, imm, +off` /// `PC += off if (dst as u32) & imm`.
+pub const JSET_IMM32 : u8 = BPF_JMP32 | BPF_K   | BPF_JSET;
+/// BPF opcode: `jset dst, src, +off` /// `PC += off if (dst as u32) & (src as u32)`.
+pub const JSET_REG32 : u8 = BPF_JMP32 | BPF_X   | BPF_JSET;
+/// BPF opcode: `jne dst, imm, +off` /// `PC += off if (dst as u32) != imm`.
+pub const JNE_IMM32  : u8 = BPF_JMP32 | BPF_K   | BPF_JNE;
+/// BPF opcode: `jne dst, src, +off` /// `PC += off if (dst as u32) != (src as u32)`.
+pub const JNE_REG32  : u8 = BPF_JMP32 | BPF_X   | BPF_JNE;
+/// BPF opcode: `jsgt dst, imm, +off` /// `PC += off if (dst as i32) > imm (signed)`.
+pub const JSGT_IMM32 : u8 = BPF_JMP32 | BPF_K   | BPF_JSGT;
+/// BPF opcode: `jsgt dst, src, +off` /// `PC += off if (dst as i32) > (src as i32) (signed)`.
+pub const JSGT_REG32 : u8 = BPF_JMP32 | BPF_X   | BPF_JSGT;
+/// BPF opcode: `jsge dst, imm, +off` /// `PC += off if (dst as i32) >= imm (signed)`.
+pub const JSGE_IMM32 : u8 = BPF_JMP32 | BPF_K   | BPF_JSGE;
+/// BPF opcode: `jsge dst, src, +off` /// `PC += off if (dst as i32) >= (src as i32) (signed)`.
+pub const JSGE_REG32 : u8 = BPF_JMP32 | BPF_X   | BPF_JSGE;
+/// BPF opcode: `jslt dst, imm, +off` /// `PC += off if (dst as i32) < imm (signed)`.
+pub const JSLT_IMM32 : u8 = BPF_JMP32 | BPF_K   | BPF_JSLT;
+/// BPF opcode: `jslt dst, src, +off` /// `PC += off if (dst as i32) < (src as i32) (signed)`.
+pub const JSLT_REG32 : u8 = BPF_JMP32 | BPF_X   | BPF_JSLT;
+/// BPF opcode: `jsle dst, imm, +off` /// `PC += off if (dst as i32) <= imm (signed)`.
+pub const JSLE_IMM32 : u8 = BPF_JMP32 | BPF_K   | BPF_JSLE;
+/// BPF opcode: `jsle dst, src, +off` /// `PC += off if (dst as i32) <= (src as i32) (signed)`.
+pub const JSLE_REG32 : u8 = BPF_JMP32 | BPF_X   | BPF_JSLE;
 
 /// BPF opcode: `call imm` /// helper function call to helper with key `imm`.
 pub const CALL       : u8 = BPF_JMP   | BPF_CALL;
