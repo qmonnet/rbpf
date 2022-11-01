@@ -235,6 +235,16 @@ fn emit_cmp(jit: &mut JitMemory, src: u8, dst: u8) {
 }
 
 #[inline]
+fn emit_cmp32_imm32(jit: &mut JitMemory, dst: u8, imm: i32) {
+    emit_alu32_imm32(jit, 0x81, 7, dst, imm);
+}
+
+#[inline]
+fn emit_cmp32(jit: &mut JitMemory, src: u8, dst: u8) {
+    emit_alu32(jit, 0x39, src, dst);
+}
+
+#[inline]
 fn emit_jcc(jit: &mut JitMemory, code: u8, target_pc: isize) {
     emit1(jit, 0x0f);
     emit1(jit, code);
@@ -795,6 +805,97 @@ impl<'a> JitMemory<'a> {
                     emit_cmp(self, src, dst);
                     emit_jcc(self, 0x8e, target_pc);
                 },
+
+                // BPF_JMP32 class
+                ebpf::JEQ_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x84, target_pc);
+                },
+                ebpf::JEQ_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x84, target_pc);
+                },
+                ebpf::JGT_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x87, target_pc);
+                },
+                ebpf::JGT_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x87, target_pc);
+                },
+                ebpf::JGE_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x83, target_pc);
+                },
+                ebpf::JGE_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x83, target_pc);
+                },
+                ebpf::JLT_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x82, target_pc);
+                },
+                ebpf::JLT_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x82, target_pc);
+                },
+                ebpf::JLE_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x86, target_pc);
+                },
+                ebpf::JLE_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x86, target_pc);
+                },
+                ebpf::JSET_IMM32 => {
+                    emit_alu32_imm32(self, 0xf7, 0, dst, insn.imm);
+                    emit_jcc(self, 0x85, target_pc);
+                },
+                ebpf::JSET_REG32 => {
+                    emit_alu32(self, 0x85, src, dst);
+                    emit_jcc(self, 0x85, target_pc);
+                },
+                ebpf::JNE_IMM32  => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x85, target_pc);
+                },
+                ebpf::JNE_REG32  => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x85, target_pc);
+                },
+                ebpf::JSGT_IMM32 => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8f, target_pc);
+                },
+                ebpf::JSGT_REG32 => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x8f, target_pc);
+                },
+                ebpf::JSGE_IMM32 => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8d, target_pc);
+                },
+                ebpf::JSGE_REG32 => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x8d, target_pc);
+                },
+                ebpf::JSLT_IMM32 => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8c, target_pc);
+                },
+                ebpf::JSLT_REG32 => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x8c, target_pc);
+                },
+                ebpf::JSLE_IMM32 => {
+                    emit_cmp32_imm32(self, dst, insn.imm);
+                    emit_jcc(self, 0x8e, target_pc);
+                },
+                ebpf::JSLE_REG32 => {
+                    emit_cmp32(self, src, dst);
+                    emit_jcc(self, 0x8e, target_pc);
+                },
+
                 ebpf::CALL       => {
                     // For JIT, helpers in use MUST be registered at compile time. They can be
                     // updated later, but not created after compiling (we need the address of the
