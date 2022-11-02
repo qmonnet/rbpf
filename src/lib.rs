@@ -565,13 +565,13 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::JSET_REG32 => if  reg[_dst] as u32  &  reg[_src] as u32 != 0 { do_jump(); },
                 ebpf::JNE_IMM32  => if  reg[_dst] as u32  != insn.imm  as u32      { do_jump(); },
                 ebpf::JNE_REG32  => if  reg[_dst] as u32  != reg[_src] as u32      { do_jump(); },
-                ebpf::JSGT_IMM32 => if  reg[_dst] as i32  >  insn.imm  as i32      { do_jump(); },
+                ebpf::JSGT_IMM32 => if  reg[_dst] as i32  >  insn.imm              { do_jump(); },
                 ebpf::JSGT_REG32 => if  reg[_dst] as i32  >  reg[_src] as i32      { do_jump(); },
-                ebpf::JSGE_IMM32 => if  reg[_dst] as i32  >= insn.imm  as i32      { do_jump(); },
+                ebpf::JSGE_IMM32 => if  reg[_dst] as i32  >= insn.imm              { do_jump(); },
                 ebpf::JSGE_REG32 => if  reg[_dst] as i32  >= reg[_src] as i32      { do_jump(); },
-                ebpf::JSLT_IMM32 => if (reg[_dst] as i32) <  insn.imm  as i32      { do_jump(); },
+                ebpf::JSLT_IMM32 => if (reg[_dst] as i32) <  insn.imm              { do_jump(); },
                 ebpf::JSLT_REG32 => if (reg[_dst] as i32) <  reg[_src] as i32      { do_jump(); },
-                ebpf::JSLE_IMM32 => if  reg[_dst] as i32  <= insn.imm  as i32      { do_jump(); },
+                ebpf::JSLE_IMM32 => if  reg[_dst] as i32  <= insn.imm              { do_jump(); },
                 ebpf::JSLE_REG32 => if  reg[_dst] as i32  <= reg[_src] as i32      { do_jump(); },
 
                 // Do not delegate the check to the verifier, since registered functions can be
