@@ -1,16 +1,13 @@
 #![no_main]
 
 use std::hint::black_box;
-use libfuzzer_sys::fuzz_target;
 
 extern crate rbpf;
 
-#[derive(arbitrary::Arbitrary, Debug)]
-struct FuzzData {
-    prog: Vec<u8>
-}
+extern crate libfuzzer_sys;
+use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|data: FuzzData| {
+fuzz_target!(|data: &[u8]| {
     let prog = &[
         0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
         0xb4, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov32 r1, 2
