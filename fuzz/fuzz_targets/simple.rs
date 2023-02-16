@@ -1,24 +1,19 @@
 #![no_main]
 
-use std::hint::black_box;
-
 extern crate rbpf;
 
 extern crate libfuzzer_sys;
 use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|data: &[u8]| {
-    let prog = &[
-        0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
-        0xb4, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov32 r1, 2
-        0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // add32 r0, 1
-        0x0c, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // add32 r0, r1
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
-    ];
+#[derive(arbitrary::Arbitrary, Debug)]
+struct FuzzData {
+    prog: Vec<u8>
+}
 
-    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+fuzz_target!(|data: FuzzData| {
+    let prog = data.prog;
+
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
 
     let res = vm.execute_program().unwrap();
-    
-    drop(black_box(res));
 });
