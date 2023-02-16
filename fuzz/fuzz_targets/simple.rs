@@ -13,7 +13,11 @@ struct FuzzData {
 fuzz_target!(|data: FuzzData| {
     let prog = data.prog;
 
-    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog));
 
-    let res = vm.execute_program().unwrap();
+    if vm.is_err() {
+        return;
+    }
+
+    let res = vm.unwrap().execute_program().unwrap();
 });
