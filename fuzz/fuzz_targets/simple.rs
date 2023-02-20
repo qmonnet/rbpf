@@ -2,15 +2,16 @@
 
 extern crate rbpf;
 extern crate libfuzzer_sys;
-use crate::programgenerator::Program;
-mod programgenerator;
 
 use std::env;
 use libfuzzer_sys::fuzz_target;
 
+use crate::simple_prog::Program;
+mod simple_prog;
+
 #[derive(arbitrary::Arbitrary, Debug)]
 struct FuzzData {
-    prog: Program
+    prog: Program,
 }
 
 fuzz_target!(|data: FuzzData| {
