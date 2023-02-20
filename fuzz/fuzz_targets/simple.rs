@@ -18,12 +18,13 @@ fuzz_target!(|data: FuzzData| {
 
     let prog = data.prog.instructions;
 
-    let vm = rbpf::EbpfVmNoData::new(Some(&prog));
-
-    if vm.is_err() {
-        // The verifier returns Result, possible Err()
-        return;
-    }
-
-    let _res = vm.unwrap().execute_program().unwrap();
+    let interpreter_result = match rbpf::EbpfVmNoData::new(Some(&prog)) {
+        Ok(ref vm) => { match vm.execute_program() {
+            Ok(result) => result,
+            Err(error) => return,
+        }},
+        Err(error) => return,
+    };
+    // Note: Kan se at "fejl" er at vi ikke håndtere "unknown helper function" - så det er ikke rigtige fejl
+    // + not implemented fejl
 });
