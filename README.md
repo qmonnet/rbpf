@@ -558,6 +558,10 @@ in some places instead of the Rusty look the author would like it to have. So
 feedback (or PRs) are welcome, including about ways you might see to take
 better advantage of Rust features.
 
+Note that the project expects new commits to be covered by the
+[Developer's Certificate of Origin](https://wiki.linuxfoundation.org/dco).
+When contributing Pull Requests, please sign off your commits accordingly.
+
 ## Questions / Answers
 
 ### Why implementing an eBPF virtual machine in Rust?
