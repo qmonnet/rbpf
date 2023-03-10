@@ -155,7 +155,7 @@ pub fn new(prog: &'a [u8]) -> Result<EbpfVmNoData<'a>, Error>
 
 This is used to create a new instance of a VM. The return type is dependent of
 the struct from which the function is called. For instance,
-`rbpf::EbpfVmRaw::new(my_program)` would return an instance of `struct
+`rbpf::EbpfVmRaw::new(Some(my_program))` would return an instance of `struct
 rbpf::EbpfVmRaw` (wrapped in a `Result`). When a program is loaded, it is
 checked with a very simple verifier (nothing close to the one for Linux
 kernel). Users are also able to replace it with a custom verifier.
@@ -431,7 +431,7 @@ fn main() {
     // We must provide the offsets at which the pointers to packet data start
     // and end must be stored: these are the offsets at which the program will
     // load the packet data from the metadata buffer.
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(prog, 0x40, 0x50).unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
 
     // We register a helper function, that can be called by the program, into
     // the VM.
