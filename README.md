@@ -9,6 +9,7 @@ Rust (user-space) virtual machine for eBPF
 
 [![Build Status](https://github.com/qmonnet/rbpf/actions/workflows/test.yaml/badge.svg)](https://github.com/qmonnet/rbpf/actions/workflows/test.yaml)
 [![Build status](https://ci.appveyor.com/api/projects/status/ia74coeuhxtrcvsk/branch/master?svg=true)](https://ci.appveyor.com/project/qmonnet/rbpf/branch/master)
+[![Coverage Status](https://coveralls.io/repos/github/qmonnet/rbpf/badge.svg?branch=master)](https://coveralls.io/github/qmonnet/rbpf?branch=master)
 [![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/rbpf)
 
 * [Description](#description)
