@@ -276,7 +276,7 @@ fn main() {
     // Instantiate a struct EbpfVmNoData. This is an eBPF VM for programs that
     // takes no packet data in argument.
     // The eBPF program is passed to the constructor.
-    let vm = rbpf::EbpfVmNoData::new(prog).unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
 
     // Execute (interpret) the program. No argument required for this VM.
     assert_eq!(vm.execute_program().unwrap(), 0x3);
@@ -303,7 +303,7 @@ fn main() {
 
     // This is an eBPF VM for programs reading from a given memory area (it
     // directly reads from packet data)
-    let mut vm = rbpf::EbpfVmRaw::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 
     // This time we JIT-compile the program.
     vm.jit_compile().unwrap();
@@ -344,7 +344,7 @@ fn main() {
     }
 
     // This eBPF VM is for program that use a metadata buffer.
-    let mut vm = rbpf::EbpfVmMbuff::new(prog).unwrap();
+    let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 
     // Here again we JIT-compile the program.
     vm.jit_compile().unwrap();
