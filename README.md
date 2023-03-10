@@ -305,12 +305,17 @@ fn main() {
     // directly reads from packet data)
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 
-    // This time we JIT-compile the program.
-    vm.jit_compile().unwrap();
+    #[cfg(windows)] {
+        assert_eq!(vm.execute_program(mem).unwrap(), 0x11);
+    }
+    #[cfg(not(windows))] {
+        // This time we JIT-compile the program.
+        vm.jit_compile().unwrap();
 
-    // Then we execute it. For this kind of VM, a reference to the packet data
-    // must be passed to the function that executes the program.
-    unsafe { assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11); }
+        // Then we execute it. For this kind of VM, a reference to the packet
+        // data must be passed to the function that executes the program.
+        unsafe { assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11); }
+    }
 }
 ```
 ### Using a metadata buffer
@@ -346,12 +351,19 @@ fn main() {
     // This eBPF VM is for program that use a metadata buffer.
     let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 
-    // Here again we JIT-compile the program.
-    vm.jit_compile().unwrap();
+    #[cfg(windows)] {
+        assert_eq!(vm.execute_program(mem, mbuff).unwrap(), 0x2211);
+    }
+    #[cfg(not(windows))] {
+        // Here again we JIT-compile the program.
+        vm.jit_compile().unwrap();
 
-    // Here we must provide both a reference to the packet data, and to the
-    // metadata buffer we use.
-    unsafe { assert_eq!(vm.execute_program_jit(mem, mbuff).unwrap(), 0x2211); }
+        // Here we must provide both a reference to the packet data, and to the
+        // metadata buffer we use.
+        unsafe {
+            assert_eq!(vm.execute_program_jit(mem, mbuff).unwrap(), 0x2211);
+        }
+    }
 }
 ```
 
