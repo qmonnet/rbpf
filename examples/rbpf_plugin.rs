@@ -7,7 +7,7 @@ use std::io::Read;
 // Helper function used by https://github.com/Alan-Jowett/bpf_conformance/blob/main/tests/call_unwind_fail.data
 fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64
 {
-    return a;
+    a
 }
 
 // This is a plugin for the bpf_conformance test suite (https://github.com/Alan-Jowett/bpf_conformance)
@@ -20,9 +20,9 @@ fn main() {
     let mut memory_text = String::new();
 
     args.remove(0);
-    
+
     // Memory is always the first argument.
-    if args.len() > 0 {
+    if !args.is_empty() {
         memory_text = args[0].clone();
         // Strip whitespace
         memory_text.retain(|c| !c.is_whitespace());
@@ -30,7 +30,7 @@ fn main() {
     }
 
     // Process the rest of the arguments.
-    while args.len() > 0 {
+    while !args.is_empty() {
         match args[0].as_str() {
             "--help" => { 
                 println!("Usage: rbpf_plugin [memory] < program");
@@ -51,7 +51,7 @@ fn main() {
                     return;
                 }
                 args.remove(0);
-                if args.len() > 0 {
+                if !args.is_empty() {
                     program_text = args[0].clone();
                     args.remove(0);
                 }
@@ -61,7 +61,7 @@ fn main() {
         args.remove(0);
     }
 
-    if program_text.len() == 0 {
+    if program_text.is_empty() {
         // Read program text from stdin
         std::io::stdin().read_to_string(&mut program_text).unwrap();
     }
@@ -77,10 +77,10 @@ fn main() {
 
     // Create rbpf vm
     let mut vm = rbpf::EbpfVmRaw::new(Some(&bytecode)).unwrap();
-    
+
     // Register the helper function used by call_unwind_fail.data test.
     vm.register_helper(5, _unwind).unwrap();
-    
+
     let result : u64;
     if jit {
         #[cfg(windows)] {
