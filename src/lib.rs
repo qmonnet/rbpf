@@ -278,7 +278,7 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         const U32MAX: u64 = u32::MAX as u64;
 
-        let prog = match self.prog { 
+        let prog = match self.prog {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other,
                         "Error: No program set, call prog_set() to load one"))?,
@@ -636,7 +636,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.prog { 
+        let prog = match self.prog {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
@@ -880,7 +880,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// fn verifier(prog: &[u8]) -> Result<(), Error> {
     ///     let last_insn = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1);
     ///     if last_insn.opc != ebpf::EXIT {
-    ///         return Err(Error::new(ErrorKind::Other, 
+    ///         return Err(Error::new(ErrorKind::Other,
     ///                    "[Verifier] Error: program does not end with “EXIT” instruction"));
     ///     }
     ///     Ok(())
@@ -1013,7 +1013,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.parent.prog { 
+        let prog = match self.parent.prog {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
@@ -1083,7 +1083,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
                                 self.mbuff.buffer.len(),
                                 mem_ptr,
-                                mem.len(), 
+                                mem.len(),
                                 self.mbuff.data_offset,
                                 self.mbuff.data_end_offset)),
             None => Err(Error::new(ErrorKind::Other,
@@ -1294,7 +1294,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ```
     #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let prog = match self.parent.prog { 
+        let prog = match self.parent.prog {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other,
                         "Error: No program set, call prog_set() to load one"))?,
