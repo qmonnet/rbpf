@@ -47,6 +47,7 @@ pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 /// ```
 #[allow(dead_code)]
 #[allow(unused_variables)]
+#[allow(deprecated)]
 pub fn bpf_time_getns (unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     time::precise_time_ns()
 }
