@@ -6,6 +6,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
 jobs:
   build_and_test:
     name: Build and test package
@@ -17,6 +21,7 @@ jobs:
       KNOWN_FAILURES: "(lock|mem-len)"
       CONFORMANCE_IMAGE: "ghcr.io/alan-jowett/bpf_conformance@sha256:547765717557e0f222de71fbf26f4bd9621c0149911aa03296024b469dd4598b"
     strategy:
+      fail-fast: false
       matrix:
         include:
           - toolchain: stable
