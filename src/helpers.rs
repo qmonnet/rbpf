@@ -203,8 +203,8 @@ pub fn sqrti (arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64)
 /// ```
 /// use rbpf::helpers;
 ///
-/// let foo = "This is a string.".as_ptr() as u64;
-/// let bar = "This is another sting.".as_ptr() as u64;
+/// let foo = "This is a string.\0".as_ptr() as u64;
+/// let bar = "This is another sting.\0".as_ptr() as u64;
 ///
 /// assert!(helpers::strcmp(foo, foo, 0, 0, 0) == 0);
 /// assert!(helpers::strcmp(foo, bar, 0, 0, 0) != 0);
