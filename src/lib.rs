@@ -324,42 +324,42 @@ impl<'a> EbpfVmMbuff<'a> {
                 ebpf::LD_ABS_B   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_ABS_H   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_ABS_W   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_ABS_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x
+                    x.read_unaligned()
                 },
                 ebpf::LD_IND_B   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_IND_H   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_IND_W   => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_IND_DW  => reg[0] = unsafe {
                     let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x
+                    x.read_unaligned()
                 },
 
                 ebpf::LD_DW_IMM  => {
@@ -373,75 +373,75 @@ impl<'a> EbpfVmMbuff<'a> {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u8;
                     check_mem_load(x as u64, 1, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_H_REG   => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u16;
                     check_mem_load(x as u64, 2, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_W_REG   => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u32;
                     check_mem_load(x as u64, 4, insn_ptr)?;
-                    *x as u64
+                    x.read_unaligned() as u64
                 },
                 ebpf::LD_DW_REG  => reg[_dst] = unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_src] as *const u8).offset(insn.off as isize) as *const u64;
                     check_mem_load(x as u64, 8, insn_ptr)?;
-                    *x
+                    x.read_unaligned()
                 },
 
                 // BPF_ST class
                 ebpf::ST_B_IMM   => unsafe {
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u8;
                     check_mem_store(x as u64, 1, insn_ptr)?;
-                    *x = insn.imm as u8;
+                    x.write_unaligned(insn.imm as u8);
                 },
                 ebpf::ST_H_IMM   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
                     check_mem_store(x as u64, 2, insn_ptr)?;
-                    *x = insn.imm as u16;
+                    x.write_unaligned(insn.imm as u16);
                 },
                 ebpf::ST_W_IMM   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
                     check_mem_store(x as u64, 4, insn_ptr)?;
-                    *x = insn.imm as u32;
+                    x.write_unaligned(insn.imm as u32);
                 },
                 ebpf::ST_DW_IMM  => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
                     check_mem_store(x as u64, 8, insn_ptr)?;
-                    *x = insn.imm as u64;
+                    x.write_unaligned(insn.imm as u64);
                 },
 
                 // BPF_STX class
                 ebpf::ST_B_REG   => unsafe {
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u8;
                     check_mem_store(x as u64, 1, insn_ptr)?;
-                    *x = reg[_src] as u8;
+                    x.write_unaligned(reg[_src] as u8);
                 },
                 ebpf::ST_H_REG   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u16;
                     check_mem_store(x as u64, 2, insn_ptr)?;
-                    *x = reg[_src] as u16;
+                    x.write_unaligned(reg[_src] as u16);
                 },
                 ebpf::ST_W_REG   => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u32;
                     check_mem_store(x as u64, 4, insn_ptr)?;
-                    *x = reg[_src] as u32;
+                    x.write_unaligned(reg[_src] as u32);
                 },
                 ebpf::ST_DW_REG  => unsafe {
                     #[allow(cast_ptr_alignment)]
                     let x = (reg[_dst] as *const u8).offset(insn.off as isize) as *mut u64;
                     check_mem_store(x as u64, 8, insn_ptr)?;
-                    *x = reg[_src];
+                    x.write_unaligned(reg[_src]);
                 },
                 ebpf::ST_W_XADD  => unimplemented!(),
                 ebpf::ST_DW_XADD => unimplemented!(),

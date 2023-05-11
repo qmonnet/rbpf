@@ -273,8 +273,8 @@ fn test_vm_mbuff() {
     unsafe {
         let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
         let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data     = mem.as_ptr() as u64;
-        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
+        data.write_unaligned(mem.as_ptr() as u64);
+        data_end.write_unaligned(mem.as_ptr() as u64 + mem.len() as u64);
     }
 
     let vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
