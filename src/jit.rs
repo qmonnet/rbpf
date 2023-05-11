@@ -79,7 +79,7 @@ macro_rules! emit_bytes {
         assert!($jit.offset + size <= $jit.contents.len());
         unsafe {
             let mut ptr = $jit.contents.as_ptr().add($jit.offset) as *mut $t;
-            *ptr = $data;
+            ptr.write_unaligned($data);
         }
         $jit.offset += size;
     }}
