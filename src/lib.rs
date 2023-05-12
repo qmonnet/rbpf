@@ -52,8 +52,16 @@ pub type Verifier = fn (prog: &[u8]) -> Result<(), Error>;
 /// eBPF helper function.
 pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
 
-/// eBPF Jit-compiled program.
+/// eBPF JIT-compiled program.
 pub type JitProgram = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
+
+/// Result object from the JIT-compiler, containing the program itself, as well as a pointer and
+/// size for the memory area containing the bytecode (so we can free it when dropping the VM).
+pub struct JitResult {
+    program: JitProgram,
+    memref:  *const u8,
+    memlen:  usize,
+}
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
@@ -100,7 +108,7 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
     verifier: Verifier,
-    jit:      Option<JitProgram>,
+    jit:      Option<JitResult>,
     helpers:  HashMap<u32, ebpf::Helper>,
 }
 
@@ -708,10 +716,18 @@ impl<'a> EbpfVmMbuff<'a> {
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
-        match self.jit {
-            Some(jit) => Ok(jit(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
+        match &self.jit {
+            Some(jit) => Ok((jit.program)(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
             None => Err(Error::new(ErrorKind::Other,
                         "Error: program has not been JIT-compiled")),
+        }
+    }
+}
+
+impl<'a> Drop for EbpfVmMbuff<'a> {
+    fn drop(&mut self) {
+        if let Some(jit) = &self.jit {
+            jit::free_jited_program(jit.memref, jit.memlen);
         }
     }
 }
@@ -1079,13 +1095,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             _ => mem.as_ptr() as *mut u8
         };
 
-        match self.parent.jit {
-            Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
-                                self.mbuff.buffer.len(),
-                                mem_ptr,
-                                mem.len(),
-                                self.mbuff.data_offset,
-                                self.mbuff.data_end_offset)),
+        match &self.parent.jit {
+            Some(jit) => Ok((jit.program)(self.mbuff.buffer.as_ptr() as *mut u8,
+                                          self.mbuff.buffer.len(),
+                                          mem_ptr,
+                                          mem.len(),
+                                          self.mbuff.data_offset,
+                                          self.mbuff.data_end_offset)),
             None => Err(Error::new(ErrorKind::Other,
                                    "Error: program has not been JIT-compiled"))
         }

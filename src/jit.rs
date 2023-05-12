@@ -14,7 +14,7 @@ use std::io::{Error, ErrorKind};
 use std::ops::{Index, IndexMut};
 
 use ebpf;
-use JitProgram;
+use JitResult;
 
 extern crate libc;
 
@@ -1002,11 +1002,11 @@ impl<'a> std::fmt::Debug for JitMemory<'a> {
     }
 }
 
-// In the end, this is the only thing we export
-pub fn compile(prog: &[u8],
-               helpers: &HashMap<u32, ebpf::Helper>,
+// In the end, these are the only things we export
+pub fn compile<'a>(prog: &'a [u8],
+               helpers: &'a HashMap<u32, ebpf::Helper>,
                use_mbuff: bool, update_data_ptr: bool)
-    -> Result<JitProgram, Error> {
+    -> Result<JitResult, Error> {
 
     // TODO: check how long the page must be to be sure to support an eBPF program of maximum
     // possible length
@@ -1014,5 +1014,16 @@ pub fn compile(prog: &[u8],
     jit.jit_compile(prog, use_mbuff, update_data_ptr, helpers)?;
     jit.resolve_jumps()?;
 
-    Ok(unsafe { mem::transmute(jit.contents.as_ptr()) })
+    let program = unsafe { mem::transmute(jit.contents.as_ptr()) };
+    Ok(JitResult{
+        program,
+        memref: jit.contents.as_ptr(),
+        memlen: jit.contents.len(),
+    })
+}
+
+pub fn free_jited_program(prog: *const u8, size: usize) {
+    unsafe {
+        libc::munmap(prog as *mut libc::c_void, size);
+    }
 }
