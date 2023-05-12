@@ -339,11 +339,11 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
         let hl_insn = HLInsn {
             opc:  insn.opc,
             name: name.to_string(),
-            desc: desc,
+            desc,
             dst:  insn.dst,
             src:  insn.src,
             off:  insn.off,
-            imm:  imm,
+            imm,
         };
 
         res.push(hl_insn);

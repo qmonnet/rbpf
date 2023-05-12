@@ -126,7 +126,7 @@ impl<'a> EbpfVmMbuff<'a> {
         }
 
         Ok(EbpfVmMbuff {
-            prog:     prog,
+            prog,
             verifier: verifier::check,
             jit:      None,
             helpers:  HashMap::new(),
@@ -475,13 +475,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         let mbuff = MetaBuff {
-            data_offset:     data_offset,
-            data_end_offset: data_end_offset,
-            buffer:          buffer,
+            data_offset,
+            data_end_offset,
+            buffer,
         };
         Ok(EbpfVmFixedMbuff {
-            parent: parent,
-            mbuff:  mbuff,
+            parent,
+            mbuff,
         })
     }
 
@@ -801,7 +801,7 @@ impl<'a> EbpfVmRaw<'a> {
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmRaw<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
          Ok(EbpfVmRaw {
-            parent: parent,
+            parent,
         })
     }
 
@@ -1070,7 +1070,7 @@ impl<'a> EbpfVmNoData<'a> {
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmNoData<'a>, Error> {
         let parent = EbpfVmRaw::new(prog)?;
         Ok(EbpfVmNoData {
-            parent: parent,
+            parent,
         })
     }
 

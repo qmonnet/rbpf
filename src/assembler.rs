@@ -131,7 +131,7 @@ fn insn(opc: u8, dst: i64, src: i64, off: i64, imm: i64) -> Result<Insn, String>
         return Err(format!("Invalid immediate {imm}"));
     }
     Ok(Insn {
-        opc: opc,
+        opc,
         dst: dst as u8,
         src: src as u8,
         off: off as i16,
