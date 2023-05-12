@@ -107,7 +107,10 @@ fn emit8(jit: &mut JitMemory, data: u64) {
 
 #[inline]
 fn emit_jump_offset(jit: &mut JitMemory, target_pc: isize) {
-    let jump = Jump { offset_loc: jit.offset, target_pc: target_pc };
+    let jump = Jump {
+        offset_loc: jit.offset,
+        target_pc,
+    };
     jit.jumps.push(jump);
     emit4(jit, 0);
 }
@@ -480,7 +483,7 @@ impl<'a> JitMemory<'a> {
         }
 
         JitMemory {
-            contents:        contents,
+            contents,
             offset:          0,
             pc_locs:         vec![],
             jumps:           vec![],

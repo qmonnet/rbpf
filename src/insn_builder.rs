@@ -175,8 +175,8 @@ impl BpfCode {
         Move {
             bpf_code: self,
             src_bit: source,
-            op_bits: op_bits,
-            arch_bits: arch_bits,
+            op_bits,
+            arch_bits,
             insn: Insn {
                 opc: 0x00,
                 dst: 0x00,
@@ -191,7 +191,7 @@ impl BpfCode {
     pub fn swap_bytes(&mut self, endian: Endian) -> SwapBytes {
         SwapBytes {
             bpf_code: self,
-            endian: endian,
+            endian,
             insn: Insn {
                 opc: 0x00,
                 dst: 0x00,
@@ -226,9 +226,9 @@ impl BpfCode {
     fn load_internal(&mut self, mem_size: MemSize, addressing: Addressing, source: u8) -> Load {
         Load {
             bpf_code: self,
-            addressing: addressing,
-            mem_size: mem_size,
-            source: source,
+            addressing,
+            mem_size,
+            source,
             insn: Insn {
                 opc: 0x00,
                 dst: 0x00,
@@ -253,8 +253,8 @@ impl BpfCode {
     fn store_internal(&mut self, mem_size: MemSize, source: u8) -> Store {
         Store {
             bpf_code: self,
-            mem_size: mem_size,
-            source: source,
+            mem_size,
+            source,
             insn: Insn {
                 opc: 0x00,
                 dst: 0x00,
@@ -274,8 +274,8 @@ impl BpfCode {
     pub fn jump_conditional(&mut self, cond: Cond, src_bit: Source) -> Jump {
         Jump {
             bpf_code: self,
-            cond: cond,
-            src_bit: src_bit,
+            cond,
+            src_bit,
             insn: Insn {
                 opc: 0x00,
                 dst: 0x00,
