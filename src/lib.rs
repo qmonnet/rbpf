@@ -51,9 +51,6 @@ pub type Verifier = fn (prog: &[u8]) -> Result<(), Error>;
 /// eBPF helper function.
 pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
 
-/// eBPF Jit-compiled program.
-pub type JitProgram = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
-
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
 // actually handle it. The offsets are used to tell the VM where in the buffer the pointers to
@@ -99,7 +96,8 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog:     Option<&'a [u8]>,
     verifier: Verifier,
-    jit:      Option<JitProgram>,
+    #[cfg(not(windows))]
+    jit:      Option<jit::JitMemory<'a>>,
     helpers:  HashMap<u32, ebpf::Helper>,
 }
 
@@ -128,6 +126,7 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(EbpfVmMbuff {
             prog,
             verifier: verifier::check,
+            #[cfg(not(windows))]
             jit:      None,
             helpers:  HashMap::new(),
         })
@@ -301,7 +300,7 @@ impl<'a> EbpfVmMbuff<'a> {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.jit = Some(jit::compile(prog, &self.helpers, true, false)?);
+        self.jit = Some(jit::JitMemory::new(prog, &self.helpers, true, false)?);
         Ok(())
     }
 
@@ -357,6 +356,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -369,8 +369,8 @@ impl<'a> EbpfVmMbuff<'a> {
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
-        match self.jit {
-            Some(jit) => Ok(jit(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
+        match &self.jit {
+            Some(jit) => Ok(jit.get_prog()(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
             None => Err(Error::new(ErrorKind::Other,
                         "Error: program has not been JIT-compiled")),
         }
@@ -678,7 +678,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             Some(prog) => prog,
             None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, true, true)?);
+        self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, true, true)?);
         Ok(())
     }
 
@@ -730,6 +730,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -740,13 +741,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             _ => mem.as_ptr() as *mut u8
         };
 
-        match self.parent.jit {
-            Some(jit) => Ok(jit(self.mbuff.buffer.as_ptr() as *mut u8,
-                                self.mbuff.buffer.len(),
-                                mem_ptr,
-                                mem.len(),
-                                self.mbuff.data_offset,
-                                self.mbuff.data_end_offset)),
+        match &self.parent.jit {
+            Some(jit) => Ok(jit.get_prog()(self.mbuff.buffer.as_ptr() as *mut u8,
+                                           self.mbuff.buffer.len(),
+                                           mem_ptr,
+                                           mem.len(),
+                                           self.mbuff.data_offset,
+                                           self.mbuff.data_end_offset)),
             None => Err(Error::new(ErrorKind::Other,
                                    "Error: program has not been JIT-compiled"))
         }
@@ -960,7 +961,7 @@ impl<'a> EbpfVmRaw<'a> {
             None => Err(Error::new(ErrorKind::Other,
                         "Error: No program set, call prog_set() to load one"))?,
         };
-        self.parent.jit = Some(jit::compile(prog, &self.parent.helpers, false, false)?);
+        self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, false, false)?);
         Ok(())
     }
 
@@ -1001,6 +1002,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
@@ -1249,6 +1251,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
     }
