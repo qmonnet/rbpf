@@ -510,6 +510,14 @@ impl<'a> IndexMut<usize> for JitMemory<'a> {
     }
 }
 
+impl<'a> Drop for JitMemory<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.contents.as_mut_ptr() as *mut libc::c_void);
+        }
+    }
+}
+
 impl<'a> std::fmt::Debug for JitMemory<'a> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
         fmt.write_str("JIT contents: [")?;
@@ -1023,4 +1031,3 @@ impl JitCompiler {
         self.special_targets.insert(target, jit.offset);
     }
 } // struct JitCompiler
-
