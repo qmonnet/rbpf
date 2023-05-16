@@ -40,20 +40,23 @@ jobs:
           components: clippy
 
       - name: Build with ${{ matrix.toolchain }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features --all-targets
+        run: |
+          cargo +${{ matrix.toolchain }} build \
+              --release --all-features --all-targets
 
       - name: Test with ${{ matrix.toolchain }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: |
+          if [[ "${{ matrix.toolchain }}" == 'nightly' ]]; then
+              export RUSTDOCFLAGS='-Zsanitizer=address'
+              export RUSTFLAGS='-Zsanitizer=address'
+              export ASAN_OPTIONS='detect_leaks=1'
+          fi
+          cargo +${{ matrix.toolchain }} test \
+              --target=x86_64-unknown-linux-gnu
 
       - name: Lint with ${{ matrix.toolchain }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
+        run: |
+          cargo +${{ matrix.toolchain }} clippy
 
       - name: Run BPF conformance tests - Interpreter
         run: |
