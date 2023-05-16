@@ -14,12 +14,6 @@ jobs:
   build_and_test:
     name: Build and test package
     runs-on: ubuntu-latest
-    env:
-      # Exclude features not supported by rbpf yet.
-      # atomic operations - https://github.com/qmonnet/rbpf/issues/47
-      # mem-len - Tests assume r2 contains the length of the memory.
-      KNOWN_FAILURES: "(lock|mem-len)"
-      CONFORMANCE_IMAGE: "ghcr.io/alan-jowett/bpf_conformance@sha256:547765717557e0f222de71fbf26f4bd9621c0149911aa03296024b469dd4598b"
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +51,30 @@ jobs:
       - name: Lint with ${{ matrix.toolchain }}
         run: |
           cargo +${{ matrix.toolchain }} clippy
+
+  conformance_and_coverage:
+    name: Check eBPF conformance and code coverage
+    runs-on: ubuntu-latest
+    env:
+      # Exclude features not supported by rbpf yet.
+      # atomic operations - https://github.com/qmonnet/rbpf/issues/47
+      # mem-len - Tests assume r2 contains the length of the memory.
+      KNOWN_FAILURES: "(lock|mem-len)"
+      CONFORMANCE_IMAGE: "ghcr.io/alan-jowett/bpf_conformance@sha256:547765717557e0f222de71fbf26f4bd9621c0149911aa03296024b469dd4598b"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install toolchain (${{ matrix.toolchain }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Build plug-in
+        run: |
+          cargo build --release --example rbpf_plugin
 
       - name: Run BPF conformance tests - Interpreter
         run: |
