@@ -95,74 +95,6 @@ struct Jump {
     target_pc:  isize,
 }
 
-pub struct JitMemory<'a> {
-    contents: &'a mut [u8],
-    offset:   usize,
-}
-
-impl<'a> JitMemory<'a> {
-    pub fn new(prog: &[u8], helpers: &HashMap<u32, ebpf::Helper>, use_mbuff: bool,
-               update_data_ptr: bool) -> Result<JitMemory<'a>, Error> {
-        let contents: &mut[u8];
-        let mut raw: mem::MaybeUninit<*mut libc::c_void> = mem::MaybeUninit::uninit();
-        unsafe {
-            let size = NUM_PAGES * PAGE_SIZE;
-            libc::posix_memalign(raw.as_mut_ptr(), PAGE_SIZE, size);
-            libc::mprotect(*raw.as_mut_ptr(), size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
-            std::ptr::write_bytes(*raw.as_mut_ptr(), 0xc3, size);  // for now, prepopulate with 'RET' calls
-            contents = std::slice::from_raw_parts_mut(*raw.as_mut_ptr() as *mut u8, NUM_PAGES * PAGE_SIZE);
-            raw.assume_init();
-        }
-
-        let mut mem = JitMemory {
-            contents,
-            offset: 0,
-        };
-
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
-        jit.resolve_jumps(&mut mem)?;
-
-        Ok(mem)
-    }
-
-    pub fn get_prog(&self) -> MachineCode {
-        unsafe { mem::transmute(self.contents.as_ptr()) }
-    }
-}
-
-impl<'a> Index<usize> for JitMemory<'a> {
-    type Output = u8;
-
-    fn index(&self, _index: usize) -> &u8 {
-        &self.contents[_index]
-    }
-}
-
-impl<'a> IndexMut<usize> for JitMemory<'a> {
-    fn index_mut(&mut self, _index: usize) -> &mut u8 {
-        &mut self.contents[_index]
-    }
-}
-
-impl<'a> Drop for JitMemory<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            libc::free(self.contents.as_mut_ptr() as *mut libc::c_void);
-        }
-    }
-}
-
-impl<'a> std::fmt::Debug for JitMemory<'a> {
-    fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
-        fmt.write_str("JIT contents: [")?;
-        fmt.write_str(" ] | ")?;
-        fmt.debug_struct("JIT memory")
-            .field("offset", &self.offset)
-            .finish()
-    }
-}
-
 #[derive(Debug)]
 struct JitCompiler {
     pc_locs:         Vec<usize>,
@@ -999,4 +931,72 @@ impl JitCompiler {
         }
         Ok(())
     }
-} // struct JitCompiler
+} // impl JitCompiler
+
+pub struct JitMemory<'a> {
+    contents: &'a mut [u8],
+    offset:   usize,
+}
+
+impl<'a> JitMemory<'a> {
+    pub fn new(prog: &[u8], helpers: &HashMap<u32, ebpf::Helper>, use_mbuff: bool,
+               update_data_ptr: bool) -> Result<JitMemory<'a>, Error> {
+        let contents: &mut[u8];
+        let mut raw: mem::MaybeUninit<*mut libc::c_void> = mem::MaybeUninit::uninit();
+        unsafe {
+            let size = NUM_PAGES * PAGE_SIZE;
+            libc::posix_memalign(raw.as_mut_ptr(), PAGE_SIZE, size);
+            libc::mprotect(*raw.as_mut_ptr(), size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
+            std::ptr::write_bytes(*raw.as_mut_ptr(), 0xc3, size);  // for now, prepopulate with 'RET' calls
+            contents = std::slice::from_raw_parts_mut(*raw.as_mut_ptr() as *mut u8, NUM_PAGES * PAGE_SIZE);
+            raw.assume_init();
+        }
+
+        let mut mem = JitMemory {
+            contents,
+            offset: 0,
+        };
+
+        let mut jit = JitCompiler::new();
+        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+        jit.resolve_jumps(&mut mem)?;
+
+        Ok(mem)
+    }
+
+    pub fn get_prog(&self) -> MachineCode {
+        unsafe { mem::transmute(self.contents.as_ptr()) }
+    }
+}
+
+impl<'a> Index<usize> for JitMemory<'a> {
+    type Output = u8;
+
+    fn index(&self, _index: usize) -> &u8 {
+        &self.contents[_index]
+    }
+}
+
+impl<'a> IndexMut<usize> for JitMemory<'a> {
+    fn index_mut(&mut self, _index: usize) -> &mut u8 {
+        &mut self.contents[_index]
+    }
+}
+
+impl<'a> Drop for JitMemory<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.contents.as_mut_ptr() as *mut libc::c_void);
+        }
+    }
+}
+
+impl<'a> std::fmt::Debug for JitMemory<'a> {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
+        fmt.write_str("JIT contents: [")?;
+        fmt.write_str(" ] | ")?;
+        fmt.debug_struct("JIT memory")
+            .field("offset", &self.offset)
+            .finish()
+    }
+}
