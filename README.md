@@ -8,8 +8,8 @@
 Rust (user-space) virtual machine for eBPF
 
 [![Build Status](https://github.com/qmonnet/rbpf/actions/workflows/test.yaml/badge.svg)](https://github.com/qmonnet/rbpf/actions/workflows/test.yaml)
-[![Build status](https://ci.appveyor.com/api/projects/status/ia74coeuhxtrcvsk/branch/master?svg=true)](https://ci.appveyor.com/project/qmonnet/rbpf/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/qmonnet/rbpf/badge.svg?branch=master)](https://coveralls.io/github/qmonnet/rbpf?branch=master)
+[![Build status](https://ci.appveyor.com/api/projects/status/ia74coeuhxtrcvsk/branch/main?svg=true)](https://ci.appveyor.com/project/qmonnet/rbpf/branch/main)
+[![Coverage Status](https://coveralls.io/repos/github/qmonnet/rbpf/badge.svg?branch=main)](https://coveralls.io/github/qmonnet/rbpf?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/rbpf.svg)](https://crates.io/crates/rbpf)
 
 * [Description](#description)
@@ -82,8 +82,8 @@ The API is pretty well documented inside the source code. You should also be
 able to access [an online version of the documentation from
 here](https://docs.rs/rbpf/), automatically generated from the
 [crates.io](https://crates.io/crates/rbpf) version (may not be up-to-date with
-master branch). [Examples](../../tree/master/examples) and [unit
-tests](../../tree/master/tests) should also prove helpful. Here is a summary of
+the main branch). [Examples](../../tree/main/examples) and [unit
+tests](../../tree/main/tests) should also prove helpful. Here is a summary of
 how to use the crate.
 
 Here are the steps to follow to run an eBPF program with rbpf:
@@ -676,8 +676,8 @@ integration with other projects, the rbpf crate is distributed under the terms
 of both the MIT license and the Apache License (Version 2.0).
 
 See
-[LICENSE-APACHE](https://github.com/qmonnet/rbpf/blob/master/LICENSE-APACHE)
-and [LICENSE-MIT](https://github.com/qmonnet/rbpf/blob/master/LICENSE-MIT) for
+[LICENSE-APACHE](https://github.com/qmonnet/rbpf/blob/main/LICENSE-APACHE)
+and [LICENSE-MIT](https://github.com/qmonnet/rbpf/blob/main/LICENSE-MIT) for
 details.
 
 ## Inspired by

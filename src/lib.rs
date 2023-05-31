@@ -4,8 +4,8 @@
 // Copyright 2023 Isovalent, Inc. <quentin@isovalent.com>
 
 //! Virtual machine and JIT compiler for eBPF programs.
-#![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.png",
-       html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/master/misc/rbpf.ico")]
+#![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.png",
+       html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.ico")]
 
 // Test examples from README.md as part as doc tests.
 #![doc = include_str!("../README.md")]
