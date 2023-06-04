@@ -24,7 +24,7 @@ include = [
 
 [dependencies]
 
-combine = "2.5"
+combine = "4.6"
 libc = "0.2"
 time = "0.2"
 byteorder = "1.2"
