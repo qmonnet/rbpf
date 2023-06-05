@@ -700,8 +700,7 @@ details.
 * Cilium project documentation about BPF: [_BPF and XDP Reference
   Guide_](http://docs.cilium.io/en/latest/bpf/)
 
-* Kernel documentation about BPF: [Documentation/networking/filter.txt
-  file](https://www.kernel.org/doc/Documentation/networking/filter.txt)
+* [Kernel documentation about BPF](https://docs.kernel.org/bpf/)
 
 * [_Dive into BPF: a list of reading
   material_](https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf),
