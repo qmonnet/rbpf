@@ -7,10 +7,10 @@
 //! This module parses eBPF assembly language source code.
 
 use combine::parser::char::{alpha_num, char, digit, hex_digit, spaces, string};
-use combine::stream::position::{self, SourcePosition};
+use combine::stream::position::{self};
 use combine::{
-    attempt, between, easy, eof, many, many1, one_of, optional, sep_by, EasyParser, ParseError,
-    Parser, Stream,
+    attempt, between, eof, many, many1, one_of, optional, sep_by, EasyParser, ParseError, Parser,
+    Stream,
 };
 
 /// Operand of an instruction.
@@ -93,38 +93,6 @@ where
     })
 }
 
-fn format_info(info: &easy::Info<char, &str>) -> String {
-    match *info {
-        easy::Info::Token(x) => format!("{x:?}"),
-        easy::Info::Range(x) => format!("{x:?}"),
-        easy::Info::Owned(ref x) => x.clone(),
-        easy::Info::Static(x) => x.to_string(),
-    }
-}
-
-fn format_error(error: &easy::Error<char, &str>) -> String {
-    match *error {
-        easy::Error::Unexpected(ref x) => format!("unexpected {}", format_info(x)),
-        easy::Error::Expected(ref x) => format!("expected {}", format_info(x)),
-        easy::Error::Message(ref x) => format_info(x),
-        easy::Error::Other(ref x) => format!("{x:?}"),
-    }
-}
-
-fn format_parse_error(parse_error: easy::Errors<char, &str, SourcePosition>) -> String {
-    format!(
-        "Parse error at line {} column {}: {}",
-        parse_error.position.line,
-        parse_error.position.column,
-        parse_error
-            .errors
-            .iter()
-            .map(format_error)
-            .collect::<Vec<String>>()
-            .join(", ")
-    )
-}
-
 /// Parse a string into a list of instructions.
 ///
 /// The instructions are not validated and may have invalid names and operand types.
@@ -134,7 +102,7 @@ pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
         .easy_parse(position::Stream::new(input))
     {
         Ok((insts, _)) => Ok(insts),
-        Err(err) => Err(format_parse_error(err)),
+        Err(err) => Err(err.to_string()),
     }
 }
 
@@ -604,7 +572,7 @@ exit
         assert_eq!(
             parse("lsh r"),
             Err(
-                "Parse error at line 1 column 6: unexpected end of input, expected digit"
+                "Parse error at line: 1, column: 6\nUnexpected end of input\nExpected digit\n"
                     .to_string()
             )
         );
@@ -616,7 +584,7 @@ exit
         assert_eq!(
             parse("exit\n^"),
             Err(
-                "Parse error at line 2 column 1: unexpected '^', expected letter or digit, expected whitespaces, expected 'r', expected '-', expected '+', expected '[', expected end of input".to_string()
+                "Parse error at line: 2, column: 1\nUnexpected `^`\nExpected letter or digit, whitespaces, `r`, `-`, `+`, `[` or end of input\n".to_string()
             )
         );
     }
