@@ -6,7 +6,7 @@
 extern crate rbpf;
 mod common;
 
-use rbpf::assembler::assemble;
+use rbpf::{assembler::assemble, helpers};
 
 macro_rules! test_cranelift {
     ($name:ident, $prog:expr, $expected:expr) => {
@@ -251,3 +251,38 @@ test_cranelift!(
     [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
     0x1122334455667788
 );
+
+#[test]
+fn test_cranelift_call() {
+    let prog = assemble(
+        "
+        mov r1, 1
+        mov r2, 2
+        mov r3, 3
+        mov r4, 4
+        mov r5, 5
+        call 0
+        exit",
+    )
+    .unwrap();
+
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.register_helper(0, helpers::gather_bytes).unwrap();
+    assert_eq!(vm.execute_cranelift().unwrap(), 0x0102030405);
+}
+
+#[test]
+#[should_panic(expected = "[CRANELIFT] Error: unknown helper function (id: 0x3f)")]
+fn test_cranelift_err_call_unreg() {
+    let prog = assemble("
+         mov r1, 1
+         mov r2, 2
+         mov r3, 3
+         mov r4, 4
+         mov r5, 5
+         call 63
+         exit
+    ").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.execute_cranelift().unwrap();
+}
