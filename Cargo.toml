@@ -29,8 +29,25 @@ libc = "0.2"
 time = "0.2"
 byteorder = "1.2"
 
+# Optional Dependencies for the CraneLift JIT
+cranelift-codegen = { version = "0.99", optional = true }
+cranelift-frontend = { version = "0.99", optional = true }
+cranelift-jit = { version = "0.99", optional = true }
+cranelift-native = { version = "0.99", optional = true }
+cranelift-module = { version = "0.99", optional = true }
+
 [dev-dependencies]
 
 elf = "0.0.10"
 json = "0.11"
 hex = "0.4.3"
+
+[features]
+default = []
+cranelift = [
+    "dep:cranelift-codegen",
+    "dep:cranelift-frontend",
+    "dep:cranelift-jit",
+    "dep:cranelift-native",
+    "dep:cranelift-module",
+]

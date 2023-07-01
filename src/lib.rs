@@ -31,6 +31,17 @@ extern crate byteorder;
 extern crate combine;
 extern crate time;
 
+#[cfg(feature = "cranelift")]
+extern crate cranelift_codegen;
+#[cfg(feature = "cranelift")]
+extern crate cranelift_frontend;
+#[cfg(feature = "cranelift")]
+extern crate cranelift_jit;
+#[cfg(feature = "cranelift")]
+extern crate cranelift_module;
+#[cfg(feature = "cranelift")]
+extern crate cranelift_native;
+
 use byteorder::{ByteOrder, LittleEndian};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -38,6 +49,8 @@ use std::u32;
 
 mod asm_parser;
 pub mod assembler;
+#[cfg(feature = "cranelift")]
+mod cranelift;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
@@ -398,6 +411,45 @@ impl<'a> EbpfVmMbuff<'a> {
                 "Error: program has not been JIT-compiled",
             )),
         }
+    }
+
+    /// Compiles and executes the program using the cranelift JIT.
+    #[cfg(feature = "cranelift")]
+    pub fn execute_cranelift(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
+        use crate::cranelift::CraneliftCompiler;
+
+        let prog = match self.prog {
+            Some(prog) => prog,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
+        };
+
+        // If packet data is empty, do not send the address of an empty slice; send a null pointer
+        //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
+        //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
+        //  See `mul_loop` test.
+        let mem_ptr = match mem.len() {
+            0 => std::ptr::null_mut(),
+            _ => mem.as_ptr() as *mut u8,
+        };
+
+        let mut compiler = CraneliftCompiler::new();
+
+        let func = compiler.compile_function(prog)?;
+        let ptr = compiler.get_function(func);
+
+        let res = ptr(
+            mem_ptr,
+            mem.len(),
+            mbuff.as_ptr() as *mut u8,
+            mbuff.len(),
+            0,
+            0,
+        );
+
+        Ok(res)
     }
 }
 
@@ -1061,6 +1113,12 @@ impl<'a> EbpfVmRaw<'a> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
     }
+
+    #[cfg(feature = "cranelift")]
+    pub fn execute_cranelift(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+        let mut mbuff = vec![];
+        self.parent.execute_cranelift(mem, &mut mbuff)
+    }
 }
 
 /// A virtual machine to run eBPF program. This kind of VM is used for programs that do not work
@@ -1309,5 +1367,10 @@ impl<'a> EbpfVmNoData<'a> {
     #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
+    }
+
+    #[cfg(feature = "cranelift")]
+    pub fn execute_cranelift(&self) -> Result<u64, Error> {
+        self.parent.execute_cranelift(&mut [])
     }
 }
