@@ -6,8 +6,9 @@ use cranelift_codegen::{
     entity::EntityRef,
     ir::{
         condcodes::IntCC,
-        types::{I32, I64},
-        AbiParam, Block, Function, InstBuilder, LibCall, Signature, UserFuncName, Value,
+        types::{I16, I32, I64, I8},
+        AbiParam, Block, Endianness, Function, InstBuilder, LibCall, MemFlags, Signature, Type,
+        UserFuncName, Value,
     },
     isa::{CallConv, OwnedTargetIsa},
     settings::{self, Configurable},
@@ -159,6 +160,28 @@ impl CraneliftCompiler {
                     let imm = (((insn.imm as u32) as u64) + ((next_insn.imm as u64) << 32)) as i64;
                     let iconst = bcx.ins().iconst(I64, imm);
                     self.set_dst(bcx, &insn, iconst);
+                }
+
+                // BPF_LDX class
+                ebpf::LD_B_REG | ebpf::LD_H_REG | ebpf::LD_W_REG | ebpf::LD_DW_REG => {
+                    let ty = match insn.opc {
+                        ebpf::LD_B_REG => I8,
+                        ebpf::LD_H_REG => I16,
+                        ebpf::LD_W_REG => I32,
+                        ebpf::LD_DW_REG => I64,
+                        _ => unreachable!(),
+                    };
+
+                    let base = self.insn_src(bcx, &insn);
+                    let loaded = self.reg_load(bcx, ty, base, insn.off);
+
+                    let ext = if ty != I64 {
+                        bcx.ins().uextend(I64, loaded)
+                    } else {
+                        loaded
+                    };
+
+                    self.set_dst(bcx, &insn, ext);
                 }
 
                 // BPF_ALU class
@@ -356,6 +379,39 @@ impl CraneliftCompiler {
                     let rhs = self.insn_src32(bcx, &insn);
                     let res = bcx.ins().sshr(lhs, rhs);
                     self.set_dst32(bcx, &insn, res);
+                }
+
+                ebpf::BE | ebpf::LE => {
+                    let should_swap = match insn.opc {
+                        ebpf::BE => self.isa.endianness() == Endianness::Little,
+                        ebpf::LE => self.isa.endianness() == Endianness::Big,
+                        _ => unreachable!(),
+                    };
+
+                    let ty: Type = match insn.imm {
+                        16 => I16,
+                        32 => I32,
+                        64 => I64,
+                        _ => unreachable!(),
+                    };
+
+                    if should_swap {
+                        let src = self.insn_dst(bcx, &insn);
+                        let src_narrow = if ty != I64 {
+                            bcx.ins().ireduce(ty, src)
+                        } else {
+                            src
+                        };
+
+                        let res = bcx.ins().bswap(src_narrow);
+                        let res_wide = if ty != I64 {
+                            bcx.ins().uextend(I64, res)
+                        } else {
+                            res
+                        };
+
+                        self.set_dst(bcx, &insn, res_wide);
+                    }
                 }
 
                 // BPF_ALU64 class
@@ -601,5 +657,14 @@ impl CraneliftCompiler {
     fn set_dst32(&mut self, bcx: &mut FunctionBuilder, insn: &Insn, val: Value) {
         let val32 = bcx.ins().uextend(I64, val);
         self.set_dst(bcx, insn, val32);
+    }
+
+    fn reg_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, base: Value, offset: i16) -> Value {
+        // TODO: Emit bounds checks
+
+        let mut flags = MemFlags::new();
+        flags.set_endianness(Endianness::Little);
+
+        bcx.ins().load(ty, flags, base, offset as i32)
     }
 }
