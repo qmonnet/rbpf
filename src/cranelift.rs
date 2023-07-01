@@ -220,6 +220,47 @@ impl CraneliftCompiler {
                     self.set_dst(bcx, &insn, ext);
                 }
 
+                // BPF_ST and BPF_STX class
+                ebpf::ST_B_IMM
+                | ebpf::ST_H_IMM
+                | ebpf::ST_W_IMM
+                | ebpf::ST_DW_IMM
+                | ebpf::ST_B_REG
+                | ebpf::ST_H_REG
+                | ebpf::ST_W_REG
+                | ebpf::ST_DW_REG => {
+                    let ty = match insn.opc {
+                        ebpf::ST_B_IMM | ebpf::ST_B_REG => I8,
+                        ebpf::ST_H_IMM | ebpf::ST_H_REG => I16,
+                        ebpf::ST_W_IMM | ebpf::ST_W_REG => I32,
+                        ebpf::ST_DW_IMM | ebpf::ST_DW_REG => I64,
+                        _ => unreachable!(),
+                    };
+                    let is_imm = match insn.opc {
+                        ebpf::ST_B_IMM | ebpf::ST_H_IMM | ebpf::ST_W_IMM | ebpf::ST_DW_IMM => true,
+                        ebpf::ST_B_REG | ebpf::ST_H_REG | ebpf::ST_W_REG | ebpf::ST_DW_REG => false,
+                        _ => unreachable!(),
+                    };
+
+                    let value = if is_imm {
+                        self.insn_imm64(bcx, &insn)
+                    } else {
+                        self.insn_src(bcx, &insn)
+                    };
+
+                    let narrow = if ty != I64 {
+                        bcx.ins().ireduce(ty, value)
+                    } else {
+                        value
+                    };
+
+                    let base = self.insn_dst(bcx, &insn);
+                    self.reg_store(bcx, base, insn.off, narrow);
+                }
+
+                ebpf::ST_W_XADD => unimplemented!(),
+                ebpf::ST_DW_XADD => unimplemented!(),
+
                 // BPF_ALU class
                 // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value
                 // before we do the operation?
@@ -713,5 +754,13 @@ impl CraneliftCompiler {
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().load(ty, flags, base, offset as i32)
+    }
+    fn reg_store(&mut self, bcx: &mut FunctionBuilder, base: Value, offset: i16, val: Value) {
+        // TODO: Emit bounds checks
+
+        let mut flags = MemFlags::new();
+        flags.set_endianness(Endianness::Little);
+
+        bcx.ins().store(flags, val, base, offset as i32);
     }
 }
