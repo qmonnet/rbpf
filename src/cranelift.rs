@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-use std::convert::TryInto;
+use std::{collections::HashMap, convert::TryInto};
 
 use cranelift_codegen::{
     entity::EntityRef,
     ir::{
         condcodes::IntCC,
         types::{I16, I32, I64, I8},
-        AbiParam, Block, Endianness, Function, InstBuilder, LibCall, MemFlags, Signature, Type,
-        UserFuncName, Value,
+        AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, LibCall, MemFlags, Signature,
+        Type, UserFuncName, Value,
     },
     isa::{CallConv, OwnedTargetIsa},
     settings::{self, Configurable},
@@ -41,12 +41,15 @@ pub(crate) struct CraneliftCompiler {
     isa: OwnedTargetIsa,
     module: JITModule,
 
+    helpers: HashMap<u32, ebpf::Helper>,
+    helper_func_refs: HashMap<u32, FuncRef>,
+
     /// Map of register numbers to Cranelift variables.
     registers: [Variable; 16],
 }
 
 impl CraneliftCompiler {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(helpers: HashMap<u32, ebpf::Helper>) -> Self {
         let mut flag_builder = settings::builder();
 
         flag_builder.set("opt_level", "speed").unwrap();
@@ -57,7 +60,15 @@ impl CraneliftCompiler {
         let isa = isa_builder
             .finish(settings::Flags::new(flag_builder))
             .unwrap();
-        let mut module = JITModule::new(JITBuilder::with_isa(isa.clone(), Box::new(libcall_names)));
+
+        let mut jit_builder = JITBuilder::with_isa(isa.clone(), Box::new(libcall_names));
+        // Register all the helpers
+        for (k, v) in helpers.iter() {
+            let name = format!("helper_{}", k);
+            jit_builder.symbol(name, (*v) as usize as *const u8);
+        }
+
+        let mut module = JITModule::new(jit_builder);
 
         let registers = (0..16)
             .map(|i| Variable::new(i))
@@ -68,6 +79,8 @@ impl CraneliftCompiler {
         Self {
             isa,
             module,
+            helpers,
+            helper_func_refs: HashMap::new(),
             registers,
         }
     }
@@ -142,6 +155,29 @@ impl CraneliftCompiler {
             let arg = bcx.block_params(entry)[i];
             let var = self.registers[i + 1];
             bcx.def_var(var, arg);
+        }
+
+        // Register the helpers
+        for (k, _) in self.helpers.iter() {
+            let name = format!("helper_{}", k);
+            let sig = Signature {
+                params: vec![
+                    AbiParam::new(I64),
+                    AbiParam::new(I64),
+                    AbiParam::new(I64),
+                    AbiParam::new(I64),
+                    AbiParam::new(I64),
+                ],
+                returns: vec![AbiParam::new(I64)],
+                call_conv: CallConv::SystemV,
+            };
+            let func_id = self
+                .module
+                .declare_function(&name, Linkage::Import, &sig)
+                .unwrap();
+
+            let func_ref = self.module.declare_func_in_func(func_id, bcx.func);
+            self.helper_func_refs.insert(*k, func_ref);
         }
 
         Ok(())
@@ -613,7 +649,18 @@ impl CraneliftCompiler {
 
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
-                ebpf::CALL => unimplemented!(),
+                ebpf::CALL => {
+                    let func_ref = self.helper_func_refs[&(insn.imm as u32)];
+                    let arg0 = bcx.use_var(self.registers[1]);
+                    let arg1 = bcx.use_var(self.registers[2]);
+                    let arg2 = bcx.use_var(self.registers[3]);
+                    let arg3 = bcx.use_var(self.registers[4]);
+                    let arg4 = bcx.use_var(self.registers[5]);
+
+                    let call = bcx.ins().call(func_ref, &[arg0, arg1, arg2, arg3, arg4]);
+                    let ret = bcx.inst_results(call)[0];
+                    self.set_dst(bcx, &insn, ret);
+                }
                 ebpf::TAIL_CALL => unimplemented!(),
                 ebpf::EXIT => {
                     let ret = bcx.use_var(self.registers[0]);

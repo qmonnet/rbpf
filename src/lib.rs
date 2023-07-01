@@ -435,11 +435,13 @@ impl<'a> EbpfVmMbuff<'a> {
             _ => mem.as_ptr() as *mut u8,
         };
 
-        let mut compiler = CraneliftCompiler::new();
+        let mut compiler = CraneliftCompiler::new(self.helpers.clone());
 
         let func = compiler.compile_function(prog)?;
         let ptr = compiler.get_function(func);
 
+        // unimplemented!();
+        // TODO: Review the order of arguments
         let res = ptr(
             mem_ptr,
             mem.len(),
