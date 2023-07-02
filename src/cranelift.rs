@@ -8,7 +8,7 @@ use cranelift_codegen::{
         condcodes::IntCC,
         types::{I16, I32, I64, I8},
         AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, LibCall, MemFlags, Signature,
-        Type, UserFuncName, Value,
+        SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
     },
     isa::{CallConv, OwnedTargetIsa},
     settings::{self, Configurable},
@@ -18,7 +18,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
-use crate::ebpf::{self, Insn};
+use crate::ebpf::{self, Insn, STACK_SIZE};
 
 use super::Error;
 
@@ -45,7 +45,14 @@ pub(crate) struct CraneliftCompiler {
     helper_func_refs: HashMap<u32, FuncRef>,
 
     /// Map of register numbers to Cranelift variables.
-    registers: [Variable; 16],
+    registers: [Variable; 11],
+    /// Other usefull variables used throughout the program.
+    mem_start: Variable,
+    mem_end: Variable,
+    mbuf_start: Variable,
+    mbuf_end: Variable,
+    stack_start: Variable,
+    stack_end: Variable,
 }
 
 impl CraneliftCompiler {
@@ -70,7 +77,7 @@ impl CraneliftCompiler {
 
         let mut module = JITModule::new(jit_builder);
 
-        let registers = (0..16)
+        let registers = (0..11)
             .map(|i| Variable::new(i))
             .collect::<Vec<_>>()
             .try_into()
@@ -82,6 +89,12 @@ impl CraneliftCompiler {
             helpers,
             helper_func_refs: HashMap::new(),
             registers,
+            mem_start: Variable::new(11),
+            mem_end: Variable::new(12),
+            mbuf_start: Variable::new(13),
+            mbuf_end: Variable::new(14),
+            stack_start: Variable::new(15),
+            stack_end: Variable::new(16),
         }
     }
 
@@ -148,6 +161,14 @@ impl CraneliftCompiler {
             bcx.declare_var(*var, I64);
         }
 
+        // Register the bounds check variables
+        bcx.declare_var(self.mem_start, I64);
+        bcx.declare_var(self.mem_end, I64);
+        bcx.declare_var(self.mbuf_start, I64);
+        bcx.declare_var(self.mbuf_end, I64);
+        bcx.declare_var(self.stack_start, I64);
+        bcx.declare_var(self.stack_end, I64);
+
         // Set the first 5 arguments to the registers
         // The eBPF ABI specifies that the first 5 arguments are available in
         // registers r1-r5
@@ -180,6 +201,33 @@ impl CraneliftCompiler {
             self.helper_func_refs.insert(*k, func_ref);
         }
 
+        // Register the stack
+        let ss = bcx.create_sized_stack_slot(StackSlotData {
+            kind: StackSlotKind::ExplicitSlot,
+            size: STACK_SIZE as u32,
+        });
+        let addr_ty = self.isa.pointer_type();
+        let stack_addr = bcx.ins().stack_addr(addr_ty, ss, STACK_SIZE as i32);
+        bcx.def_var(self.registers[10], stack_addr);
+
+        // Initialize the bounds check variables
+        let stack_start = bcx.ins().stack_addr(addr_ty, ss, 0);
+        bcx.def_var(self.stack_start, stack_start);
+        let stack_end = bcx.ins().stack_addr(addr_ty, ss, STACK_SIZE as i32);
+        bcx.def_var(self.stack_end, stack_end);
+
+        let mem_start = bcx.use_var(self.registers[1]);
+        let mem_len = bcx.use_var(self.registers[2]);
+        let mem_end = bcx.ins().iadd(mem_start, mem_len);
+        bcx.def_var(self.mem_start, mem_start);
+        bcx.def_var(self.mem_end, mem_end);
+
+        let mbuf_start = bcx.use_var(self.registers[3]);
+        let mbuf_len = bcx.use_var(self.registers[4]);
+        let mbuf_end = bcx.ins().iadd(mbuf_start, mbuf_len);
+        bcx.def_var(self.mbuf_start, mbuf_start);
+        bcx.def_var(self.mbuf_end, mbuf_end);
+
         Ok(())
     }
 
@@ -187,6 +235,9 @@ impl CraneliftCompiler {
         let mut insn_ptr: usize = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
+
+            // Set the source location for the instruction
+            bcx.set_srcloc(SourceLoc::new(insn_ptr as u32));
 
             match insn.opc {
                 ebpf::LD_DW_IMM => {
@@ -255,7 +306,7 @@ impl CraneliftCompiler {
                     };
 
                     let base = self.insn_dst(bcx, &insn);
-                    self.reg_store(bcx, base, insn.off, narrow);
+                    self.reg_store(bcx, ty, base, insn.off, narrow);
                 }
 
                 ebpf::ST_W_XADD => unimplemented!(),
@@ -756,19 +807,99 @@ impl CraneliftCompiler {
     }
 
     fn reg_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, base: Value, offset: i16) -> Value {
-        // TODO: Emit bounds checks
+        self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().load(ty, flags, base, offset as i32)
     }
-    fn reg_store(&mut self, bcx: &mut FunctionBuilder, base: Value, offset: i16, val: Value) {
-        // TODO: Emit bounds checks
+    fn reg_store(
+        &mut self,
+        bcx: &mut FunctionBuilder,
+        ty: Type,
+        base: Value,
+        offset: i16,
+        val: Value,
+    ) {
+        self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().store(flags, val, base, offset as i32);
+    }
+
+    /// Inserts a bounds check for a memory access
+    ///
+    /// This emits a conditional trap if the access is out of bounds for any of the known
+    /// valid memory regions. These are the stack, the memory, and the mbuf.
+    fn insert_bounds_check(
+        &mut self,
+        bcx: &mut FunctionBuilder,
+        ty: Type,
+        base: Value,
+        offset: i16,
+    ) {
+        let access_size = bcx.ins().iconst(I64, ty.bytes() as i64);
+
+        let offset = bcx.ins().iconst(I64, offset as i64);
+        let start_addr = bcx.ins().iadd(base, offset);
+        let end_addr = bcx.ins().iadd(start_addr, access_size);
+
+        let does_not_overflow =
+            bcx.ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, end_addr, start_addr);
+
+        // Check if it's a valid stack access
+        let stack_start = bcx.use_var(self.stack_start);
+        let stack_end = bcx.use_var(self.stack_end);
+        let stack_start_valid =
+            bcx.ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, start_addr, stack_start);
+        let stack_end_valid = bcx
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, end_addr, stack_end);
+        let stack_valid = bcx.ins().band(stack_start_valid, stack_end_valid);
+
+        // Check if it's a valid memory access
+        let mem_start = bcx.use_var(self.mem_start);
+        let mem_end = bcx.use_var(self.mem_end);
+        let has_mem = bcx.ins().icmp_imm(IntCC::NotEqual, mem_start, 0);
+        let mem_start_valid =
+            bcx.ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, start_addr, mem_start);
+        let mem_end_valid = bcx
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, end_addr, mem_end);
+
+        let mem_valid = bcx.ins().band(mem_start_valid, mem_end_valid);
+        let mem_valid = bcx.ins().band(mem_valid, has_mem);
+
+        // Check if it's a valid mbuf access
+        let mbuf_start = bcx.use_var(self.mbuf_start);
+        let mbuf_end = bcx.use_var(self.mbuf_end);
+        let has_mbuf = bcx.ins().icmp_imm(IntCC::NotEqual, mbuf_start, 0);
+        let mbuf_start_valid =
+            bcx.ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, start_addr, mbuf_start);
+        let mbuf_end_valid = bcx
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, end_addr, mbuf_end);
+        let mbuf_valid = bcx.ins().band(mbuf_start_valid, mbuf_end_valid);
+        let mbuf_valid = bcx.ins().band(mbuf_valid, has_mbuf);
+
+        // Join all of these checks together and trap if any of them fails
+
+        // We need it to be valid to at least one region of memory
+        let valid_region = bcx.ins().bor(stack_valid, mem_valid);
+        let valid_region = bcx.ins().bor(valid_region, mbuf_valid);
+
+        // And that it does not overflow
+        let valid = bcx.ins().band(does_not_overflow, valid_region);
+
+        // TODO: We can potentially throw a custom trap code here to indicate
+        // which check failed.
+        bcx.ins().trapz(valid, TrapCode::HeapOutOfBounds);
     }
 }
