@@ -847,6 +847,51 @@ test_cranelift!(
 );
 
 test_cranelift!(
+    test_cranelift_stack,
+    "
+    mov r1, 51
+    stdw [r10-16], 0xab
+    stdw [r10-8], 0xcd
+    and r1, 1
+    lsh r1, 3
+    mov r2, r10
+    add r2, r1
+    ldxdw r0, [r2-16]
+    exit
+    ",
+    0xcd
+);
+
+#[test]
+fn test_cranelift_stack2() {
+    let prog = assemble(
+        "
+        stb [r10-4], 0x01
+        stb [r10-3], 0x02
+        stb [r10-2], 0x03
+        stb [r10-1], 0x04
+        mov r1, r10
+        mov r2, 0x4
+        sub r1, r2
+        call 1
+        mov r1, 0
+        ldxb r2, [r10-4]
+        ldxb r3, [r10-3]
+        ldxb r4, [r10-2]
+        ldxb r5, [r10-1]
+        call 0
+        xor r0, 0x2a2a2a2a
+        exit",
+    )
+    .unwrap();
+
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.register_helper(0, helpers::gather_bytes).unwrap();
+    vm.register_helper(1, helpers::memfrob).unwrap();
+    assert_eq!(vm.execute_cranelift().unwrap(), 0x01020304);
+}
+
+test_cranelift!(
     test_cranelift_stb,
     "
     stb [r1+2], 0x11
