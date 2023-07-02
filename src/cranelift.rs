@@ -54,6 +54,8 @@ pub(crate) struct CraneliftCompiler {
     /// List of blocks corresponding to each instruction.
     /// We only store the first instruction that observes a new block
     insn_blocks: BTreeMap<u32, Block>,
+    /// Map of block targets for each jump/branching instruction.
+    insn_targets: BTreeMap<u32, (Block, Block)>,
     filled_blocks: HashSet<Block>,
 
     /// Map of register numbers to Cranelift variables.
@@ -101,6 +103,7 @@ impl CraneliftCompiler {
             helpers,
             helper_func_refs: HashMap::new(),
             insn_blocks: BTreeMap::new(),
+            insn_targets: BTreeMap::new(),
             filled_blocks: HashSet::new(),
             registers,
             mem_start: Variable::new(11),
@@ -149,6 +152,7 @@ impl CraneliftCompiler {
             builder.append_block_params_for_function_params(entry);
             builder.switch_to_block(entry);
 
+            self.build_cfg(&mut builder, prog)?;
             self.build_function_prelude(&mut builder, entry)?;
             self.translate_program(&mut builder, prog)?;
 
@@ -773,7 +777,7 @@ impl CraneliftCompiler {
 
                 // BPF_JMP & BPF_JMP32 class
                 ebpf::JA => {
-                    let (_, target_block) = self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+                    let (_, target_block) = self.insn_targets[&(insn_ptr as u32)];
 
                     bcx.ins().jump(target_block, &[]);
                     self.filled_blocks.insert(bcx.current_block().unwrap());
@@ -822,7 +826,7 @@ impl CraneliftCompiler {
                 | ebpf::JSLE_REG32
                 | ebpf::JSET_IMM32
                 | ebpf::JSET_REG32 => {
-                    let (fallthrough, target) = self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+                    let (fallthrough, target) = self.insn_targets[&(insn_ptr as u32)];
 
                     let is_reg = (insn.opc & BPF_X) != 0;
                     let is_32 = (insn.opc & BPF_JMP32) != 0;
@@ -890,14 +894,6 @@ impl CraneliftCompiler {
                     let ret = bcx.use_var(self.registers[0]);
                     bcx.ins().return_(&[ret]);
                     self.filled_blocks.insert(bcx.current_block().unwrap());
-
-                    // If we have multiple consecutive exit instructions we need to switch blocks.
-                    let next_pc = (insn_ptr + 1) as u32;
-                    let next_block = *self
-                        .insn_blocks
-                        .entry(next_pc)
-                        .or_insert_with(|| bcx.create_block());
-                    self.insn_blocks.insert(next_pc, next_block);
                 }
                 _ => unimplemented!("inst: {:?}", insn),
             }
@@ -961,31 +957,6 @@ impl CraneliftCompiler {
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().store(flags, val, base, offset as i32);
-    }
-
-    fn prepare_jump_blocks(
-        &mut self,
-        bcx: &mut FunctionBuilder,
-        insn_ptr: usize,
-        insn: &Insn,
-    ) -> (Block, Block) {
-        let target_pc: u32 = (insn_ptr as isize + insn.off as isize + 1)
-            .try_into()
-            .unwrap();
-
-        // This is the fallthrough block
-        let fallthrough_block = *self
-            .insn_blocks
-            .entry((insn_ptr + 1) as u32)
-            .or_insert_with(|| bcx.create_block());
-
-        // Jump Target
-        let target_block = *self
-            .insn_blocks
-            .entry(target_pc)
-            .or_insert_with(|| bcx.create_block());
-
-        (fallthrough_block, target_block)
     }
 
     /// Inserts a bounds check for a memory access
@@ -1059,5 +1030,103 @@ impl CraneliftCompiler {
         // TODO: We can potentially throw a custom trap code here to indicate
         // which check failed.
         bcx.ins().trapz(valid, TrapCode::HeapOutOfBounds);
+    }
+
+    /// Analyze the program and build the CFG
+    ///
+    /// We do this because cranelift does not allow us to switch back to a previously
+    /// filled block and add instructions to it. So we can't split the program as we
+    /// translate it.
+    fn build_cfg(&mut self, bcx: &mut FunctionBuilder, prog: &[u8]) -> Result<(), Error> {
+        let mut insn_ptr: usize = 0;
+        while insn_ptr * ebpf::INSN_SIZE < prog.len() {
+            let insn = ebpf::get_insn(prog, insn_ptr);
+
+            match insn.opc {
+                // This instruction consumes two opcodes
+                ebpf::LD_DW_IMM => {
+                    insn_ptr += 1;
+                }
+
+                ebpf::JA
+                | ebpf::JEQ_IMM
+                | ebpf::JEQ_REG
+                | ebpf::JGT_IMM
+                | ebpf::JGT_REG
+                | ebpf::JGE_IMM
+                | ebpf::JGE_REG
+                | ebpf::JLT_IMM
+                | ebpf::JLT_REG
+                | ebpf::JLE_IMM
+                | ebpf::JLE_REG
+                | ebpf::JNE_IMM
+                | ebpf::JNE_REG
+                | ebpf::JSGT_IMM
+                | ebpf::JSGT_REG
+                | ebpf::JSGE_IMM
+                | ebpf::JSGE_REG
+                | ebpf::JSLT_IMM
+                | ebpf::JSLT_REG
+                | ebpf::JSLE_IMM
+                | ebpf::JSLE_REG
+                | ebpf::JSET_IMM
+                | ebpf::JSET_REG
+                | ebpf::JEQ_IMM32
+                | ebpf::JEQ_REG32
+                | ebpf::JGT_IMM32
+                | ebpf::JGT_REG32
+                | ebpf::JGE_IMM32
+                | ebpf::JGE_REG32
+                | ebpf::JLT_IMM32
+                | ebpf::JLT_REG32
+                | ebpf::JLE_IMM32
+                | ebpf::JLE_REG32
+                | ebpf::JNE_IMM32
+                | ebpf::JNE_REG32
+                | ebpf::JSGT_IMM32
+                | ebpf::JSGT_REG32
+                | ebpf::JSGE_IMM32
+                | ebpf::JSGE_REG32
+                | ebpf::JSLT_IMM32
+                | ebpf::JSLT_REG32
+                | ebpf::JSLE_IMM32
+                | ebpf::JSLE_REG32
+                | ebpf::JSET_IMM32
+                | ebpf::JSET_REG32
+                | ebpf::EXIT
+                | ebpf::TAIL_CALL => {
+                    self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+                }
+                _ => {}
+            }
+
+            insn_ptr += 1;
+        }
+
+        Ok(())
+    }
+
+    fn prepare_jump_blocks(&mut self, bcx: &mut FunctionBuilder, insn_ptr: usize, insn: &Insn) {
+        let insn_ptr = insn_ptr as u32;
+        let next_pc: u32 = insn_ptr + 1;
+        let target_pc: u32 = (insn_ptr as isize + insn.off as isize + 1)
+            .try_into()
+            .unwrap();
+
+        // This is the fallthrough block
+        let fallthrough_block = *self
+            .insn_blocks
+            .entry(next_pc)
+            .or_insert_with(|| bcx.create_block());
+
+        // Jump Target
+        let target_block = *self
+            .insn_blocks
+            .entry(target_pc)
+            .or_insert_with(|| bcx.create_block());
+
+        // Mark the blocks for this instruction
+        self.insn_targets
+            .insert(insn_ptr, (fallthrough_block, target_block));
     }
 }
