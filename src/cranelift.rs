@@ -890,6 +890,14 @@ impl CraneliftCompiler {
                     let ret = bcx.use_var(self.registers[0]);
                     bcx.ins().return_(&[ret]);
                     self.filled_blocks.insert(bcx.current_block().unwrap());
+
+                    // If we have multiple consecutive exit instructions we need to switch blocks.
+                    let next_pc = (insn_ptr + 1) as u32;
+                    let next_block = *self
+                        .insn_blocks
+                        .entry(next_pc)
+                        .or_insert_with(|| bcx.create_block());
+                    self.insn_blocks.insert(next_pc, next_block);
                 }
                 _ => unimplemented!("inst: {:?}", insn),
             }
@@ -932,7 +940,7 @@ impl CraneliftCompiler {
     }
 
     fn reg_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, base: Value, offset: i16) -> Value {
-        // self.insert_bounds_check(bcx, ty, base, offset);
+        self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
@@ -947,7 +955,7 @@ impl CraneliftCompiler {
         offset: i16,
         val: Value,
     ) {
-        // self.insert_bounds_check(bcx, ty, base, offset);
+        self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
