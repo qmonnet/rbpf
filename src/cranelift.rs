@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-use std::{collections::HashMap, convert::TryInto};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    convert::TryInto,
+};
 
 use cranelift_codegen::{
     entity::EntityRef,
@@ -18,7 +21,10 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
-use crate::ebpf::{self, Insn, STACK_SIZE};
+use crate::ebpf::{
+    self, Insn, BPF_ALU_OP_MASK, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32, BPF_JNE,
+    BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE,
+};
 
 use super::Error;
 
@@ -43,6 +49,11 @@ pub(crate) struct CraneliftCompiler {
 
     helpers: HashMap<u32, ebpf::Helper>,
     helper_func_refs: HashMap<u32, FuncRef>,
+
+    /// List of blocks corresponding to each instruction.
+    /// We only store the first instruction that observes a new block
+    insn_blocks: BTreeMap<u32, Block>,
+    filled_blocks: HashSet<Block>,
 
     /// Map of register numbers to Cranelift variables.
     registers: [Variable; 11],
@@ -88,6 +99,8 @@ impl CraneliftCompiler {
             module,
             helpers,
             helper_func_refs: HashMap::new(),
+            insn_blocks: BTreeMap::new(),
+            filled_blocks: HashSet::new(),
             registers,
             mem_start: Variable::new(11),
             mem_end: Variable::new(12),
@@ -147,6 +160,7 @@ impl CraneliftCompiler {
 
         self.module.define_function(func_id, &mut ctx).unwrap();
         self.module.finalize_definitions().unwrap();
+        ctx.clear();
 
         Ok(func_id)
     }
@@ -228,6 +242,12 @@ impl CraneliftCompiler {
         bcx.def_var(self.mbuf_start, mbuf_start);
         bcx.def_var(self.mbuf_end, mbuf_end);
 
+        // Insert the *actual* initial block
+        let program_entry = bcx.create_block();
+        bcx.ins().jump(program_entry, &[]);
+        self.filled_blocks.insert(bcx.current_block().unwrap());
+        self.insn_blocks.insert(0, program_entry);
+
         Ok(())
     }
 
@@ -235,6 +255,17 @@ impl CraneliftCompiler {
         let mut insn_ptr: usize = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
+
+            // If this instruction is on a new block switch to it.
+            if let Some(block) = self.insn_blocks.get(&(insn_ptr as u32)) {
+                // Blocks must have a terminator instruction at the end before we switch away from them
+                let current_block = bcx.current_block().unwrap();
+                if !self.filled_blocks.contains(&current_block) {
+                    bcx.ins().jump(*block, &[]);
+                }
+
+                bcx.switch_to_block(*block);
+            }
 
             // Set the source location for the instruction
             bcx.set_srcloc(SourceLoc::new(insn_ptr as u32));
@@ -739,6 +770,98 @@ impl CraneliftCompiler {
                     self.set_dst(bcx, &insn, res);
                 }
 
+                // BPF_JMP & BPF_JMP32 class
+                ebpf::JA => {
+                    let (_, target_block) = self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+
+                    bcx.ins().jump(target_block, &[]);
+                    self.filled_blocks.insert(bcx.current_block().unwrap());
+                }
+                ebpf::JEQ_IMM
+                | ebpf::JEQ_REG
+                | ebpf::JGT_IMM
+                | ebpf::JGT_REG
+                | ebpf::JGE_IMM
+                | ebpf::JGE_REG
+                | ebpf::JLT_IMM
+                | ebpf::JLT_REG
+                | ebpf::JLE_IMM
+                | ebpf::JLE_REG
+                | ebpf::JNE_IMM
+                | ebpf::JNE_REG
+                | ebpf::JSGT_IMM
+                | ebpf::JSGT_REG
+                | ebpf::JSGE_IMM
+                | ebpf::JSGE_REG
+                | ebpf::JSLT_IMM
+                | ebpf::JSLT_REG
+                | ebpf::JSLE_IMM
+                | ebpf::JSLE_REG
+                | ebpf::JSET_IMM
+                | ebpf::JSET_REG
+                | ebpf::JEQ_IMM32
+                | ebpf::JEQ_REG32
+                | ebpf::JGT_IMM32
+                | ebpf::JGT_REG32
+                | ebpf::JGE_IMM32
+                | ebpf::JGE_REG32
+                | ebpf::JLT_IMM32
+                | ebpf::JLT_REG32
+                | ebpf::JLE_IMM32
+                | ebpf::JLE_REG32
+                | ebpf::JNE_IMM32
+                | ebpf::JNE_REG32
+                | ebpf::JSGT_IMM32
+                | ebpf::JSGT_REG32
+                | ebpf::JSGE_IMM32
+                | ebpf::JSGE_REG32
+                | ebpf::JSLT_IMM32
+                | ebpf::JSLT_REG32
+                | ebpf::JSLE_IMM32
+                | ebpf::JSLE_REG32
+                | ebpf::JSET_IMM32
+                | ebpf::JSET_REG32 => {
+                    let (fallthrough, target) = self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+
+                    let is_reg = (insn.opc & BPF_X) != 0;
+                    let is_32 = (insn.opc & BPF_JMP32) != 0;
+                    let intcc = match insn.opc {
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JEQ => IntCC::Equal,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JNE => IntCC::NotEqual,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JGT => IntCC::UnsignedGreaterThan,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JGE => IntCC::UnsignedGreaterThanOrEqual,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JLT => IntCC::UnsignedLessThan,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JLE => IntCC::UnsignedLessThanOrEqual,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JSGT => IntCC::SignedGreaterThan,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JSGE => IntCC::SignedGreaterThanOrEqual,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JSLT => IntCC::SignedLessThan,
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JSLE => IntCC::SignedLessThanOrEqual,
+                        // JSET is handled specially below
+                        c if (c & BPF_ALU_OP_MASK) == BPF_JSET => IntCC::NotEqual,
+                        _ => unreachable!(),
+                    };
+
+                    let lhs = if is_32 {
+                        self.insn_dst32(bcx, &insn)
+                    } else {
+                        self.insn_dst(bcx, &insn)
+                    };
+                    let rhs = match (is_reg, is_32) {
+                        (true, false) => self.insn_src(bcx, &insn),
+                        (true, true) => self.insn_src32(bcx, &insn),
+                        (false, false) => self.insn_imm64(bcx, &insn),
+                        (false, true) => self.insn_imm32(bcx, &insn),
+                    };
+
+                    let cmp_res = if (insn.opc & BPF_ALU_OP_MASK) == BPF_JSET {
+                        bcx.ins().band(lhs, rhs)
+                    } else {
+                        bcx.ins().icmp(intcc, lhs, rhs)
+                    };
+                    bcx.ins().brif(cmp_res, target, &[], fallthrough, &[]);
+                    self.filled_blocks.insert(bcx.current_block().unwrap());
+                }
+
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
                 ebpf::CALL => {
@@ -757,6 +880,7 @@ impl CraneliftCompiler {
                 ebpf::EXIT => {
                     let ret = bcx.use_var(self.registers[0]);
                     bcx.ins().return_(&[ret]);
+                    self.filled_blocks.insert(bcx.current_block().unwrap());
                 }
                 _ => unimplemented!("inst: {:?}", insn),
             }
@@ -799,7 +923,7 @@ impl CraneliftCompiler {
     }
 
     fn reg_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, base: Value, offset: i16) -> Value {
-        self.insert_bounds_check(bcx, ty, base, offset);
+        // self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
@@ -814,12 +938,37 @@ impl CraneliftCompiler {
         offset: i16,
         val: Value,
     ) {
-        self.insert_bounds_check(bcx, ty, base, offset);
+        // self.insert_bounds_check(bcx, ty, base, offset);
 
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().store(flags, val, base, offset as i32);
+    }
+
+    fn prepare_jump_blocks(
+        &mut self,
+        bcx: &mut FunctionBuilder,
+        insn_ptr: usize,
+        insn: &Insn,
+    ) -> (Block, Block) {
+        let target_pc: u32 = (insn_ptr as isize + insn.off as isize + 1)
+            .try_into()
+            .unwrap();
+
+        // This is the fallthrough block
+        let fallthrough_block = *self
+            .insn_blocks
+            .entry((insn_ptr + 1) as u32)
+            .or_insert_with(|| bcx.create_block());
+
+        // Jump Target
+        let target_block = *self
+            .insn_blocks
+            .entry(target_pc)
+            .or_insert_with(|| bcx.create_block());
+
+        (fallthrough_block, target_block)
     }
 
     /// Inserts a bounds check for a memory access

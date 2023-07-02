@@ -469,6 +469,777 @@ test_cranelift!(
 );
 
 test_cranelift!(
+    test_cranelift_ja,
+    "
+    mov r0, 1
+    ja +1
+    mov r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jeq_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 0xa
+    jeq r1, 0xb, +4
+    mov32 r0, 1
+    mov32 r1, 0xb
+    jeq r1, 0xb, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jeq_reg,
+    "
+    mov32 r0, 0
+    mov32 r1, 0xa
+    mov32 r2, 0xb
+    jeq r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0xb
+    jeq r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jge_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 0xa
+    jge r1, 0xb, +4
+    mov32 r0, 1
+    mov32 r1, 0xc
+    jge r1, 0xb, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jle_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 5
+    jle r1, 4, +1
+    jle r1, 6, +1
+    exit
+    jle r1, 5, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jle_reg,
+    "
+    mov r0, 0
+    mov r1, 5
+    mov r2, 4
+    mov r3, 6
+    jle r1, r2, +2
+    jle r1, r1, +1
+    exit
+    jle r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jgt_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 5
+    jgt r1, 6, +2
+    jgt r1, 5, +1
+    jgt r1, 4, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jgt_reg,
+    "
+    mov r0, 0
+    mov r1, 5
+    mov r2, 6
+    mov r3, 4
+    jgt r1, r2, +2
+    jgt r1, r1, +1
+    jgt r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jlt_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 5
+    jlt r1, 4, +2
+    jlt r1, 5, +1
+    jlt r1, 6, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jlt_reg,
+    "
+    mov r0, 0
+    mov r1, 5
+    mov r2, 4
+    mov r3, 6
+    jlt r1, r2, +2
+    jlt r1, r1, +1
+    jlt r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jit_bounce,
+    "
+    mov r0, 1
+    mov r6, r0
+    mov r7, r6
+    mov r8, r7
+    mov r9, r8
+    mov r0, r9
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jne_reg,
+    "
+    mov32 r0, 0
+    mov32 r1, 0xb
+    mov32 r2, 0xb
+    jne r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0xa
+    jne r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jset_imm,
+    "
+    mov32 r0, 0
+    mov32 r1, 0x7
+    jset r1, 0x8, +4
+    mov32 r0, 1
+    mov32 r1, 0x9
+    jset r1, 0x8, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jset_reg,
+    "
+    mov32 r0, 0
+    mov32 r1, 0x7
+    mov32 r2, 0x8
+    jset r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0x9
+    jset r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsge_imm,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    jsge r1, -1, +5
+    jsge r1, 0, +4
+    mov32 r0, 1
+    mov r1, -1
+    jsge r1, -1, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsge_reg,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    mov r2, -1
+    mov32 r3, 0
+    jsge r1, r2, +5
+    jsge r1, r3, +4
+    mov32 r0, 1
+    mov r1, r2
+    jsge r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsle_imm,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    jsle r1, -3, +1
+    jsle r1, -1, +1
+    exit
+    mov32 r0, 1
+    jsle r1, -2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsle_reg,
+    "
+    mov32 r0, 0
+    mov r1, -1
+    mov r2, -2
+    mov32 r3, 0
+    jsle r1, r2, +1
+    jsle r1, r3, +1
+    exit
+    mov32 r0, 1
+    mov r1, r2
+    jsle r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsgt_imm,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    jsgt r1, -1, +4
+    mov32 r0, 1
+    mov32 r1, 0
+    jsgt r1, -1, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsgt_reg,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    mov r2, -1
+    jsgt r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0
+    jsgt r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jslt_imm,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    jslt r1, -3, +2
+    jslt r1, -2, +1
+    jslt r1, -1, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jslt_reg,
+    "
+    mov32 r0, 0
+    mov r1, -2
+    mov r2, -3
+    mov r3, -1
+    jslt r1, r1, +2
+    jslt r1, r2, +1
+    jslt r1, r3, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jeq32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0x0
+    mov32 r1, 0xa
+    jeq32 r1, 0xb, +5
+    mov32 r0, 1
+    mov r1, 0xb
+    or r1, r9
+    jeq32 r1, 0xb, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jeq32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0xa
+    mov32 r2, 0xb
+    jeq32 r1, r2, +5
+    mov32 r0, 1
+    mov32 r1, 0xb
+    or r1, r9
+    jeq32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jge32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0xa
+    jge32 r1, 0xb, +5
+    mov32 r0, 1
+    or r1, r9
+    mov32 r1, 0xc
+    jge32 r1, 0xb, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jge32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0xa
+    mov32 r2, 0xb
+    jge32 r1, r2, +5
+    mov32 r0, 1
+    or r1, r9
+    mov32 r1, 0xc
+    jge32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jgt32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 5
+    or r1, r9
+    jgt32 r1, 6, +4
+    jgt32 r1, 5, +3
+    jgt32 r1, 4, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jgt32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov r0, 0
+    mov r1, 5
+    mov32 r1, 5
+    or r1, r9
+    mov r2, 6
+    mov r3, 4
+    jgt32 r1, r2, +4
+    jgt32 r1, r1, +3
+    jgt32 r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jle32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 5
+    or r1, r9
+    jle32 r1, 4, +5
+    jle32 r1, 6, +1
+    exit
+    jle32 r1, 5, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jle32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov r0, 0
+    mov r1, 5
+    mov r2, 4
+    mov r3, 6
+    or r1, r9
+    jle32 r1, r2, +5
+    jle32 r1, r1, +1
+    exit
+    jle32 r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jlt32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 5
+    or r1, r9
+    jlt32 r1, 4, +4
+    jlt32 r1, 5, +3
+    jlt32 r1, 6, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jlt32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov r0, 0
+    mov r1, 5
+    mov r2, 4
+    mov r3, 6
+    or r1, r9
+    jlt32 r1, r2, +4
+    jlt32 r1, r1, +3
+    jlt32 r1, r3, +1
+    exit
+    mov r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jne32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0xb
+    or r1, r9
+    jne32 r1, 0xb, +4
+    mov32 r0, 1
+    mov32 r1, 0xa
+    or r1, r9
+    jne32 r1, 0xb, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jne32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0xb
+    or r1, r9
+    mov32 r2, 0xb
+    jne32 r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0xa
+    or r1, r9
+    jne32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jset32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0x7
+    or r1, r9
+    jset32 r1, 0x8, +4
+    mov32 r0, 1
+    mov32 r1, 0x9
+    jset32 r1, 0x8, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jset32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, 0x7
+    or r1, r9
+    mov32 r2, 0x8
+    jset32 r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0x9
+    jset32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsge32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    jsge32 r1, -1, +5
+    jsge32 r1, 0, +4
+    mov32 r0, 1
+    mov r1, -1
+    jsge32 r1, -1, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsge32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    mov r2, -1
+    mov32 r3, 0
+    jsge32 r1, r2, +5
+    jsge32 r1, r3, +4
+    mov32 r0, 1
+    mov r1, r2
+    jsge32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsgt32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    jsgt32 r1, -1, +4
+    mov32 r0, 1
+    mov32 r1, 0
+    jsgt32 r1, -1, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsgt32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    mov r2, -1
+    jsgt32 r1, r2, +4
+    mov32 r0, 1
+    mov32 r1, 0
+    jsgt32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsle32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    jsle32 r1, -3, +5
+    jsle32 r1, -1, +1
+    exit
+    mov32 r0, 1
+    jsle32 r1, -2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jsle32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    mov r2, -3
+    mov32 r3, 0
+    jsle32 r1, r2, +6
+    jsle32 r1, r3, +1
+    exit
+    mov32 r0, 1
+    mov r1, r2
+    jsle32 r1, r2, +1
+    mov32 r0, 2
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jslt32_imm,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    jslt32 r1, -3, +4
+    jslt32 r1, -2, +3
+    jslt32 r1, -1, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
+    test_cranelift_jslt32_reg,
+    "
+    mov r9, 1
+    lsh r9, 32
+    mov32 r0, 0
+    mov32 r1, -2
+    or r1, r9
+    mov r2, -3
+    mov r3, -1
+    jslt32 r1, r1, +4
+    jslt32 r1, r2, +3
+    jslt32 r1, r3, +1
+    exit
+    mov32 r0, 1
+    exit
+    ",
+    0x1
+);
+
+test_cranelift!(
     test_cranelift_lddw,
     "
     lddw r0, 0x1122334455667788
@@ -880,6 +1651,29 @@ test_cranelift!(
 );
 
 test_cranelift!(
+    test_cranelift_prime,
+    "
+    mov r1, 67
+    mov r0, 0x1
+    mov r2, 0x2
+    jgt r1, 0x2, +4
+    ja +10
+    add r2, 0x1
+    mov r0, 0x1
+    jge r2, r1, +7
+    mov r3, r1
+    div r3, r2
+    mul r3, r2
+    mov r4, r1
+    sub r4, r3
+    mov r0, 0x0
+    jne r4, 0x0, -10
+    exit
+    ",
+    1
+);
+
+test_cranelift!(
     test_cranelift_rhs32,
     "
     xor r0, r0
@@ -1153,6 +1947,34 @@ test_cranelift!(
     0x44332211
 );
 
+test_cranelift!(
+    test_cranelift_subnet,
+    "
+    mov r2, 0xe
+    ldxh r3, [r1+12]
+    jne r3, 0x81, +2
+    mov r2, 0x12
+    ldxh r3, [r1+16]
+    and r3, 0xffff
+    jne r3, 0x8, +5
+    add r1, r2
+    mov r0, 0x1
+    ldxw r1, [r1+16]
+    and r1, 0xffffff
+    jeq r1, 0x1a8c0, +1
+    mov r0, 0x0
+    exit
+    ",
+    [
+        0x00, 0x00, 0xc0, 0x9f, 0xa0, 0x97, 0x00, 0xa0, 0xcc, 0x3b, 0xbf, 0xfa, 0x08, 0x00, 0x45,
+        0x10, 0x00, 0x3c, 0x46, 0x3c, 0x40, 0x00, 0x40, 0x06, 0x73, 0x1c, 0xc0, 0xa8, 0x01, 0x02,
+        0xc0, 0xa8, 0x01, 0x01, 0x06, 0x0e, 0x00, 0x17, 0x99, 0xc5, 0xa0, 0xec, 0x00, 0x00, 0x00,
+        0x00, 0xa0, 0x02, 0x7d, 0x78, 0xe0, 0xa3, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x04, 0x02,
+        0x08, 0x0a, 0x00, 0x9c, 0x27, 0x24, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x00,
+    ],
+    0x1
+);
+
 const PROG_TCP_PORT_80: [u8; 152] = [
     0x71, 0x12, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x71, 0x13, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x67, 0x03, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x4f, 0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -1167,7 +1989,6 @@ const PROG_TCP_PORT_80: [u8; 152] = [
 ];
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_port80_match() {
     let mem = &mut [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x08, 0x00, 0x45,
@@ -1184,7 +2005,6 @@ fn test_cranelift_tcp_port80_match() {
 }
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_port80_nomatch() {
     let mem = &mut [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x08, 0x00, 0x45,
@@ -1201,7 +2021,6 @@ fn test_cranelift_tcp_port80_nomatch() {
 }
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_port80_nomatch_ethertype() {
     let mem = &mut [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x08, 0x01, 0x45,
@@ -1218,7 +2037,6 @@ fn test_cranelift_tcp_port80_nomatch_ethertype() {
 }
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_port80_nomatch_proto() {
     let mem = &mut [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x08, 0x00, 0x45,
@@ -1235,7 +2053,6 @@ fn test_cranelift_tcp_port80_nomatch_proto() {
 }
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_sack_match() {
     let mut mem = TCP_SACK_MATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
@@ -1244,7 +2061,6 @@ fn test_cranelift_tcp_sack_match() {
 }
 
 #[test]
-#[ignore]
 fn test_cranelift_tcp_sack_nomatch() {
     let mut mem = TCP_SACK_NOMATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
