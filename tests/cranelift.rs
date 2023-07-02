@@ -365,6 +365,17 @@ test_cranelift!(
 );
 
 test_cranelift!(
+    test_cranelift_early_exit,
+    "
+    mov r0, 3
+    exit
+    mov r0, 4
+    exit
+    ",
+    0x3
+);
+
+test_cranelift!(
     test_cranelift_div64_by_zero_imm,
     "
     mov32 r0, 1
