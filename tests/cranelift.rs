@@ -1643,6 +1643,23 @@ test_cranelift!(
 );
 
 test_cranelift!(
+    test_cranelift_mul_loop,
+    "
+    mov r0, 0x7
+    add r1, 0xa
+    lsh r1, 0x20
+    rsh r1, 0x20
+    jeq r1, 0x0, +4
+    mov r0, 0x7
+    mul r0, 0x7
+    add r1, -1
+    jne r1, 0x0, -3
+    exit
+    ",
+    0x75db9c97
+);
+
+test_cranelift!(
     test_cranelift_neg64,
     "
     mov32 r0, 2
