@@ -16,6 +16,7 @@ fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
     let mut jit : bool = false;
+    let mut cranelift : bool = false;
     let mut program_text = String::new();
     let mut memory_text = String::new();
 
@@ -32,20 +33,29 @@ fn main() {
     // Process the rest of the arguments.
     while !args.is_empty() {
         match args[0].as_str() {
-            "--help" => { 
+            "--help" => {
                 println!("Usage: rbpf_plugin [memory] < program");
                 return;
             },
-            "--jit" => { 
+            "--jit" => {
                 #[cfg(windows)] {
                     println!("JIT not supported on Windows");
                     return;
                 }
                 #[cfg(not(windows))] {
-                    jit = true; 
+                    jit = true;
                 }
             },
-            "--program" => { 
+            "--cranelift" => {
+                cranelift = true;
+
+                #[cfg(not(feature = "cranelift"))] {
+                    let _ = cranelift;
+                    println!("Cranelift is not enabled");
+                    return;
+                }
+            }
+            "--program" => {
                 if args.len() < 2 {
                     println!("Missing argument to --program");
                     return;
@@ -88,10 +98,18 @@ fn main() {
             return;
         }
         #[cfg(not(windows))] {
-            unsafe { 
+            unsafe {
                 vm.jit_compile().unwrap();
                 result = vm.execute_program_jit(&mut memory).unwrap();
             }
+        }
+    } else if cranelift {
+        #[cfg(not(feature = "cranelift"))] {
+            println!("Cranelift is not enabled");
+            return;
+        }
+        #[cfg(feature = "cranelift")] {
+            result = vm.execute_cranelift(&mut memory).unwrap();
         }
     }
     else {
