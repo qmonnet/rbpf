@@ -3,7 +3,8 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     convert::TryInto,
-    io::ErrorKind
+    io::ErrorKind,
+    mem::ManuallyDrop,
 };
 
 use cranelift_codegen::{
@@ -115,13 +116,7 @@ impl CraneliftCompiler {
         }
     }
 
-    pub(crate) fn get_function(&mut self, id: FuncId) -> JittedFunction {
-        let function_ptr = self.module.get_finalized_function(id);
-
-        unsafe { std::mem::transmute(function_ptr) }
-    }
-
-    pub(crate) fn compile_function(&mut self, prog: &[u8]) -> Result<FuncId, Error> {
+    pub(crate) fn compile_function(mut self, prog: &[u8]) -> Result<CraneliftProgram, Error> {
         let name = "main";
         let sig = Signature {
             params: vec![
@@ -160,14 +155,10 @@ impl CraneliftCompiler {
             builder.finalize();
         }
 
-        ctx.verify(&*self.isa).unwrap();
-        ctx.optimize(&*self.isa).unwrap();
-
         self.module.define_function(func_id, &mut ctx).unwrap();
         self.module.finalize_definitions().unwrap();
-        ctx.clear();
 
-        Ok(func_id)
+        Ok(CraneliftProgram::new(self.module, func_id))
     }
 
     fn build_function_prelude(
@@ -1128,5 +1119,61 @@ impl CraneliftCompiler {
         // Mark the blocks for this instruction
         self.insn_targets
             .insert(insn_ptr, (fallthrough_block, target_block));
+    }
+}
+
+/// Contains the backing memory for a previously compiled function.
+///
+/// Currently this will allways just contain code for a single function, but
+/// in the future we might want to support multiple functions per module.
+///
+/// Ensures that the backing memory is freed when dropped.
+pub struct CraneliftProgram {
+    module: ManuallyDrop<JITModule>,
+
+    main_id: FuncId,
+}
+
+impl CraneliftProgram {
+    pub(crate) fn new(module: JITModule, main_id: FuncId) -> Self {
+        Self {
+            module: ManuallyDrop::new(module),
+            main_id,
+        }
+    }
+
+    /// We shouldn't allow this function pointer to be exposed outside of this
+    /// module, since it's not guaranteed to be valid after the module is dropped.
+    pub(crate) fn get_main_function(&self) -> JittedFunction {
+        let function_ptr = self.module.get_finalized_function(self.main_id);
+        unsafe { std::mem::transmute(function_ptr) }
+    }
+
+    /// Execute this module by calling the main function
+    pub fn execute(&self,
+        mem_ptr: *mut u8,
+        mem_len: usize,
+        mbuff_ptr: *mut u8,
+        mbuff_len: usize,
+        mbuff_data_offset: usize,
+        mbuff_data_end_offset: usize,
+    ) -> u64 {
+        let main = self.get_main_function();
+
+        main(mem_ptr, mem_len, mbuff_ptr, mbuff_len, mbuff_data_offset, mbuff_data_end_offset)
+    }
+}
+
+impl Drop for CraneliftProgram {
+    fn drop(&mut self) {
+        // We need to have an owned version of `JITModule` to be able to free
+        // it's memory. Use `ManuallyDrop` to get the owned `JITModule`.
+        //
+        // We can no longer use `module` after this, but since we are `Drop`
+        // it should be safe.
+        unsafe {
+            let module = ManuallyDrop::take(&mut self.module);
+            module.free_memory()
+        };
     }
 }
