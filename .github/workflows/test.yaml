@@ -94,6 +94,15 @@ jobs:
           --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
           --plugin_options "--jit" || true
 
+      - name: Run BPF conformance tests - Cranelift
+        run: |
+          docker run -v ${{github.workspace}}:/rbpf --rm \
+          "${{ env.CONFORMANCE_IMAGE }}" \
+          bin/bpf_conformance_runner --test_file_directory tests \
+          --plugin_path /rbpf/target/release/examples/rbpf_plugin \
+          --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
+          --plugin_options "--cranelift"
+
       - name: Install development tools
         uses: taiki-e/install-action@v1.14.2
         with:
