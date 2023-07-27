@@ -75,7 +75,7 @@ jobs:
 
       - name: Build plug-in
         run: |
-          cargo build --release --example rbpf_plugin
+          cargo build --all-features --release --example rbpf_plugin
 
       - name: Run BPF conformance tests - Interpreter
         run: |
