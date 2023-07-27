@@ -109,7 +109,8 @@ fn main() {
             return;
         }
         #[cfg(feature = "cranelift")] {
-            result = vm.execute_cranelift(&mut memory).unwrap();
+            vm.cranelift_compile().unwrap();
+            result = vm.execute_program_cranelift(&mut memory).unwrap();
         }
     }
     else {
