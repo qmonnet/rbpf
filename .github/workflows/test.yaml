@@ -46,7 +46,8 @@ jobs:
               export ASAN_OPTIONS='detect_leaks=1'
           fi
           cargo +${{ matrix.toolchain }} test \
-              --target=x86_64-unknown-linux-gnu
+              --target=x86_64-unknown-linux-gnu \
+              --all-features
 
       - name: Lint with ${{ matrix.toolchain }}
         run: |
