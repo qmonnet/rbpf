@@ -24,7 +24,7 @@ use cranelift_module::{FuncId, Linkage, Module};
 
 use crate::ebpf::{
     self, Insn, BPF_ALU_OP_MASK, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32, BPF_JNE,
-    BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE,
+    BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE, BPF_IND,
 };
 
 use super::Error;
@@ -271,6 +271,53 @@ impl CraneliftCompiler {
             bcx.set_srcloc(SourceLoc::new(insn_ptr as u32));
 
             match insn.opc {
+                // BPF_LD class
+                // LD_ABS_* and LD_IND_* are supposed to load pointer to data from metadata buffer.
+                // Since this pointer is constant, and since we already know it (mem), do not
+                // bother re-fetching it, just use mem already.
+                ebpf::LD_ABS_B
+                | ebpf::LD_ABS_H
+                | ebpf::LD_ABS_W
+                | ebpf::LD_ABS_DW
+                | ebpf::LD_IND_B
+                | ebpf::LD_IND_H
+                | ebpf::LD_IND_W
+                | ebpf::LD_IND_DW => {
+                    let ty = match insn.opc {
+                        ebpf::LD_ABS_B | ebpf::LD_IND_B => I8,
+                        ebpf::LD_ABS_H | ebpf::LD_IND_H => I16,
+                        ebpf::LD_ABS_W | ebpf::LD_IND_W => I32,
+                        ebpf::LD_ABS_DW | ebpf::LD_IND_DW => I64,
+                        _ => unreachable!(),
+                    };
+
+                    // Both instructions add the imm part of the instruction to the pointer
+                    let ptr = bcx.use_var(self.mem_start);
+                    let offset = bcx
+                        .ins()
+                        .iconst(self.isa.pointer_type(), insn.imm as u32 as i64);
+                    let addr = bcx.ins().iadd(ptr, offset);
+
+                    // IND instructions additionally add the value of the source register
+                    let is_ind = (insn.opc & BPF_IND) != 0;
+                    let addr = if is_ind {
+                        let src_reg = self.insn_src(bcx, &insn);
+                        bcx.ins().iadd(addr, src_reg)
+                    } else {
+                        addr
+                    };
+
+                    // The offset here has already been added to the pointer, so we pass 0
+                    let loaded = self.reg_load(bcx, ty, addr, 0);
+
+                    let ext = if ty != I64 {
+                        bcx.ins().uextend(I64, loaded)
+                    } else {
+                        loaded
+                    };
+
+                    self.set_dst(bcx, &insn, ext);
+                }
                 ebpf::LD_DW_IMM => {
                     insn_ptr += 1;
                     let next_insn = ebpf::get_insn(prog, insn_ptr);
