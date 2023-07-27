@@ -15,8 +15,9 @@ macro_rules! test_cranelift {
         #[test]
         fn $name() {
             let prog = assemble($prog).unwrap();
-            let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-            assert_eq!(vm.execute_cranelift().unwrap(), $expected);
+            let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+            vm.cranelift_compile().unwrap();
+            assert_eq!(vm.execute_program_cranelift().unwrap(), $expected);
         }
     };
     ($name:ident, $prog:expr, $mem:expr, $expected:expr) => {
@@ -24,8 +25,9 @@ macro_rules! test_cranelift {
         fn $name() {
             let prog = assemble($prog).unwrap();
             let mem = &mut $mem;
-            let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-            assert_eq!(vm.execute_cranelift(mem).unwrap(), $expected);
+            let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+            vm.cranelift_compile().unwrap();
+            assert_eq!(vm.execute_program_cranelift(mem).unwrap(), $expected);
         }
     };
 }
@@ -270,7 +272,8 @@ fn test_cranelift_call() {
 
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
-    assert_eq!(vm.execute_cranelift().unwrap(), 0x0102030405);
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift().unwrap(), 0x0102030405);
 }
 
 #[test]
@@ -290,7 +293,8 @@ fn test_cranelift_call_memfrob() {
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     vm.register_helper(1, helpers::memfrob).unwrap();
     let mem = &mut [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
-    assert_eq!(vm.execute_cranelift(mem).unwrap(), 0x102292e2f2c0708);
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x102292e2f2c0708);
 }
 
 test_cranelift!(
@@ -466,8 +470,9 @@ fn test_cranelift_err_stack_out_of_bound() {
         0x72, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00,
     ];
-    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.execute_cranelift().unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    vm.execute_program_cranelift().unwrap();
 }
 
 test_cranelift!(
@@ -1765,7 +1770,8 @@ fn test_cranelift_stack2() {
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
     vm.register_helper(1, helpers::memfrob).unwrap();
-    assert_eq!(vm.execute_cranelift().unwrap(), 0x01020304);
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift().unwrap(), 0x01020304);
 }
 
 test_cranelift!(
@@ -1839,7 +1845,8 @@ fn test_cranelift_string_stack() {
 
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(4, helpers::strcmp).unwrap();
-    assert_eq!(vm.execute_cranelift().unwrap(), 0x0);
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift().unwrap(), 0x0);
 }
 
 test_cranelift!(
@@ -2028,8 +2035,9 @@ fn test_cranelift_tcp_port80_match() {
         0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
     ];
     let prog = &PROG_TCP_PORT_80;
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem).unwrap(), 0x1);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x1);
 }
 
 #[test]
@@ -2044,8 +2052,9 @@ fn test_cranelift_tcp_port80_nomatch() {
         0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
     ];
     let prog = &PROG_TCP_PORT_80;
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem).unwrap(), 0x0);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x0);
 }
 
 #[test]
@@ -2060,8 +2069,9 @@ fn test_cranelift_tcp_port80_nomatch_ethertype() {
         0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
     ];
     let prog = &PROG_TCP_PORT_80;
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem).unwrap(), 0x0);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x0);
 }
 
 #[test]
@@ -2076,22 +2086,25 @@ fn test_cranelift_tcp_port80_nomatch_proto() {
         0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44,
     ];
     let prog = &PROG_TCP_PORT_80;
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem).unwrap(), 0x0);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x0);
 }
 
 #[test]
 fn test_cranelift_tcp_sack_match() {
     let mut mem = TCP_SACK_MATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
-    let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem.as_mut_slice()).unwrap(), 0x1);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(), 0x1);
 }
 
 #[test]
 fn test_cranelift_tcp_sack_nomatch() {
     let mut mem = TCP_SACK_NOMATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
-    let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_cranelift(mem.as_mut_slice()).unwrap(), 0x0);
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(), 0x0);
 }
