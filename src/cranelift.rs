@@ -15,9 +15,8 @@ use cranelift_codegen::{
         AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, LibCall, MemFlags, Signature,
         SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
     },
-    isa::{CallConv, OwnedTargetIsa},
+    isa::OwnedTargetIsa,
     settings::{self, Configurable},
-    Context,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -74,6 +73,10 @@ impl CraneliftCompiler {
 
         flag_builder.set("opt_level", "speed").unwrap();
 
+        // Enable stack probes
+        flag_builder.enable("enable_probestack").unwrap();
+        flag_builder.set("probestack_strategy", "inline").unwrap();
+
         let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
             panic!("host machine is not supported: {}", msg);
         });
@@ -129,7 +132,7 @@ impl CraneliftCompiler {
                 AbiParam::new(I64),
             ],
             returns: vec![AbiParam::new(I64)],
-            call_conv: CallConv::SystemV,
+            call_conv: self.isa.default_call_conv(),
         };
 
         let func_id = self
@@ -137,7 +140,7 @@ impl CraneliftCompiler {
             .declare_function(name, Linkage::Local, &sig)
             .unwrap();
 
-        let mut ctx = Context::new();
+        let mut ctx = self.module.make_context();
         ctx.func = Function::with_name_signature(UserFuncName::testcase(name.as_bytes()), sig);
         let mut func_ctx = FunctionBuilderContext::new();
 
@@ -158,6 +161,7 @@ impl CraneliftCompiler {
 
         self.module.define_function(func_id, &mut ctx).unwrap();
         self.module.finalize_definitions().unwrap();
+        self.module.clear_context(&mut ctx);
 
         Ok(CraneliftProgram::new(self.module, func_id))
     }
@@ -192,7 +196,7 @@ impl CraneliftCompiler {
                     AbiParam::new(I64),
                 ],
                 returns: vec![AbiParam::new(I64)],
-                call_conv: CallConv::SystemV,
+                call_conv: self.isa.default_call_conv(),
             };
             let func_id = self
                 .module
