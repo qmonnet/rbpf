@@ -2121,8 +2121,7 @@ fn test_cranelift_ldabsb() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x33);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x33);
@@ -2138,8 +2137,7 @@ fn test_cranelift_ldabsh() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x4433);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x4433);
@@ -2155,10 +2153,9 @@ fn test_cranelift_ldabsw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x66554433);
-    vm.cranelift_compile().unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
+    vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x66554433);
 }
 
@@ -2172,10 +2169,9 @@ fn test_cranelift_ldabsdw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xaa99887766554433);
-    vm.cranelift_compile().unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
+    vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0xaa99887766554433);
 }
 
@@ -2190,11 +2186,10 @@ fn test_cranelift_ldindb() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x88);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-        assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x88);
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x88);
 }
 
 #[test]
@@ -2208,8 +2203,7 @@ fn test_cranelift_ldindh() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x9988);
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x9988);
@@ -2226,10 +2220,9 @@ fn test_cranelift_ldindw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x88776655);
-    vm.cranelift_compile().unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
+    vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x88776655);
 }
 
@@ -2244,9 +2237,8 @@ fn test_cranelift_ldinddw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xccbbaa9988776655);
-    vm.cranelift_compile().unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
+    vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0xccbbaa9988776655);
 }

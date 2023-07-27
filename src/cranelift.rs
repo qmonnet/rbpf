@@ -12,7 +12,7 @@ use cranelift_codegen::{
     ir::{
         condcodes::IntCC,
         types::{I16, I32, I64, I8},
-        AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, LibCall, MemFlags, Signature,
+        AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, MemFlags, Signature,
         SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
     },
     isa::OwnedTargetIsa,
@@ -28,12 +28,6 @@ use crate::ebpf::{
 };
 
 use super::Error;
-
-fn libcall_names(libcall: LibCall) -> String {
-    match libcall {
-        _ => unimplemented!(),
-    }
-}
 
 pub type JittedFunction = extern "C" fn(
     *mut u8, // mem_ptr
@@ -84,7 +78,8 @@ impl CraneliftCompiler {
             .finish(settings::Flags::new(flag_builder))
             .unwrap();
 
-        let mut jit_builder = JITBuilder::with_isa(isa.clone(), Box::new(libcall_names));
+        let mut jit_builder =
+            JITBuilder::with_isa(isa.clone(), cranelift_module::default_libcall_names());
         // Register all the helpers
         for (k, v) in helpers.iter() {
             let name = format!("helper_{}", k);
