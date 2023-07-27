@@ -466,7 +466,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// let prog = &[
     ///     0x79, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // Load mem from mbuff into r1.
     ///     0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldhx r1[2], r0
@@ -514,14 +514,9 @@ impl<'a> EbpfVmMbuff<'a> {
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
         match &self.cranelift_prog {
-            Some(prog) => Ok(prog.execute(
-                mem_ptr,
-                mem.len(),
-                mbuff.as_ptr() as *mut u8,
-                mbuff.len(),
-                0,
-                0,
-            )),
+            Some(prog) => {
+                Ok(prog.execute(mem_ptr, mem.len(), mbuff.as_ptr() as *mut u8, mbuff.len()))
+            }
             None => Err(Error::new(
                 ErrorKind::Other,
                 "Error: program has not been compiled with cranelift",
@@ -980,7 +975,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
@@ -1014,14 +1009,27 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             _ => mem.as_ptr() as *mut u8,
         };
 
+        let l = self.mbuff.buffer.len();
+        // Can this ever happen? Probably not, should be ensured at mbuff creation.
+        if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
+            Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
+            l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
+        }
+        LittleEndian::write_u64(
+            &mut self.mbuff.buffer[(self.mbuff.data_offset)..],
+            mem.as_ptr() as u64,
+        );
+        LittleEndian::write_u64(
+            &mut self.mbuff.buffer[(self.mbuff.data_end_offset)..],
+            mem.as_ptr() as u64 + mem.len() as u64,
+        );
+
         match &self.parent.cranelift_prog {
             Some(prog) => Ok(prog.execute(
                 mem_ptr,
                 mem.len(),
                 self.mbuff.buffer.as_ptr() as *mut u8,
                 self.mbuff.buffer.len(),
-                self.mbuff.data_offset,
-                self.mbuff.data_end_offset,
             )),
             None => Err(Error::new(
                 ErrorKind::Other,

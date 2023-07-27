@@ -37,12 +37,10 @@ fn libcall_names(libcall: LibCall) -> String {
 }
 
 pub type JittedFunction = extern "C" fn(
-    *mut u8, // mbuff.as_ptr() as *mut u8,
-    usize,   // mbuff.len(),
-    *mut u8, // mem_ptr,
-    usize,   // mem.len(),
-    usize,   // 0,
-    usize,   // 0,
+    *mut u8, // mem_ptr
+    usize,   // mem_len
+    *mut u8, // mbuff_ptr
+    usize,   // mbuff_len
 ) -> u64;
 
 pub(crate) struct CraneliftCompiler {
@@ -118,10 +116,13 @@ impl CraneliftCompiler {
 
     pub(crate) fn compile_function(mut self, prog: &[u8]) -> Result<CraneliftProgram, Error> {
         let name = "main";
+        // This is not a standard eBPF function! We use an informal ABI with just 4 parameters.
+        // See [JittedFunction] which is the signature of this function.
+        //
+        // Since this function only serves as the entrypoint for the JITed program, it doesen't
+        // really matter.
         let sig = Signature {
             params: vec![
-                AbiParam::new(I64),
-                AbiParam::new(I64),
                 AbiParam::new(I64),
                 AbiParam::new(I64),
                 AbiParam::new(I64),
@@ -179,15 +180,6 @@ impl CraneliftCompiler {
         bcx.declare_var(self.stack_start, I64);
         bcx.declare_var(self.stack_end, I64);
 
-        // Set the first 5 arguments to the registers
-        // The eBPF ABI specifies that the first 5 arguments are available in
-        // registers r1-r5
-        for i in 0..5 {
-            let arg = bcx.block_params(entry)[i];
-            let var = self.registers[i + 1];
-            bcx.def_var(var, arg);
-        }
-
         // Register the helpers
         for (k, _) in self.helpers.iter() {
             let name = format!("helper_{}", k);
@@ -226,17 +218,30 @@ impl CraneliftCompiler {
         let stack_end = bcx.ins().stack_addr(addr_ty, ss, STACK_SIZE as i32);
         bcx.def_var(self.stack_end, stack_end);
 
-        let mem_start = bcx.use_var(self.registers[1]);
-        let mem_len = bcx.use_var(self.registers[2]);
+        // This is our internal ABI where the first 2 params are the memory
+        let mem_start = bcx.block_params(entry)[0];
+        let mem_len = bcx.block_params(entry)[1];
         let mem_end = bcx.ins().iadd(mem_start, mem_len);
         bcx.def_var(self.mem_start, mem_start);
         bcx.def_var(self.mem_end, mem_end);
 
-        let mbuf_start = bcx.use_var(self.registers[3]);
-        let mbuf_len = bcx.use_var(self.registers[4]);
+        // And the next 2 are the mbuf
+        let mbuf_start = bcx.block_params(entry)[2];
+        let mbuf_len = bcx.block_params(entry)[3];
         let mbuf_end = bcx.ins().iadd(mbuf_start, mbuf_len);
         bcx.def_var(self.mbuf_start, mbuf_start);
         bcx.def_var(self.mbuf_end, mbuf_end);
+
+        // The ABI for eBPF specifies that R1 must contain either the memory, or mbuff pointer
+        // If the mbuf length is non-zero, then we use that, otherwise we use the memory pointer
+        let mbuf_exists = bcx.ins().icmp_imm(IntCC::NotEqual, mbuf_len, 0);
+        let mem_or_mbuf = bcx.ins().select(mbuf_exists, mbuf_start, mem_start);
+        bcx.def_var(self.registers[1], mem_or_mbuf);
+
+        // R2 should contain the length of the memory or mbuf
+        // At least ebpf-conformance tests expect this
+        let mem_or_mbuf_len = bcx.ins().select(mbuf_exists, mbuf_len, mem_len);
+        bcx.def_var(self.registers[2], mem_or_mbuf_len);
 
         // Insert the *actual* initial block
         let program_entry = bcx.create_block();
@@ -1150,17 +1155,16 @@ impl CraneliftProgram {
     }
 
     /// Execute this module by calling the main function
-    pub fn execute(&self,
+    pub fn execute(
+        &self,
         mem_ptr: *mut u8,
         mem_len: usize,
         mbuff_ptr: *mut u8,
         mbuff_len: usize,
-        mbuff_data_offset: usize,
-        mbuff_data_end_offset: usize,
     ) -> u64 {
         let main = self.get_main_function();
 
-        main(mem_ptr, mem_len, mbuff_ptr, mbuff_len, mbuff_data_offset, mbuff_data_end_offset)
+        main(mem_ptr, mem_len, mbuff_ptr, mbuff_len)
     }
 }
 
