@@ -64,5 +64,9 @@ if %ERRORLEVEL% NEQ 0 exit 1
 
 REM Verify that `cargo build`, independent from `cargo test`, works; i.e.
 REM verify that non-test builds aren't trying to use test-only features.
+cargo build -vv %CARGO_MODE%
+if %ERRORLEVEL% NEQ 0 exit 1
+
+REM Verify that we can build with all features
 cargo build --all-features -vv %CARGO_MODE%
 if %ERRORLEVEL% NEQ 0 exit 1
