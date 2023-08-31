@@ -148,6 +148,10 @@ impl JitCompiler {
         }
     }
 
+    fn basix_rex_would_set_bits(&self, w: u8, src: u8, dst: u8) -> bool {
+        w != 0 || (src & 0b1000) != 0 || (dst & 0b1000) != 0
+    }
+
     fn emit_rex(&self, mem: &mut JitMemory, w: u8, r: u8, x: u8, b: u8) {
         assert_eq!((w | 1), 1);
         assert_eq!((r | 1), 1);
@@ -159,7 +163,7 @@ impl JitCompiler {
     // Emits a REX prefix with the top bit of src and dst.
     // Skipped if no bits would be set.
     fn emit_basic_rex(&self, mem: &mut JitMemory, w: u8, src: u8, dst: u8) {
-        if w != 0 || (src & 0b1000) != 0 || (dst & 0b1000) != 0 {
+        if self.basix_rex_would_set_bits(w, src, dst) {
             let is_masked = | val, mask | { match val & mask {
                 0 => 0,
                 _ => 1
@@ -397,7 +401,12 @@ impl JitCompiler {
 
             if div {
                 // No division by 0: skip next instructions
-                self.emit_direct_jcc(mem, 0x85, 7);
+                // Jump offset: emit_alu32 adds 2 to 3 bytes, emit_jmp adds 5
+                let offset = match self.basix_rex_would_set_bits(0, dst, dst) {
+                    true => 3 + 5,
+                    false => 2 + 5,
+                };
+                self.emit_direct_jcc(mem, 0x85, offset);
                 // Division by 0: set dst to 0 then go to next instruction
                 // Set register to 0: xor with itself
                 self.emit_alu32(mem, 0x31, dst, dst);
