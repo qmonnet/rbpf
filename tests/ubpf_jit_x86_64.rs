@@ -392,6 +392,33 @@ fn test_jit_div64_reg() {
     unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x300000000); }
 }
 
+// For some register numbers, we don't emit the same instructions for handling divisions by zero,
+// which means we don't use the same offset to skip these instructions when the divisor is not
+// zero. We've had a regression because of this before, make sure we test it.
+#[test]
+fn test_jit_div32_highreg() {
+    let prog = assemble("
+        mov r0, 2
+        mov r7, 4
+        div32 r7, r0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x2); }
+}
+
+#[test]
+fn test_jit_div64_highreg() {
+    let prog = assemble("
+        mov r0, 2
+        mov r7, 4
+        div r7, r0
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { assert_eq!(vm.execute_program_jit().unwrap(), 0x2); }
+}
+
 #[test]
 fn test_jit_early_exit() {
     let prog = assemble("
