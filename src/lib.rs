@@ -4,35 +4,44 @@
 // Copyright 2023 Isovalent, Inc. <quentin@isovalent.com>
 
 //! Virtual machine and JIT compiler for eBPF programs.
-#![doc(html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.png",
-       html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.ico")]
-
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.png",
+    html_favicon_url = "https://raw.githubusercontent.com/qmonnet/rbpf/main/misc/rbpf.ico"
+)]
 // Test examples from README.md as part as doc tests.
 #![doc = include_str!("../README.md")]
-
 #![warn(missing_docs)]
 // There are unused mut warnings due to unsafe code.
 #![allow(unused_mut)]
 // Allows old-style clippy
 #![allow(renamed_and_removed_lints)]
-
-#![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names, single_match, cast_lossless, doc_markdown, match_same_arms, unreadable_literal))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(
+        redundant_field_names,
+        single_match,
+        cast_lossless,
+        doc_markdown,
+        match_same_arms,
+        unreadable_literal
+    )
+)]
 
 extern crate byteorder;
 extern crate combine;
 extern crate time;
 
-use std::u32;
+use byteorder::{ByteOrder, LittleEndian};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
-use byteorder::{ByteOrder, LittleEndian};
+use std::u32;
 
+mod asm_parser;
 pub mod assembler;
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
-mod asm_parser;
 mod interpreter;
 #[cfg(not(windows))]
 mod jit;
@@ -46,19 +55,19 @@ mod verifier;
 ///   - Unknown instructions.
 ///   - Bad formed instruction.
 ///   - Unknown eBPF helper index.
-pub type Verifier = fn (prog: &[u8]) -> Result<(), Error>;
+pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
 /// eBPF helper function.
-pub type Helper = fn (u64, u64, u64, u64, u64) -> u64;
+pub type Helper = fn(u64, u64, u64, u64, u64) -> u64;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
 // actually handle it. The offsets are used to tell the VM where in the buffer the pointers to
 // packet data start and end should be stored each time the program is run on a new packet.
 struct MetaBuff {
-    data_offset:     usize,
+    data_offset: usize,
     data_end_offset: usize,
-    buffer:          Vec<u8>,
+    buffer: Vec<u8>,
 }
 
 /// A virtual machine to run eBPF program. This kind of VM is used for programs expecting to work
@@ -94,15 +103,14 @@ struct MetaBuff {
 /// assert_eq!(res, 0x2211);
 /// ```
 pub struct EbpfVmMbuff<'a> {
-    prog:     Option<&'a [u8]>,
+    prog: Option<&'a [u8]>,
     verifier: Verifier,
     #[cfg(not(windows))]
-    jit:      Option<jit::JitMemory<'a>>,
-    helpers:  HashMap<u32, ebpf::Helper>,
+    jit: Option<jit::JitMemory<'a>>,
+    helpers: HashMap<u32, ebpf::Helper>,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
-
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
@@ -127,8 +135,8 @@ impl<'a> EbpfVmMbuff<'a> {
             prog,
             verifier: verifier::check,
             #[cfg(not(windows))]
-            jit:      None,
-            helpers:  HashMap::new(),
+            jit: None,
+            helpers: HashMap::new(),
         })
     }
 
@@ -298,7 +306,10 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog {
             Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
         };
         self.jit = Some(jit::JitMemory::new(prog, &self.helpers, true, false)?);
         Ok(())
@@ -357,22 +368,35 @@ impl<'a> EbpfVmMbuff<'a> {
     /// }
     /// ```
     #[cfg(not(windows))]
-    pub unsafe fn execute_program_jit(&self, mem: &mut [u8], mbuff: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(
+        &self,
+        mem: &mut [u8],
+        mbuff: &'a mut [u8],
+    ) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => std::ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8
+            _ => mem.as_ptr() as *mut u8,
         };
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
         match &self.jit {
-            Some(jit) => Ok(jit.get_prog()(mbuff.as_ptr() as *mut u8, mbuff.len(), mem_ptr, mem.len(), 0, 0)),
-            None => Err(Error::new(ErrorKind::Other,
-                        "Error: program has not been JIT-compiled")),
+            Some(jit) => Ok(jit.get_prog()(
+                mbuff.as_ptr() as *mut u8,
+                mbuff.len(),
+                mem_ptr,
+                mem.len(),
+                0,
+                0,
+            )),
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: program has not been JIT-compiled",
+            )),
         }
     }
 }
@@ -446,11 +470,10 @@ impl<'a> EbpfVmMbuff<'a> {
 /// ```
 pub struct EbpfVmFixedMbuff<'a> {
     parent: EbpfVmMbuff<'a>,
-    mbuff:  MetaBuff,
+    mbuff: MetaBuff,
 }
 
 impl<'a> EbpfVmFixedMbuff<'a> {
-
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
@@ -470,19 +493,20 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     /// ```
-    pub fn new(prog: Option<&'a [u8]>, data_offset: usize, data_end_offset: usize) -> Result<EbpfVmFixedMbuff<'a>, Error> {
+    pub fn new(
+        prog: Option<&'a [u8]>,
+        data_offset: usize,
+        data_end_offset: usize,
+    ) -> Result<EbpfVmFixedMbuff<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
-        let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
+        let get_buff_len = |x: usize, y: usize| if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         let mbuff = MetaBuff {
             data_offset,
             data_end_offset,
             buffer,
         };
-        Ok(EbpfVmFixedMbuff {
-            parent,
-            mbuff,
-        })
+        Ok(EbpfVmFixedMbuff { parent, mbuff })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
@@ -517,8 +541,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x27);
     /// ```
-    pub fn set_program(&mut self, prog: &'a [u8], data_offset: usize, data_end_offset: usize) -> Result<(), Error> {
-        let get_buff_len = | x: usize, y: usize | if x >= y { x + 8 } else { y + 8 };
+    pub fn set_program(
+        &mut self,
+        prog: &'a [u8],
+        data_offset: usize,
+        data_end_offset: usize,
+    ) -> Result<(), Error> {
+        let get_buff_len = |x: usize, y: usize| if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
         self.mbuff.buffer = buffer;
         self.mbuff.data_offset = data_offset;
@@ -603,7 +632,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 3);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+    pub fn register_helper(
+        &mut self,
+        key: u32,
+        function: fn(u64, u64, u64, u64, u64) -> u64,
+    ) -> Result<(), Error> {
         self.parent.register_helper(key, function)
     }
 
@@ -644,8 +677,14 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
         }
-        LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_offset) .. ], mem.as_ptr() as u64);
-        LittleEndian::write_u64(&mut self.mbuff.buffer[(self.mbuff.data_end_offset) .. ], mem.as_ptr() as u64 + mem.len() as u64);
+        LittleEndian::write_u64(
+            &mut self.mbuff.buffer[(self.mbuff.data_offset)..],
+            mem.as_ptr() as u64,
+        );
+        LittleEndian::write_u64(
+            &mut self.mbuff.buffer[(self.mbuff.data_end_offset)..],
+            mem.as_ptr() as u64 + mem.len() as u64,
+        );
         self.parent.execute_program(mem, &self.mbuff.buffer)
     }
 
@@ -676,7 +715,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other, "Error: No program set, call prog_set() to load one"))?,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
         };
         self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, true, true)?);
         Ok(())
@@ -738,18 +780,22 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => std::ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8
+            _ => mem.as_ptr() as *mut u8,
         };
 
         match &self.parent.jit {
-            Some(jit) => Ok(jit.get_prog()(self.mbuff.buffer.as_ptr() as *mut u8,
-                                           self.mbuff.buffer.len(),
-                                           mem_ptr,
-                                           mem.len(),
-                                           self.mbuff.data_offset,
-                                           self.mbuff.data_end_offset)),
-            None => Err(Error::new(ErrorKind::Other,
-                                   "Error: program has not been JIT-compiled"))
+            Some(jit) => Ok(jit.get_prog()(
+                self.mbuff.buffer.as_ptr() as *mut u8,
+                self.mbuff.buffer.len(),
+                mem_ptr,
+                mem.len(),
+                self.mbuff.data_offset,
+                self.mbuff.data_end_offset,
+            )),
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: program has not been JIT-compiled",
+            )),
         }
     }
 }
@@ -782,7 +828,6 @@ pub struct EbpfVmRaw<'a> {
 }
 
 impl<'a> EbpfVmRaw<'a> {
-
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
@@ -801,9 +846,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmRaw<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
-         Ok(EbpfVmRaw {
-            parent,
-        })
+        Ok(EbpfVmRaw { parent })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
@@ -906,7 +949,11 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x10000000);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+    pub fn register_helper(
+        &mut self,
+        key: u32,
+        function: fn(u64, u64, u64, u64, u64) -> u64,
+    ) -> Result<(), Error> {
         self.parent.register_helper(key, function)
     }
 
@@ -958,10 +1005,17 @@ impl<'a> EbpfVmRaw<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
-            None => Err(Error::new(ErrorKind::Other,
-                        "Error: No program set, call prog_set() to load one"))?,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
         };
-        self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, false, false)?);
+        self.parent.jit = Some(jit::JitMemory::new(
+            prog,
+            &self.parent.helpers,
+            false,
+            false,
+        )?);
         Ok(())
     }
 
@@ -1053,7 +1107,6 @@ pub struct EbpfVmNoData<'a> {
 }
 
 impl<'a> EbpfVmNoData<'a> {
-
     /// Create a new virtual machine instance, and load an eBPF program into that instance.
     /// When attempting to load the program, it passes through a simple verifier.
     ///
@@ -1071,9 +1124,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmNoData<'a>, Error> {
         let parent = EbpfVmRaw::new(prog)?;
-        Ok(EbpfVmNoData {
-            parent,
-        })
+        Ok(EbpfVmNoData { parent })
     }
 
     /// Load a new eBPF program into the virtual machine instance.
@@ -1170,7 +1221,11 @@ impl<'a> EbpfVmNoData<'a> {
     /// let res = vm.execute_program().unwrap();
     /// assert_eq!(res, 0x1000);
     /// ```
-    pub fn register_helper(&mut self, key: u32, function: fn (u64, u64, u64, u64, u64) -> u64) -> Result<(), Error> {
+    pub fn register_helper(
+        &mut self,
+        key: u32,
+        function: fn(u64, u64, u64, u64, u64) -> u64,
+    ) -> Result<(), Error> {
         self.parent.register_helper(key, function)
     }
 
