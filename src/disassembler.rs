@@ -30,7 +30,7 @@ fn ld_st_imm_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} [r{}+{:#x}], {:#x}", insn.dst, insn.off, insn.imm)
     } else {
-        format!("{name} [r{}-{:#x}], {:#x}", insn.dst, -insn.off, insn.imm)
+        format!("{name} [r{}-{:#x}], {:#x}", insn.dst, -(insn.off as isize), insn.imm)
     }
 }
 
@@ -39,7 +39,7 @@ fn ld_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, [r{}+{:#x}]", insn.dst, insn.src, insn.off)
     } else {
-        format!("{name} r{}, [r{}-{:#x}]", insn.dst, insn.src, -insn.off)
+        format!("{name} r{}, [r{}-{:#x}]", insn.dst, insn.src, -(insn.off as isize))
     }
 }
 
@@ -48,7 +48,7 @@ fn st_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} [r{}+{:#x}], r{}", insn.dst, insn.off, insn.src)
     } else {
-        format!("{name} [r{}-{:#x}], r{}", insn.dst, -insn.off, insn.src)
+        format!("{name} [r{}-{:#x}], r{}", insn.dst, -(insn.off as isize), insn.src)
     }
 }
 
@@ -67,7 +67,7 @@ fn jmp_imm_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, {:#x}, +{:#x}", insn.dst, insn.imm, insn.off)
     } else {
-        format!("{name} r{}, {:#x}, -{:#x}", insn.dst, insn.imm, -insn.off)
+        format!("{name} r{}, {:#x}, -{:#x}", insn.dst, insn.imm, -(insn.off as isize))
     }
 }
 
@@ -76,7 +76,7 @@ fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, r{}, +{:#x}", insn.dst, insn.src, insn.off)
     } else {
-        format!("{name} r{}, r{}, -{:#x}", insn.dst, insn.src, -insn.off)
+        format!("{name} r{}, r{}, -{:#x}", insn.dst, insn.src, -(insn.off as isize))
     }
 }
 
