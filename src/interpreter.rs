@@ -12,14 +12,16 @@ use ebpf;
 
 fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
              mbuff: &[u8], mem: &[u8], stack: &[u8]) -> Result<(), Error> {
-    if mbuff.as_ptr() as u64 <= addr && addr + len as u64 <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
-        return Ok(())
-    }
-    if mem.as_ptr() as u64 <= addr && addr + len as u64 <= mem.as_ptr() as u64 + mem.len() as u64 {
-        return Ok(())
-    }
-    if stack.as_ptr() as u64 <= addr && addr + len as u64 <= stack.as_ptr() as u64 + stack.len() as u64 {
-        return Ok(())
+    if let Some(addr_end) = addr.checked_add(len as u64) {
+      if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
+          return Ok(())
+      }
+      if mem.as_ptr() as u64 <= addr && addr_end <= mem.as_ptr() as u64 + mem.len() as u64 {
+          return Ok(())
+      }
+      if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
+          return Ok(())
+      }
     }
 
     Err(Error::new(ErrorKind::Other, format!(
