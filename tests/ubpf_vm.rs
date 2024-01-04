@@ -1838,6 +1838,24 @@ fn test_vm_stdw() {
     assert_eq!(vm.execute_program(mem).unwrap(), 0x44332211);
 }
 
+// If this case is not handled properly in check_mem(), then we may overflow when adding the
+// context address and the offset, and make the thread panic with "attempt to add with overflow".
+// Check that we panic with the expected out-of-bounds error.
+#[test]
+#[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
+fn test_vm_stdw_add_overflow() {
+    let prog = assemble("
+        stdw [r2-0x1], 0x44332211
+        ldxw r0, [r1+2]
+        exit").unwrap();
+    let mem = &mut [
+        0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xcc, 0xdd
+    ];
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(&prog), 0x00, 0x10).unwrap();
+    _ = vm.execute_program(mem).unwrap();
+}
+
 #[test]
 fn test_vm_sth() {
     let prog = assemble("
