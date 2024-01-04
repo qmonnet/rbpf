@@ -440,6 +440,17 @@ fn test_vm_mod_by_zero_imm() {
     assert_eq!(vm.execute_program().unwrap(), 0x1);
 }
 
+// Make sure we only consider the last 32 bits of the divisor.
+#[test]
+fn test_vm_mod_by_zero_reg_long() {
+    let prog = assemble("
+        lddw r1, 0x100000000
+        mod32 r0, r1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
+}
+
 #[test]
 fn test_vm_div64_by_zero_reg() {
     let prog = assemble("
@@ -456,6 +467,17 @@ fn test_vm_div_by_zero_reg() {
     let prog = assemble("
         mov32 r0, 1
         mov32 r1, 0
+        div32 r0, r1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x0);
+}
+
+// Make sure we only consider the last 32 bits of the divisor.
+#[test]
+fn test_vm_div_by_zero_reg_long() {
+    let prog = assemble("
+        lddw r1, 0x100000000
         div32 r0, r1
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
