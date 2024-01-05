@@ -1599,14 +1599,87 @@ fn test_vm_le64() {
 }
 
 #[test]
+fn test_vm_lsh_imm() {
+    let prog = assemble("
+        mov r0, 1
+        lsh r0, 4
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x10);
+}
+
+#[test]
 fn test_vm_lsh_reg() {
     let prog = assemble("
-        mov r0, 0x1
+        mov r0, 1
         mov r7, 4
         lsh r0, r7
         exit").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 0x10);
+}
+
+#[test]
+fn test_vm_lsh32_imm() {
+    let prog = assemble("
+        mov32 r0, 1
+        lsh32 r0, 4
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x10);
+}
+
+#[test]
+fn test_vm_lsh32_reg() {
+    let prog = assemble("
+        mov32 r0, 1
+        mov32 r7, 4
+        lsh32 r0, r7
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x10);
+}
+
+#[test]
+fn test_vm_lsh_imm_overflow() {
+    let prog = assemble("
+        mov r0, 1
+        lsh r0, 64
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_lsh_reg_overflow() {
+    let prog = assemble("
+        mov r0, 1
+        mov r7, 64
+        lsh r0, r7
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_lsh32_imm_overflow() {
+    let prog = assemble("
+        mov32 r0, 1
+        lsh32 r0, 32
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
+}
+
+#[test]
+fn test_vm_lsh32_reg_overflow() {
+    let prog = assemble("
+        mov32 r0, 1
+        mov32 r7, 32
+        lsh32 r0, r7
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x1);
 }
 
 #[test]
