@@ -286,8 +286,8 @@ pub fn execute_program(prog_: Option<&[u8]>, mem: &[u8], mbuff: &[u8], helpers: 
             ebpf::XOR64_REG  => reg[_dst] ^= reg[_src],
             ebpf::MOV64_IMM  => reg[_dst] =  insn.imm  as u64,
             ebpf::MOV64_REG  => reg[_dst] =  reg[_src],
-            ebpf::ARSH64_IMM => reg[_dst] = (reg[_dst] as i64 >> insn.imm)  as u64,
-            ebpf::ARSH64_REG => reg[_dst] = (reg[_dst] as i64 >> reg[_src]) as u64,
+            ebpf::ARSH64_IMM => reg[_dst] = (reg[_dst] as i64 >> (insn.imm as u64 & SHIFT_MASK_64))  as u64,
+            ebpf::ARSH64_REG => reg[_dst] = (reg[_dst] as i64 >> (reg[_src] as u64 & SHIFT_MASK_64)) as u64,
 
             // BPF_JMP class
             // TODO: check this actually works as expected for signed / unsigned ops
