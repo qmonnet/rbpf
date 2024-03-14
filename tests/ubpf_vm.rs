@@ -195,6 +195,52 @@ fn test_vm_arsh_reg() {
 }
 
 #[test]
+fn test_vm_arsh_imm_overflow() {
+    let prog = assemble("
+        mov r0, 1
+        lsh r0, 63
+        arsh r0, 0xff20
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0xffffffff80000000);
+}
+
+#[test]
+fn test_vm_arsh_reg_overflow() {
+    let prog = assemble("
+        mov r0, 1
+        lsh r0, 63
+        mov r1, 0xff04
+        arsh r0, r1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0xf800000000000000);
+}
+
+#[test]
+fn test_vm_arsh32_imm_overflow() {
+    let prog = assemble("
+        mov32 r0, 1
+        lsh32 r0, 31
+        arsh32 r0, 0xff10
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0xffff8000);
+}
+
+#[test]
+fn test_vm_arsh32_reg_overflow() {
+    let prog = assemble("
+        mov32 r0, 1
+        lsh32 r0, 31
+        mov32 r1, 32
+        arsh32 r0, r1
+        exit").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x80000000);
+}
+
+#[test]
 fn test_vm_be16() {
     let prog = assemble("
         ldxh r0, [r1]
