@@ -5,7 +5,6 @@
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 //      (Translation to Rust, MetaBuff addition)
 
-use std;
 use std::mem;
 use std::collections::HashMap;
 use std::fmt::Formatter;
