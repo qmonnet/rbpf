@@ -64,7 +64,7 @@ mod stdlib {
 
 use byteorder::{ByteOrder, LittleEndian};
 use stdlib::collections::HashMap;
-use stdlib::collections::Vec;
+use stdlib::vec::Vec;
 use stdlib::u32;
 use stdlib::{Error, ErrorKind};
 

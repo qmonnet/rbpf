@@ -3,7 +3,6 @@ pub mod without_std {
     use alloc::string::String;
     pub use core::u32;
     pub use core::u64;
-
     // Adapt this with whatever printing functionality your host OS requires.
 
     /// Dummy implementation of Error for no std.
