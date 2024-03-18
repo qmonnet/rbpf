@@ -68,19 +68,19 @@ use stdlib::vec::Vec;
 use stdlib::u32;
 use stdlib::{Error, ErrorKind};
 
-#[cfg(std)]
+#[cfg(feature = "std")]
 mod asm_parser;
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub mod assembler;
 #[cfg(feature = "cranelift")]
 mod cranelift;
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub mod disassembler;
 pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
-#[cfg(jit)]
+#[cfg(feature = "jit")]
 mod jit;
 mod verifier;
 
@@ -142,7 +142,7 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog: Option<&'a [u8]>,
     verifier: Verifier,
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     jit: Option<jit::JitMemory<'a>>,
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
@@ -173,7 +173,7 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(EbpfVmMbuff {
             prog,
             verifier: verifier::check,
-            #[cfg(jit)]
+            #[cfg(feature = "jit")]
             jit: None,
             #[cfg(feature = "cranelift")]
             cranelift_prog: None,
@@ -343,7 +343,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog {
             Some(prog) => prog,
@@ -398,17 +398,17 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// vm.jit_compile();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem, &mut mbuff).unwrap();
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub unsafe fn execute_program_jit(
         &self,
         mem: &mut [u8],
@@ -859,7 +859,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
@@ -908,11 +908,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM. Note that we provide the start and end offsets for mem pointers.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// vm.jit_compile();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0xdd);
@@ -920,7 +920,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -1264,7 +1264,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
@@ -1310,16 +1310,16 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// vm.jit_compile();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
@@ -1579,7 +1579,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         self.parent.jit_compile()
     }
@@ -1628,16 +1628,16 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// vm.jit_compile();
     ///
-    /// # #[cfg(jit)]
+    /// # #[cfg(feature = "jit")]
     /// unsafe {
     ///     let res = vm.execute_program_jit().unwrap();
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    #[cfg(jit)]
+    #[cfg(feature = "jit")]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
     }

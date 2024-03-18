@@ -42,7 +42,7 @@ fn main() {
                     println!("JIT not supported on Windows");
                     return;
                 }
-                #[cfg(jit)] {
+                #[cfg(feature = "jit")] {
                     jit = true;
                 }
             },
@@ -97,7 +97,7 @@ fn main() {
             println!("JIT not supported on Windows");
             return;
         }
-        #[cfg(jit)] {
+        #[cfg(feature = "jit")] {
             unsafe {
                 vm.jit_compile().unwrap();
                 result = vm.execute_program_jit(&mut memory).unwrap();
