@@ -43,7 +43,11 @@ json = "0.11"
 hex = "0.4.3"
 
 [features]
-default = []
+default = ["std", "jit"]
+jit = []
+std = []
+alloc = []
+
 cranelift = [
     "dep:cranelift-codegen",
     "dep:cranelift-frontend",
