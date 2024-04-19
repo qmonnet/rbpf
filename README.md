@@ -688,8 +688,8 @@ details.
   such as in `mov r0, 0x1337`), by Rich Lane for Big Switch Networks (2015)
 
 * [_Building a simple JIT in
-  Rust_](http://www.jonathanturner.org/2015/12/building-a-simple-jit-in-rust.html),
-  by Jonathan Turner (2015)
+  Rust_](https://www.sophiajt.com/building-a-simple-jit-in-rust),
+  by Sophia Turner (2015)
 
 * [bpfjit](https://github.com/polachok/bpfjit) (also [on
   crates.io](https://crates.io/crates/bpfjit)), a Rust crate exporting the cBPF
