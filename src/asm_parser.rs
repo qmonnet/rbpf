@@ -8,10 +8,13 @@
 
 use combine::parser::char::{alpha_num, char, digit, hex_digit, spaces, string};
 use combine::stream::position::{self};
+#[cfg(feature = "std")]
+use combine::EasyParser;
 use combine::{
-    attempt, between, eof, many, many1, one_of, optional, sep_by, EasyParser, ParseError, Parser,
-    Stream,
+    attempt, between, eof, many, many1, one_of, optional, sep_by, ParseError, Parser, Stream,
 };
+
+use crate::lib::*;
 
 /// Operand of an instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,19 +100,30 @@ where
 ///
 /// The instructions are not validated and may have invalid names and operand types.
 pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
-    match spaces()
-        .with(many(instruction()).skip(eof()))
-        .easy_parse(position::Stream::new(input))
+    let mut with = spaces().with(many(instruction()).skip(eof()));
+
+    #[cfg(feature = "std")]
     {
-        Ok((insts, _)) => Ok(insts),
-        Err(err) => Err(err.to_string()),
+        match with.easy_parse(position::Stream::new(input)) {
+            Ok((insts, _)) => Ok(insts),
+            Err(err) => Err(err.to_string()),
+        }
     }
+    #[cfg(not(feature = "std"))]
+    {
+        match with.parse(position::Stream::new(input)) {
+            Ok((insts, _)) => Ok(insts),
+            Err(err) => Err(err.to_string()),
+        }
+    }
+
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::{ident, instruction, integer, operand, parse, register, Instruction, Operand};
+    use crate::lib::*;
     use combine::Parser;
 
     // Unit tests for the different kinds of parsers.
@@ -566,26 +580,49 @@ exit
         );
     }
 
+    /// When running without `std` the `EasyParser` provided by `combine`
+    /// cannot be used. Because of this we need to use the `Parser` and the
+    /// error messages are different.
     #[test]
     fn test_error_eof() {
+        let expected_error;
+        #[cfg(feature = "std")] {
+            expected_error = Err(
+                "Parse error at line: 1, column: 6\nUnexpected end of input\nExpected digit\n".to_string()
+            );
+        }
+        #[cfg(not(feature = "std"))] {
+            expected_error = Err(
+                "unexpected parse".to_string()
+            );
+        }
         // Unexpected end of input in a register name.
         assert_eq!(
             parse("lsh r"),
-            Err(
-                "Parse error at line: 1, column: 6\nUnexpected end of input\nExpected digit\n"
-                    .to_string()
-            )
+            expected_error
         );
     }
 
+    /// When running without `std` the `EasyParser` provided by `combine`
+    /// cannot be used. Because of this we need to use the `Parser` and the
+    /// error messages are different.
     #[test]
     fn test_error_unexpected_character() {
+        let expected_error;
+        #[cfg(feature = "std")] {
+            expected_error = Err(
+                "Parse error at line: 2, column: 1\nUnexpected `^`\nExpected letter or digit, whitespaces, `r`, `-`, `+`, `[` or end of input\n".to_string()
+            );
+        }
+        #[cfg(not(feature = "std"))] {
+            expected_error = Err(
+                "unexpected parse".to_string()
+            );
+        }
         // Unexpected character at end of input.
         assert_eq!(
             parse("exit\n^"),
-            Err(
-                "Parse error at line: 2, column: 1\nUnexpected `^`\nExpected letter or digit, whitespaces, `r`, `-`, `+`, `[` or end of input\n".to_string()
-            )
+            expected_error
         );
     }
 

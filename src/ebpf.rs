@@ -15,6 +15,7 @@
 //! the list of the operation codes: <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
 
 use byteorder::{ByteOrder, LittleEndian};
+use crate::lib::*;
 
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 1000000;

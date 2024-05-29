@@ -19,8 +19,9 @@
 
 extern crate rbpf;
 
-use std::io::{Error, ErrorKind};
+use rbpf::lib::{Error, ErrorKind};
 use rbpf::assembler::assemble;
+#[cfg(feature = "std")]
 use rbpf::helpers;
 
 // The following two examples have been compiled from C with the following command:
@@ -90,6 +91,7 @@ use rbpf::helpers;
 // instead.
 
 #[test]
+#[cfg(feature = "std")]
 fn test_vm_block_port() {
     // To load the bytecode from an object file instead of using the hardcoded instructions,
     // use the additional crates commented at the beginning of this file (and also add them to your
@@ -170,8 +172,8 @@ fn test_vm_block_port() {
     assert_eq!(res, 0xffffffff);
 }
 
-#[cfg(all(not(windows), feature = "std"))]
 #[test]
+#[cfg(all(not(windows), feature = "std"))]
 fn test_jit_block_port() {
     // To load the bytecode from an object file instead of using the hardcoded instructions,
     // use the additional crates commented at the beginning of this file (and also add them to your
@@ -309,8 +311,8 @@ fn test_vm_mbuff_with_rust_api() {
 }
 
 // Program and memory come from uBPF test ldxh.
-#[cfg(all(not(windows), feature = "std"))]
 #[test]
+#[cfg(all(not(windows), feature = "std"))]
 fn test_jit_mbuff() {
     let prog = &[
         // Load mem from mbuff into R1
