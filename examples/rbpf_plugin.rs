@@ -38,11 +38,11 @@ fn main() {
                 return;
             },
             "--jit" => {
-                #[cfg(windows)] {
-                    println!("JIT not supported on Windows");
+                #[cfg(any(windows, not(feature = "std")))] {
+                    println!("JIT not supported");
                     return;
                 }
-                #[cfg(not(windows))] {
+                #[cfg(all(not(windows), feature = "std"))] {
                     jit = true;
                 }
             },
@@ -93,11 +93,11 @@ fn main() {
 
     let result : u64;
     if jit {
-        #[cfg(windows)] {
-            println!("JIT not supported on Windows");
+        #[cfg(any(windows, not(feature = "std")))] {
+            println!("JIT not supported");
             return;
         }
-        #[cfg(not(windows))] {
+        #[cfg(all(not(windows), feature = "std"))] {
             unsafe {
                 vm.jit_compile().unwrap();
                 result = vm.execute_program_jit(&mut memory).unwrap();

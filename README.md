@@ -306,10 +306,10 @@ fn main() {
     // directly reads from packet data)
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
 
-    #[cfg(windows)] {
+    #[cfg(any(windows, not(feature = "std")))] {
         assert_eq!(vm.execute_program(mem).unwrap(), 0x11);
     }
-    #[cfg(not(windows))] {
+    #[cfg(all(not(windows), feature = "std"))] {
         // This time we JIT-compile the program.
         vm.jit_compile().unwrap();
 
@@ -352,10 +352,10 @@ fn main() {
     // This eBPF VM is for program that use a metadata buffer.
     let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
 
-    #[cfg(windows)] {
+    #[cfg(any(windows, not(feature = "std")))] {
         assert_eq!(vm.execute_program(mem, mbuff).unwrap(), 0x2211);
     }
-    #[cfg(not(windows))] {
+    #[cfg(all(not(windows), feature = "std"))] {
         // Here again we JIT-compile the program.
         vm.jit_compile().unwrap();
 
