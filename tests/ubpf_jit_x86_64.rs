@@ -17,7 +17,7 @@
 // These are unit tests for the eBPF JIT compiler.
 
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
-#![cfg(not(windows))]
+#![cfg(all(not(windows), feature = "std"))]
 
 extern crate rbpf;
 mod common;
