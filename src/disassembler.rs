@@ -4,7 +4,12 @@
 //! Functions in this module are used to handle eBPF programs with a higher level representation,
 //! for example to disassemble the code into a human-readable format.
 
+use log::warn;
+#[cfg(not(feature = "std"))]
+use log::info;
+
 use ebpf;
+use crate::lib::*;
 
 #[inline]
 fn alu_imm_str(name: &str, insn: &ebpf::Insn) -> String {
@@ -20,7 +25,7 @@ fn alu_reg_str(name: &str, insn: &ebpf::Insn) -> String {
 fn byteswap_str(name: &str, insn: &ebpf::Insn) -> String {
     match insn.imm {
         16 | 32 | 64 => {},
-        _ => println!("[Disassembler] Warning: Invalid offset value for {name} insn")
+        _ => warn!("[Disassembler] Warning: Invalid offset value for {name} insn")
     }
     format!("{name}{} r{}", insn.imm, insn.dst)
 }
@@ -384,7 +389,14 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
 /// exit
 /// ```
 pub fn disassemble(prog: &[u8]) {
-    for insn in to_insn_vec(prog) {
-        println!("{}", insn.desc);
+    #[cfg(feature = "std")] {
+        for insn in to_insn_vec(prog) {
+            println!("{}", insn.desc);
+        }
+    }
+    #[cfg(not(feature = "std"))] {
+        for insn in to_insn_vec(prog) {
+            info!("{}", insn.desc);
+        }
     }
 }

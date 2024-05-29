@@ -26,10 +26,17 @@
         unreadable_literal
     )
 )]
+// Configures the crate to be `no_std` when `std` feature is disabled.
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate byteorder;
 extern crate combine;
+#[cfg(feature = "std")]
 extern crate time;
+extern crate log;
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 #[cfg(feature = "cranelift")]
 extern crate cranelift_codegen;
@@ -43,9 +50,7 @@ extern crate cranelift_module;
 extern crate cranelift_native;
 
 use byteorder::{ByteOrder, LittleEndian};
-use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
-use std::u32;
+use crate::lib::*;
 
 mod asm_parser;
 pub mod assembler;
@@ -59,6 +64,60 @@ mod interpreter;
 #[cfg(all(not(windows), feature = "std"))]
 mod jit;
 mod verifier;
+#[cfg(not(feature = "std"))]
+mod no_std_error;
+
+/// Reexports all the types needed from the `std`, `core`, and `alloc`
+/// crates. This avoids elaborate import wrangling having to happen in every
+/// module. Inspired by the design used in `serde`.
+pub mod lib {
+    mod core {
+        #[cfg(not(feature = "std"))]
+        pub use core::*;
+        #[cfg(feature = "std")]
+        pub use std::*;
+    }
+
+    pub use self::core::convert::TryInto;
+    pub use self::core::mem;
+    pub use self::core::mem::ManuallyDrop;
+    pub use self::core::ptr;
+
+    pub use self::core::{u32, u64, f64};
+
+    #[cfg(feature = "std")]
+    pub use std::println;
+
+    #[cfg(not(feature = "std"))]
+    pub use alloc::vec;
+    #[cfg(not(feature = "std"))]
+    pub use alloc::vec::Vec;
+    #[cfg(feature = "std")]
+    pub use std::vec::Vec;
+
+    #[cfg(not(feature = "std"))]
+    pub use alloc::string::{String, ToString};
+    #[cfg(feature = "std")]
+    pub use std::string::{String, ToString};
+
+    // In no_std we cannot use randomness for hashing, thus we need to use
+    // BTree-based implementations of Maps and Sets. The cranelift module uses
+    // BTrees by default, hence we need to expose it twice here.
+    #[cfg(not(feature = "std"))]
+    pub use alloc::collections::{BTreeMap as HashMap, BTreeMap, BTreeSet as HashSet, BTreeSet};
+    #[cfg(feature = "std")]
+    pub use std::collections::{BTreeMap, HashMap, HashSet};
+
+    /// In no_std we use a custom implementation of the error which acts as a
+    /// replacement for the io Error.
+    #[cfg(not(feature = "std"))]
+    pub use crate::no_std_error::{Error, ErrorKind};
+    #[cfg(feature = "std")]
+    pub use std::io::{Error, ErrorKind};
+
+    #[cfg(not(feature = "std"))]
+    pub use alloc::format;
+}
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
 ///
@@ -189,7 +248,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::io::{Error, ErrorKind};
+    /// use rbpf::lib::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
@@ -253,6 +312,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Register a helper.
     /// // On running the program this helper will print the content of registers r3, r4 and r5 to
     /// // standard output.
+    /// # #[cfg(feature = "std")]
     /// vm.register_helper(6, helpers::bpf_trace_printf).unwrap();
     /// ```
     pub fn register_helper(&mut self, key: u32, function: Helper) -> Result<(), Error> {
@@ -506,7 +566,7 @@ impl<'a> EbpfVmMbuff<'a> {
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => std::ptr::null_mut(),
+            0 => ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8,
         };
 
@@ -687,7 +747,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::io::{Error, ErrorKind};
+    /// use rbpf::lib::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
@@ -724,37 +784,39 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// #[cfg(feature = "std")] {
+    ///     use rbpf::helpers;
     ///
-    /// // This program was compiled with clang, from a C program containing the following single
-    /// // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
-    /// let prog = &[
-    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
-    ///     0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
-    ///     0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
-    ///     0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
-    ///     0x2d, 0x12, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 6 instructions
-    ///     0x71, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r1
-    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
-    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
-    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
-    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
-    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
-    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
-    /// ];
+    ///     // This program was compiled with clang, from a C program containing the following single
+    ///     // instruction: `return bpf_trace_printk("foo %c %c %c\n", 10, 1, 2, 3);`
+    ///     let prog = &[
+    ///         0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///         0x79, 0x12, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem from r1[0x40] to r2
+    ///         0x07, 0x02, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // add r2, 5
+    ///         0x79, 0x11, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, // load mem_end from r1[0x50] to r1
+    ///         0x2d, 0x12, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, // if r2 > r1 skip 6 instructions
+    ///         0x71, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // load r2 (= *(mem + 5)) into r1
+    ///         0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///         0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///         0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///         0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///         0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    ///     ];
     ///
-    /// let mem = &mut [
-    ///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x09,
-    /// ];
+    ///     let mem = &mut [
+    ///         0xaa, 0xbb, 0x11, 0x22, 0xcc, 0x09,
+    ///     ];
     ///
-    /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    ///     // Instantiate a VM.
+    ///     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     ///
-    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
-    /// vm.register_helper(1, helpers::sqrti);
+    ///     // Register a helper. This helper will store the result of the square root of r1 into r0.
+    ///     vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.execute_program(mem).unwrap();
-    /// assert_eq!(res, 3);
+    ///     let res = vm.execute_program(mem).unwrap();
+    ///     assert_eq!(res, 3);
+    /// }
     /// ```
     pub fn register_helper(
         &mut self,
@@ -903,7 +965,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => std::ptr::null_mut(),
+            0 => ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8,
         };
 
@@ -1005,7 +1067,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => std::ptr::null_mut(),
+            0 => ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8,
         };
 
@@ -1126,7 +1188,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::io::{Error, ErrorKind};
+    /// use rbpf::lib::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
@@ -1163,30 +1225,32 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// #[cfg(feature = "std")] {
+    ///     use rbpf::helpers;
     ///
-    /// let prog = &[
-    ///     0x79, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r1, r1[0x00]
-    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
-    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
-    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
-    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
-    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
-    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
-    /// ];
+    ///     let prog = &[
+    ///         0x79, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r1, r1[0x00]
+    ///         0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///         0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///         0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///         0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///         0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    ///     ];
     ///
-    /// let mem = &mut [
-    ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
-    /// ];
+    ///     let mem = &mut [
+    ///         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+    ///     ];
     ///
-    /// // Instantiate a VM.
-    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    ///     // Instantiate a VM.
+    ///     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     ///
-    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
-    /// vm.register_helper(1, helpers::sqrti);
+    ///     // Register a helper. This helper will store the result of the square root of r1 into r0.
+    ///     vm.register_helper(1, helpers::sqrti);
     ///
-    /// let res = vm.execute_program(mem).unwrap();
-    /// assert_eq!(res, 0x10000000);
+    ///     let res = vm.execute_program(mem).unwrap();
+    ///     assert_eq!(res, 0x10000000);
+    /// }
     /// ```
     pub fn register_helper(
         &mut self,
@@ -1471,7 +1535,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::io::{Error, ErrorKind};
+    /// use rbpf::lib::{Error, ErrorKind};
     /// use rbpf::ebpf;
     ///
     /// // Define a simple verifier function.
@@ -1508,25 +1572,27 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// use rbpf::helpers;
+    /// #[cfg(feature = "std")] {
+    ///     use rbpf::helpers;
     ///
-    /// let prog = &[
-    ///     0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // mov r1, 0x010000000
-    ///     0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
-    ///     0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
-    ///     0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
-    ///     0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
-    ///     0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
-    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
-    /// ];
+    ///     let prog = &[
+    ///         0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // mov r1, 0x010000000
+    ///         0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r2, 0
+    ///         0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r3, 0
+    ///         0xb7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r4, 0
+    ///         0xb7, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r5, 0
+    ///         0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call helper with key 1
+    ///         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    ///     ];
     ///
-    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    ///     let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
-    /// // Register a helper. This helper will store the result of the square root of r1 into r0.
-    /// vm.register_helper(1, helpers::sqrti).unwrap();
+    ///     // Register a helper. This helper will store the result of the square root of r1 into r0.
+    ///     vm.register_helper(1, helpers::sqrti).unwrap();
     ///
-    /// let res = vm.execute_program().unwrap();
-    /// assert_eq!(res, 0x1000);
+    ///     let res = vm.execute_program().unwrap();
+    ///     assert_eq!(res, 0x1000);
+    /// }
     /// ```
     pub fn register_helper(
         &mut self,

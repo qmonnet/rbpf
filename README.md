@@ -447,9 +447,12 @@ fn main() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
 
     // We register a helper function, that can be called by the program, into
-    // the VM.
-    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX,
-                       helpers::bpf_trace_printf).unwrap();
+    // the VM. The `bpf_trace_printf` is only available when we have access to
+    // the standard library.
+    #[cfg(feature = "std")] {
+        vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX,
+                           helpers::bpf_trace_printf).unwrap();
+    }
 
     // This kind of VM takes a reference to the packet data, but does not need
     // any reference to the metadata buffer: a fixed buffer is handled
@@ -479,7 +482,9 @@ let prog = assemble("add64 r1, 0x605
                      neg64 r2
                      exit").unwrap();
 
-println!("{:?}", prog);
+#[cfg(feature = "std")] {
+    println!("{:?}", prog);
+}
 ```
 
 The above snippet will produce:

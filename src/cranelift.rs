@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    convert::TryInto,
-    io::ErrorKind,
-    mem::ManuallyDrop,
-};
-
 use cranelift_codegen::{
     entity::EntityRef,
     ir::{
@@ -26,6 +19,7 @@ use crate::ebpf::{
     self, Insn, BPF_ALU_OP_MASK, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32, BPF_JNE,
     BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE, BPF_IND,
 };
+use crate::lib::*;
 
 use super::Error;
 
@@ -1197,7 +1191,7 @@ impl CraneliftProgram {
     /// module, since it's not guaranteed to be valid after the module is dropped.
     pub(crate) fn get_main_function(&self) -> JittedFunction {
         let function_ptr = self.module.get_finalized_function(self.main_id);
-        unsafe { std::mem::transmute(function_ptr) }
+        unsafe { mem::transmute(function_ptr) }
     }
 
     /// Execute this module by calling the main function
