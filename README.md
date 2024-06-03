@@ -17,6 +17,7 @@ Rust (user-space) virtual machine for eBPF
 * [API](#api)
 * [Example uses](#example-uses)
 * [Building eBPF programs](#building-ebpf-programs)
+* [Build Features](#build-features)
 * [Feedback welcome!](#feedback-welcome)
 * [Questions / Answers](#questions--answers)
 * [Caveats](#caveats)
@@ -554,6 +555,30 @@ program.add(Source::Imm, Arch::X64).set_dst(1).set_imm(0x605).push()
 
 Again, please refer to [the source and related tests](src/insn_builder.rs) to
 get more information and examples on how to use it.
+
+## Build features
+
+### `no_std`
+
+The `rbpf` crate has a Cargo feature named "std" that is enabled by default. To
+use `rbpf` in `no_std` environments this feature needs to be disabled. To do
+this, you need to modify your dependency on `rbpf` in Cargo.toml to disable the
+enabled-by-default features.
+
+```toml
+[dependencies]
+rbpf = { version = "1.0", default-features = false }
+```
+
+Note that when using this crate in `no_std` environments, the `jit` module
+isn't available. This is because it depends on functions provided by `libc`
+(`libc::posix_memalign()`, `libc::mprotect()`) which aren't available on
+`no_std`.
+
+The `assembler` module is available, albeit with reduced debugging features. It
+depends on the `combine` crate providing parser combinators. Under `no_std`
+this crate only provides simple parsers which generate less descriptive error
+messages.
 
 ## Feedback welcome!
 
