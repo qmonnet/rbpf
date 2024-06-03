@@ -17,11 +17,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        toolchain: [stable, beta, nightly]
+        features: [--all-features]
         include:
-          - toolchain: stable
-          - toolchain: beta
           - toolchain: nightly
-
+            features: --no-default-features
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -33,12 +33,12 @@ jobs:
           override: true
           components: clippy
 
-      - name: Build with ${{ matrix.toolchain }}
+      - name: Build with ${{ matrix.toolchain }}, ${{ matrix.features }}
         run: |
           cargo +${{ matrix.toolchain }} build \
-              --release --all-features --all-targets
+              --release ${{ matrix.features }} --all-targets
 
-      - name: Test with ${{ matrix.toolchain }}
+      - name: Test with ${{ matrix.toolchain }}, ${{ matrix.features }}
         run: |
           if [[ "${{ matrix.toolchain }}" == 'nightly' ]]; then
               export RUSTDOCFLAGS='-Zsanitizer=address'
@@ -47,7 +47,7 @@ jobs:
           fi
           cargo +${{ matrix.toolchain }} test \
               --target=x86_64-unknown-linux-gnu \
-              --all-features
+              ${{ matrix.features }}
 
       - name: Lint with ${{ matrix.toolchain }}
         run: |
