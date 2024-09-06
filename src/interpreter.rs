@@ -9,16 +9,19 @@ use ebpf;
 use crate::lib::*;
 
 fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
-             mbuff: &[u8], mem: &[u8], stack: &[u8]) -> Result<(), Error> {
+             mbuff: &[u8], mem: &[u8], stack: &[u8], allowed_memory: &HashSet<u64>) -> Result<(), Error> {
     if let Some(addr_end) = addr.checked_add(len as u64) {
       if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
-          return Ok(())
+          return Ok(());
       }
       if mem.as_ptr() as u64 <= addr && addr_end <= mem.as_ptr() as u64 + mem.len() as u64 {
-          return Ok(())
+          return Ok(());
       }
       if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
-          return Ok(())
+          return Ok(());
+      }
+      if allowed_memory.contains(&addr) {
+          return Ok(());
       }
     }
 
@@ -33,7 +36,13 @@ fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
 
 #[allow(unknown_lints)]
 #[allow(cyclomatic_complexity)]
-pub fn execute_program(prog_: Option<&[u8]>, mem: &[u8], mbuff: &[u8], helpers: &HashMap<u32, ebpf::Helper>) -> Result<u64, Error> {
+pub fn execute_program(
+    prog_: Option<&[u8]>,
+    mem: &[u8],
+    mbuff: &[u8],
+    helpers: &HashMap<u32, ebpf::Helper>,
+    allowed_memory: &HashSet<u64>,
+) -> Result<u64, Error> {
     const U32MAX: u64 = u32::MAX as u64;
     const SHIFT_MASK_64: u64 = 0x3f;
 
@@ -56,10 +65,10 @@ pub fn execute_program(prog_: Option<&[u8]>, mem: &[u8], mbuff: &[u8], helpers: 
     }
 
     let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-        check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack)
+        check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack, allowed_memory)
     };
     let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-        check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack)
+        check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack, allowed_memory)
     };
 
     // Loop on instructions
