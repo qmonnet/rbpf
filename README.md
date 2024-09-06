@@ -210,6 +210,16 @@ useful for programs that should be compatible with the Linux kernel and
 therefore must use specific helper numbers.
 
 ```rust,ignore
+pub fn register_allowed_memory(&mut self,, addr: &[u64]) -> ()
+```
+
+This function adds a list of memory addresses that the eBPF program is allowed
+to load and store. Multiple calls to this function will append the addresses to
+an internal HashSet. At the moment rbpf only validates memory accesses when 
+using the interpreter. This function is useful when using kernel helpers which
+return pointers to objects stored in eBPF maps.
+
+```rust,ignore
 // for struct EbpfVmMbuff
 pub fn execute_program(&self,
                  mem: &'a mut [u8],

@@ -78,3 +78,6 @@ name = "to_json"
 
 [[example]]
 name = "rbpf_plugin"
+
+[[example]]
+name = "allowed_memory"

@@ -182,6 +182,7 @@ pub struct EbpfVmMbuff<'a> {
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
     helpers: HashMap<u32, ebpf::Helper>,
+    allowed_memory: HashSet<u64>,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
@@ -213,6 +214,7 @@ impl<'a> EbpfVmMbuff<'a> {
             #[cfg(feature = "cranelift")]
             cranelift_prog: None,
             helpers: HashMap::new(),
+            allowed_memory: HashSet::new(),
         })
     }
 
@@ -320,6 +322,46 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
+    /// Register a set of addresses that the eBPF program is allowed to load and store.
+    ///
+    /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
+    /// to structs that the eBPF program needs to interact with. By default rbpf only allows the
+    /// program to interact with its stack, the memory buffer and the program itself, making it
+    /// impossible to supply functional implementations of these helpers.
+    /// This option allows you to pass in a list of addresses that rbpf will allow the program
+    /// to load and store to. Given Rust's memory model you will always know these addresses up
+    /// front when implementing the helpers.
+    ///
+    /// Each invocation of this method will append to the set of allowed addresses.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::iter::FromIterator;
+    /// use std::ptr::addr_of;
+    ///
+    /// struct MapValue {
+    ///     data: u8
+    /// }        
+    /// static VALUE: MapValue = MapValue { data: 1 };
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let start = addr_of!(VALUE) as u64;
+    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
+    /// vm.register_allowed_memory(&addrs);
+    /// ```
+    pub fn register_allowed_memory(&mut self, addrs: &[u64]) -> () {
+        for i in addrs {
+            self.allowed_memory.insert(*i);
+        }
+    }
+
     /// Execute the program loaded, with the given packet data and metadata buffer.
     ///
     /// If the program is made to be compatible with Linux kernel, it is expected to load the
@@ -357,7 +399,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// assert_eq!(res, 0x2211);
     /// ```
     pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
-        interpreter::execute_program(self.prog, mem, mbuff, &self.helpers)
+        interpreter::execute_program(self.prog, mem, mbuff, &self.helpers, &self.allowed_memory)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -826,6 +868,44 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register an object that the eBPF program is allowed to load and store.
+    ///
+    /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
+    /// to structs that the eBPF program needs to interact with. By default rbpf only allows the
+    /// program to interact with its stack, the memory buffer and the program itself, making it
+    /// impossible to supply functional implementations of these helpers.
+    /// This option allows you to pass in a list of addresses that rbpf will allow the program
+    /// to load and store to. Given Rust's memory model you will always know these addresses up
+    /// front when implementing the helpers.
+    ///
+    /// Each invocation of this method will append to the set of allowed addresses.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::iter::FromIterator;
+    /// use std::ptr::addr_of;
+    ///
+    /// struct MapValue {
+    ///     data: u8
+    /// }        
+    /// static VALUE: MapValue = MapValue { data: 1 };
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let start = addr_of!(VALUE) as u64;
+    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
+    /// vm.register_allowed_memory(&addrs);
+    /// ```
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+        self.parent.register_allowed_memory(allowed)
+    }
+
     /// Execute the program loaded, with the given packet data.
     ///
     /// If the program is made to be compatible with Linux kernel, it is expected to load the
@@ -1260,6 +1340,44 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register an object that the eBPF program is allowed to load and store.
+    ///
+    /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
+    /// to structs that the eBPF program needs to interact with. By default rbpf only allows the
+    /// program to interact with its stack, the memory buffer and the program itself, making it
+    /// impossible to supply functional implementations of these helpers.
+    /// This option allows you to pass in a list of addresses that rbpf will allow the program
+    /// to load and store to. Given Rust's memory model you will always know these addresses up
+    /// front when implementing the helpers.
+    ///
+    /// Each invocation of this method will append to the set of allowed addresses.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::iter::FromIterator;
+    /// use std::ptr::addr_of;
+    ///
+    /// struct MapValue {
+    ///     data: u8
+    /// }        
+    /// static VALUE: MapValue = MapValue { data: 1 };
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let start = addr_of!(VALUE) as u64;
+    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
+    /// vm.register_allowed_memory(&addrs);
+    /// ```
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+        self.parent.register_allowed_memory(allowed)
+    }
+
     /// Execute the program loaded, with the given packet data.
     ///
     /// # Examples
@@ -1600,6 +1718,44 @@ impl<'a> EbpfVmNoData<'a> {
         function: fn(u64, u64, u64, u64, u64) -> u64,
     ) -> Result<(), Error> {
         self.parent.register_helper(key, function)
+    }
+
+    /// Register an object that the eBPF program is allowed to load and store.
+    ///
+    /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
+    /// to structs that the eBPF program needs to interact with. By default rbpf only allows the
+    /// program to interact with its stack, the memory buffer and the program itself, making it
+    /// impossible to supply functional implementations of these helpers.
+    /// This option allows you to pass in a list of addresses that rbpf will allow the program
+    /// to load and store to. Given Rust's memory model you will always know these addresses up
+    /// front when implementing the helpers.
+    ///
+    /// Each invocation of this method will append to the set of allowed addresses.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::iter::FromIterator;
+    /// use std::ptr::addr_of;
+    ///
+    /// struct MapValue {
+    ///     data: u8
+    /// }        
+    /// static VALUE: MapValue = MapValue { data: 1 };
+    ///
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let start = addr_of!(VALUE) as u64;
+    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
+    /// vm.register_allowed_memory(&addrs);
+    /// ```
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+        self.parent.register_allowed_memory(allowed)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
