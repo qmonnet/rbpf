@@ -1,0 +1,7 @@
+[package]
+name = "ebpf-classifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aya-ebpf = "0.1.0"

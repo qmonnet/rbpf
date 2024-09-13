@@ -8,14 +8,7 @@ use std::{iter::FromIterator, ptr::addr_of};
 
 extern crate rbpf;
 
-// The following example uses an ELF file that was compiled from the ebpf-allowed-memory.rs file
-// It is built using the [aya framework](https://aya-rs.dev/).
-// Once the aya dependencies (rust-nightly, latest llvm and latest bpf-linker) are installed, it
-// can be compiled via
-//
-// ```bash
-// cargo build --target=bpfel-unknown-none -Z build-std=core
-// ```
+const OBJ_FILE_PATH: &str = "examples/allowed_memory/target/bpfel-unknown-none/release/ebpf-classifier";
 
 const BPF_MAP_LOOKUP_ELEM_IDX: u32 = 1;
 
@@ -41,7 +34,7 @@ fn bpf_lookup_elem(_map: u64, key_addr: u64, _flags: u64, _u4: u64, _u5: u64) ->
 }
 
 fn main() {
-    let file = elf::File::open_path("examples/allowed-memory.o").unwrap();
+    let file = elf::File::open_path(OBJ_FILE_PATH).unwrap();
     let func = file.get_section("classifier").unwrap();
 
     let mut vm = rbpf::EbpfVmNoData::new(Some(&func.data)).unwrap();
