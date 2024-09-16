@@ -19,7 +19,7 @@
 // Contrary to the verifier of the Linux kernel, this one does not modify the bytecode at all.
 
 
-use ebpf;
+use crate::ebpf;
 use crate::lib::*;
 
 fn reject<S: AsRef<str>>(msg: S) -> Result<(), Error> {

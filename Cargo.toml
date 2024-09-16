@@ -11,6 +11,7 @@ repository = "https://github.com/qmonnet/rbpf"
 readme = "README.md"
 keywords = ["BPF", "eBPF", "interpreter", "JIT", "filtering"]
 license = "Apache-2.0/MIT"
+edition = "2021"
 
 # Packaging directives
 include = [

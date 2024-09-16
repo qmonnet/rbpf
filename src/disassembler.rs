@@ -8,7 +8,7 @@ use log::warn;
 #[cfg(not(feature = "std"))]
 use log::info;
 
-use ebpf;
+use crate::ebpf;
 use crate::lib::*;
 
 #[inline]

@@ -3,7 +3,7 @@
 
 //! Module provides API to create eBPF programs by Rust programming language
 
-use ebpf::*;
+use crate::ebpf::*;
 use crate::lib::*;
 
 /// Represents single eBPF instruction
