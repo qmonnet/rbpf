@@ -3,7 +3,7 @@
 # Project metadata
 name = "rbpf"
 version = "0.2.0"
-authors = ["Quentin <quentin@isovalent.com>"]
+authors = ["Quentin Monnet <qmo@qmon.net>"]
 
 # Additional metadata for packaging
 description = "Virtual machine and JIT compiler for eBPF programs"
