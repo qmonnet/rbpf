@@ -2,7 +2,7 @@
 
 # Project metadata
 name = "rbpf"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Quentin Monnet <qmo@qmon.net>"]
 
 # Additional metadata for packaging
