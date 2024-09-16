@@ -3,12 +3,12 @@
 
 //! This module translates eBPF assembly language to binary.
 
-use asm_parser::{Instruction, Operand, parse};
-use ebpf;
-use ebpf::Insn;
+use crate::asm_parser::{Instruction, Operand, parse};
+use crate::asm_parser::Operand::{Integer, Memory, Register, Nil};
+use crate::ebpf;
+use crate::ebpf::Insn;
 use self::InstructionType::{AluBinary, AluUnary, LoadAbs, LoadInd, LoadImm, LoadReg, StoreImm,
                             StoreReg, JumpUnconditional, JumpConditional, Call, Endian, NoOperand};
-use asm_parser::Operand::{Integer, Memory, Register, Nil};
 use crate::lib::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

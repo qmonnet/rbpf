@@ -5,7 +5,7 @@
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 //      (Translation to Rust, MetaBuff/multiple classes addition, hashmaps for helpers)
 
-use ebpf;
+use crate::ebpf;
 use crate::lib::*;
 
 #[allow(clippy::too_many_arguments)]

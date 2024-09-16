@@ -16,7 +16,7 @@ use std::io::{Error, ErrorKind};
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
-use ebpf;
+use crate::ebpf;
 
 extern crate libc;
 
