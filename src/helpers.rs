@@ -16,9 +16,6 @@
 //! value. Hence some helpers have unused arguments, or return a 0 value in all cases, in order to
 //! respect this convention.
 
-#[cfg(feature = "std")]
-extern crate libc;
-
 use crate::lib::*;
 
 // Helpers associated to kernel helpers
@@ -243,30 +240,39 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
 /// Returns a random u64 value comprised between `min` and `max` values (inclusive). Arguments 3 to
 /// 5 are unused.
 ///
-/// Relies on `rand()` function from libc, so `libc::srand()` should be called once before this
-/// helper is used.
-///
-/// # Examples
-///
-/// ```
-/// extern crate libc;
-/// extern crate rbpf;
-/// extern crate time;
-///
-/// unsafe {
-///     libc::srand(time::precise_time_ns() as u32)
-/// }
-///
-/// let n = rbpf::helpers::rand(3, 6, 0, 0, 0);
-/// assert!(3 <= n && n <= 6);
-/// ```
+/// This does not rely on `libc::rand()` and therefore can be called without `libc::srand()`.
 #[allow(dead_code)]
 #[allow(unused_variables)]
 #[cfg(feature = "std")]
 pub fn rand (min: u64, max: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
-    let mut n = unsafe {
-        (libc::rand() as u64).wrapping_shl(32) + libc::rand() as u64
-    };
+    use std::cell::Cell;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::thread;
+    use std::time::Instant;
+
+    // Constants for WyRand taken from: https://github.com/wangyi-fudan/wyhash/blob/master/wyhash.h#L151
+    const WY_CONST_0: u64 = 0x2d35_8dcc_aa6c_78a5;
+    const WY_CONST_1: u64 = 0x8bb8_4b93_962e_acc9;
+
+    std::thread_local! {
+        static RNG: Cell<u64> = {
+            // Seed the RNG with the thread ID and the current time.
+            let mut hasher = DefaultHasher::new();
+            Instant::now().hash(&mut hasher);
+            thread::current().id().hash(&mut hasher);
+            Cell::new(hasher.finish())
+        };
+    }
+
+    // Run one round of WyRand.
+    let mut n = RNG.with(|rng| {
+        let s = rng.get().wrapping_add(WY_CONST_0);
+        rng.set(s);
+        let t = u128::from(s) * u128::from(s ^ WY_CONST_1);
+        (t as u64) ^ (t >> 64) as u64
+    });
+
     if min < max {
         n = n % (max + 1 - min) + min;
     };
