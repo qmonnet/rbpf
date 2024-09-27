@@ -5,12 +5,14 @@
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 //      (Translation to Rust, MetaBuff addition)
 
+use std::alloc;
 use std::mem;
 use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::fmt::Error as FormatterError;
 use std::io::{Error, ErrorKind};
 use std::ops::{Index, IndexMut};
+use std::ptr;
 
 use ebpf;
 
@@ -931,10 +933,8 @@ impl JitCompiler {
                 let offset_loc = jump.offset_loc as i32 + std::mem::size_of::<i32>() as i32;
                 let rel = &(target_loc as i32 - offset_loc) as *const i32;
 
-                let offset_ptr = mem.contents.as_ptr().add(jump.offset_loc);
-
-                libc::memcpy(offset_ptr as *mut libc::c_void, rel as *const libc::c_void,
-                             std::mem::size_of::<i32>());
+                let offset_ptr = mem.contents.as_ptr().add(jump.offset_loc) as *mut u8;
+                ptr::copy_nonoverlapping(rel.cast::<u8>(), offset_ptr, std::mem::size_of::<i32>());
             }
         }
         Ok(())
@@ -943,25 +943,37 @@ impl JitCompiler {
 
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
+    layout: alloc::Layout,
     offset:   usize,
 }
 
 impl<'a> JitMemory<'a> {
     pub fn new(prog: &[u8], helpers: &HashMap<u32, ebpf::Helper>, use_mbuff: bool,
                update_data_ptr: bool) -> Result<JitMemory<'a>, Error> {
-        let contents: &mut[u8];
-        let mut raw: mem::MaybeUninit<*mut libc::c_void> = mem::MaybeUninit::uninit();
-        unsafe {
+        let layout;
+
+        // Allocate the appropriately sized memory.
+        let contents = unsafe {
+            // Create a layout with the proper size and alignment.
             let size = NUM_PAGES * PAGE_SIZE;
-            libc::posix_memalign(raw.as_mut_ptr(), PAGE_SIZE, size);
-            libc::mprotect(*raw.as_mut_ptr(), size, libc::PROT_EXEC | libc::PROT_READ | libc::PROT_WRITE);
-            std::ptr::write_bytes(*raw.as_mut_ptr(), 0xc3, size);  // for now, prepopulate with 'RET' calls
-            contents = std::slice::from_raw_parts_mut(*raw.as_mut_ptr() as *mut u8, NUM_PAGES * PAGE_SIZE);
-            raw.assume_init();
-        }
+            layout = alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE);
+
+            // Allocate the region of memory.
+            let ptr = alloc::alloc(layout);
+            if ptr.is_null() {
+                return Err(Error::from(std::io::ErrorKind::OutOfMemory));
+            }
+
+            // Protect it.
+            libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
+
+            // Convert to a slice.
+            std::slice::from_raw_parts_mut(ptr, size)
+        };
 
         let mut mem = JitMemory {
             contents,
+            layout,
             offset: 0,
         };
 
@@ -994,7 +1006,7 @@ impl<'a> IndexMut<usize> for JitMemory<'a> {
 impl<'a> Drop for JitMemory<'a> {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.contents.as_mut_ptr() as *mut libc::c_void);
+            alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
         }
     }
 }
