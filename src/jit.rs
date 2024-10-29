@@ -943,7 +943,7 @@ impl JitCompiler {
 
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
-    layout: alloc::Layout,
+    layout:   alloc::Layout,
     offset:   usize,
 }
 

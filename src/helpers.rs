@@ -239,8 +239,6 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
 
 /// Returns a random u64 value comprised between `min` and `max` values (inclusive). Arguments 3 to
 /// 5 are unused.
-///
-/// This does not rely on `libc::rand()` and therefore can be called without `libc::srand()`.
 #[allow(dead_code)]
 #[allow(unused_variables)]
 #[cfg(feature = "std")]
