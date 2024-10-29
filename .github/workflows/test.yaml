@@ -49,9 +49,9 @@ jobs:
               --target=x86_64-unknown-linux-gnu \
               ${{ matrix.features }}
 
-      - name: Lint with ${{ matrix.toolchain }}
+      - name: Lint with ${{ matrix.toolchain }}, ${{ matrix.features }}
         run: |
-          cargo +${{ matrix.toolchain }} clippy
+          cargo +${{ matrix.toolchain }} clippy ${{ matrix.features }}
 
   conformance_and_coverage:
     name: Check eBPF conformance and code coverage
