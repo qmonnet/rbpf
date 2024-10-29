@@ -5,6 +5,8 @@
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 //      (Translation to Rust, MetaBuff addition)
 
+#![allow(clippy::single_match)]
+
 use std::alloc;
 use std::mem;
 use std::collections::HashMap;

@@ -10,19 +10,6 @@
 )]
 // Test examples from README.md as part as doc tests.
 #![doc = include_str!("../README.md")]
-#![warn(missing_docs)]
-// There are unused mut warnings due to unsafe code.
-#![allow(unused_mut)]
-// Allows old-style clippy
-#![allow(renamed_and_removed_lints)]
-#![allow(
-    clippy::redundant_field_names,
-    clippy::single_match,
-    clippy::cast_lossless,
-    clippy::doc_markdown,
-    clippy::match_same_arms,
-    clippy::unreadable_literal
-)]
 // Configures the crate to be `no_std` when `std` feature is disabled.
 #![cfg_attr(not(feature = "std"), no_std)]
 

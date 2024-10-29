@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 
-// There are unused mut warnings due to unsafe code.
-#![allow(unused_mut)]
-#![allow(clippy::unreadable_literal)]
-
 // This crate would be needed to load bytecode from a BPF-compiled object file. Since the crate
 // is not used anywhere else in the library, it is deactivated: we do not want to load and compile
 // it just for the tests. If you want to use it, do not forget to add the following
