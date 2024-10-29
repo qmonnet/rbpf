@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 // Copyright 2017 Rich Lane <lanerl@gmail.com>
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
+#![allow(clippy::unreadable_literal)]
 
 extern crate rbpf;
 mod common;

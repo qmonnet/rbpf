@@ -15,16 +15,13 @@
 #![allow(unused_mut)]
 // Allows old-style clippy
 #![allow(renamed_and_removed_lints)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(
-        redundant_field_names,
-        single_match,
-        cast_lossless,
-        doc_markdown,
-        match_same_arms,
-        unreadable_literal
-    )
+#![allow(
+    clippy::redundant_field_names,
+    clippy::single_match,
+    clippy::cast_lossless,
+    clippy::doc_markdown,
+    clippy::match_same_arms,
+    clippy::unreadable_literal
 )]
 // Configures the crate to be `no_std` when `std` feature is disabled.
 #![cfg_attr(not(feature = "std"), no_std)]

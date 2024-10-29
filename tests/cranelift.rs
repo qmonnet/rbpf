@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
+#![allow(clippy::unreadable_literal)]
 #![cfg(feature = "cranelift")]
 
 extern crate rbpf;

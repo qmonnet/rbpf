@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 // Copyright 2024 Akenes SA <wouter.dullaert@exoscale.ch>
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::unreadable_literal))]
+#![allow(clippy::unreadable_literal)]
 
 extern crate elf;
 use std::{iter::FromIterator, ptr::addr_of};

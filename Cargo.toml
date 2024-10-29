@@ -49,7 +49,6 @@ hex = "0.4.3"
 
 [features]
 default = ["std"]
-cargo-clippy = []
 std = ["dep:time", "dep:libc", "combine/std"]
 cranelift = [
     "dep:cranelift-codegen",
