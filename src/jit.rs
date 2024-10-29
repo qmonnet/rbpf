@@ -83,7 +83,7 @@ macro_rules! emit_bytes {
         let size = mem::size_of::<$t>() as usize;
         assert!($mem.offset + size <= $mem.contents.len());
         unsafe {
-            let mut ptr = $mem.contents.as_ptr().add($mem.offset) as *mut $t;
+            let ptr = $mem.contents.as_ptr().add($mem.offset) as *mut $t;
             ptr.write_unaligned($data);
         }
         $mem.offset += size;
@@ -276,7 +276,7 @@ impl JitCompiler {
 
     // Load sign-extended immediate into register
     fn emit_load_imm(&self, mem: &mut JitMemory, dst: u8, imm: i64) {
-        if imm >= std::i32::MIN as i64 && imm <= std::i32::MAX as i64 {
+        if imm >= i32::MIN as i64 && imm <= i32::MAX as i64 {
             self.emit_alu64_imm32(mem, 0xc7, 0, dst, imm as i32);
         } else {
             // movabs $imm,dst
@@ -989,7 +989,7 @@ impl<'a> JitMemory<'a> {
     }
 }
 
-impl<'a> Index<usize> for JitMemory<'a> {
+impl Index<usize> for JitMemory<'_> {
     type Output = u8;
 
     fn index(&self, _index: usize) -> &u8 {
@@ -997,13 +997,13 @@ impl<'a> Index<usize> for JitMemory<'a> {
     }
 }
 
-impl<'a> IndexMut<usize> for JitMemory<'a> {
+impl IndexMut<usize> for JitMemory<'_> {
     fn index_mut(&mut self, _index: usize) -> &mut u8 {
         &mut self.contents[_index]
     }
 }
 
-impl<'a> Drop for JitMemory<'a> {
+impl Drop for JitMemory<'_> {
     fn drop(&mut self) {
         unsafe {
             alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
@@ -1011,7 +1011,7 @@ impl<'a> Drop for JitMemory<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for JitMemory<'a> {
+impl std::fmt::Debug for JitMemory<'_> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
         fmt.write_str("JIT contents: [")?;
         fmt.write_str(" ] | ")?;

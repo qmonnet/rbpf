@@ -273,8 +273,8 @@ fn test_vm_mbuff() {
 
     let mbuff = [0u8; 32];
     unsafe {
-        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
         data.write_unaligned(mem.as_ptr() as u64);
         data_end.write_unaligned(mem.as_ptr() as u64 + mem.len() as u64);
     }
@@ -300,8 +300,8 @@ fn test_vm_mbuff_with_rust_api() {
 
     let mbuff = [0u8; 32];
     unsafe {
-        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
         *data     = mem.as_ptr() as u64;
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
@@ -327,8 +327,8 @@ fn test_jit_mbuff() {
 
     let mut mbuff = [0u8; 32];
     unsafe {
-        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
+        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
         *data     = mem.as_ptr() as u64;
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }

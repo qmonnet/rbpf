@@ -80,10 +80,10 @@ impl CraneliftCompiler {
             jit_builder.symbol(name, (*v) as usize as *const u8);
         }
 
-        let mut module = JITModule::new(jit_builder);
+        let module = JITModule::new(jit_builder);
 
         let registers = (0..11)
-            .map(|i| Variable::new(i))
+            .map(Variable::new)
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
