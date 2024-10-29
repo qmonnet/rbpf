@@ -43,8 +43,6 @@ fn check_mem(
     )))
 }
 
-#[allow(unknown_lints)]
-#[allow(cyclomatic_complexity)]
 pub fn execute_program(
     prog_: Option<&[u8]>,
     mem: &[u8],
@@ -147,25 +145,21 @@ pub fn execute_program(
 
             // BPF_LDX class
             ebpf::LD_B_REG   => reg[_dst] = unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize);
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_H_REG   => reg[_dst] = unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u16;
                 check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_W_REG   => reg[_dst] = unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u32;
                 check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_DW_REG  => reg[_dst] = unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u64;
                 check_mem_load(x as u64, 8, insn_ptr)?;
                 x.read_unaligned()
@@ -178,19 +172,16 @@ pub fn execute_program(
                 x.write_unaligned(insn.imm as u8);
             },
             ebpf::ST_H_IMM   => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u16;
                 check_mem_store(x as u64, 2, insn_ptr)?;
                 x.write_unaligned(insn.imm as u16);
             },
             ebpf::ST_W_IMM   => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
                 check_mem_store(x as u64, 4, insn_ptr)?;
                 x.write_unaligned(insn.imm as u32);
             },
             ebpf::ST_DW_IMM  => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(insn.imm as u64);
@@ -203,19 +194,16 @@ pub fn execute_program(
                 x.write_unaligned(reg[_src] as u8);
             },
             ebpf::ST_H_REG   => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u16;
                 check_mem_store(x as u64, 2, insn_ptr)?;
                 x.write_unaligned(reg[_src] as u16);
             },
             ebpf::ST_W_REG   => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
                 check_mem_store(x as u64, 4, insn_ptr)?;
                 x.write_unaligned(reg[_src] as u32);
             },
             ebpf::ST_DW_REG  => unsafe {
-                #[allow(clippy::cast_ptr_alignment)]
                 let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(reg[_src]);

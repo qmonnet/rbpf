@@ -16,8 +16,6 @@
 
 // These are unit tests for the eBPF interpreter.
 
-#![allow(clippy::unreadable_literal)]
-
 extern crate rbpf;
 mod common;
 
