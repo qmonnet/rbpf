@@ -16,6 +16,7 @@
 //! value. Hence some helpers have unused arguments, or return a 0 value in all cases, in order to
 //! respect this convention.
 
+#[cfg(feature = "std")]
 use crate::lib::*;
 
 // Helpers associated to kernel helpers
@@ -150,7 +151,7 @@ pub fn gather_bytes (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u
 pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     for i in 0..len {
         unsafe {
-            let mut p = (ptr + i) as *mut u8;
+            let p = (ptr + i) as *mut u8;
             *p ^= 0b101010;
         }
     }

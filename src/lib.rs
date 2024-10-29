@@ -80,7 +80,7 @@ pub mod lib {
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
 
-    pub use self::core::{f64, u32, u64};
+    pub use self::core::f64;
 
     #[cfg(feature = "std")]
     pub use std::println;
@@ -353,7 +353,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
     /// vm.register_allowed_memory(&addrs);
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs: &[u64]) -> () {
+    pub fn register_allowed_memory(&mut self, addrs: &[u64]) {
         for i in addrs {
             self.allowed_memory.insert(*i);
         }
@@ -547,7 +547,7 @@ impl<'a> EbpfVmMbuff<'a> {
             ))?,
         };
 
-        let mut compiler = CraneliftCompiler::new(self.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.helpers.clone());
         let program = compiler.compile_function(prog)?;
 
         self.cranelift_prog = Some(program);
@@ -899,7 +899,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
     /// vm.register_allowed_memory(&addrs);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
         self.parent.register_allowed_memory(allowed)
     }
 
@@ -1097,7 +1097,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             ))?,
         };
 
-        let mut compiler = CraneliftCompiler::new(self.parent.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.parent.helpers.clone());
         let program = compiler.compile_function(prog)?;
 
         self.parent.cranelift_prog = Some(program);
@@ -1371,7 +1371,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
     /// vm.register_allowed_memory(&addrs);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
         self.parent.register_allowed_memory(allowed)
     }
 
@@ -1511,7 +1511,7 @@ impl<'a> EbpfVmRaw<'a> {
             ))?,
         };
 
-        let mut compiler = CraneliftCompiler::new(self.parent.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.parent.helpers.clone());
         let program = compiler.compile_function(prog)?;
 
         self.parent.cranelift_prog = Some(program);
@@ -1751,7 +1751,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
     /// vm.register_allowed_memory(&addrs);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) -> () {
+    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
         self.parent.register_allowed_memory(allowed)
     }
 

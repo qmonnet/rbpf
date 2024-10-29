@@ -8,8 +8,17 @@
 use ebpf;
 use crate::lib::*;
 
-fn check_mem(addr: u64, len: usize, access_type: &str, insn_ptr: usize,
-             mbuff: &[u8], mem: &[u8], stack: &[u8], allowed_memory: &HashSet<u64>) -> Result<(), Error> {
+#[allow(clippy::too_many_arguments)]
+fn check_mem(
+    addr: u64,
+    len: usize,
+    access_type: &str,
+    insn_ptr: usize,
+    mbuff: &[u8],
+    mem: &[u8],
+    stack: &[u8],
+    allowed_memory: &HashSet<u64>
+) -> Result<(), Error> {
     if let Some(addr_end) = addr.checked_add(len as u64) {
       if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
           return Ok(());
@@ -139,7 +148,7 @@ pub fn execute_program(
             // BPF_LDX class
             ebpf::LD_B_REG   => reg[_dst] = unsafe {
                 #[allow(clippy::cast_ptr_alignment)]
-                let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u8;
+                let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize);
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
