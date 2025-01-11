@@ -90,6 +90,12 @@ pub fn execute_program(
             insn_ptr = (insn_ptr as i16 + insn.off) as usize;
         };
 
+        macro_rules! unsigned_u64 {
+            ($imm:expr) => {
+                ($imm as u32) as u64
+            };
+        }
+
         match insn.opc {
 
             // BPF_LD class
@@ -298,20 +304,22 @@ pub fn execute_program(
 
             // BPF_JMP class
             // TODO: check this actually works as expected for signed / unsigned ops
+            // J-EQ, J-NE, J-GT, J-GE, J-LT, J-LE: unsigned
+            // JS-GT, JS-GE, JS-LT, JS-LE: signed
             ebpf::JA         =>                                             do_jump(),
-            ebpf::JEQ_IMM    => if  reg[_dst] == insn.imm as u64          { do_jump(); },
+            ebpf::JEQ_IMM    => if  reg[_dst] == unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JEQ_REG    => if  reg[_dst] == reg[_src]                { do_jump(); },
-            ebpf::JGT_IMM    => if  reg[_dst] >  insn.imm as u64          { do_jump(); },
+            ebpf::JGT_IMM    => if  reg[_dst] >  unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JGT_REG    => if  reg[_dst] >  reg[_src]                { do_jump(); },
-            ebpf::JGE_IMM    => if  reg[_dst] >= insn.imm as u64          { do_jump(); },
+            ebpf::JGE_IMM    => if  reg[_dst] >= unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JGE_REG    => if  reg[_dst] >= reg[_src]                { do_jump(); },
-            ebpf::JLT_IMM    => if  reg[_dst] <  insn.imm as u64          { do_jump(); },
+            ebpf::JLT_IMM    => if  reg[_dst] <  unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JLT_REG    => if  reg[_dst] <  reg[_src]                { do_jump(); },
-            ebpf::JLE_IMM    => if  reg[_dst] <= insn.imm as u64          { do_jump(); },
+            ebpf::JLE_IMM    => if  reg[_dst] <= unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JLE_REG    => if  reg[_dst] <= reg[_src]                { do_jump(); },
             ebpf::JSET_IMM   => if  reg[_dst] &  insn.imm as u64 != 0     { do_jump(); },
             ebpf::JSET_REG   => if  reg[_dst] &  reg[_src]       != 0     { do_jump(); },
-            ebpf::JNE_IMM    => if  reg[_dst] != insn.imm as u64          { do_jump(); },
+            ebpf::JNE_IMM    => if  reg[_dst] != unsigned_u64!(insn.imm)  { do_jump(); },
             ebpf::JNE_REG    => if  reg[_dst] != reg[_src]                { do_jump(); },
             ebpf::JSGT_IMM   => if  reg[_dst] as i64  >  insn.imm  as i64 { do_jump(); },
             ebpf::JSGT_REG   => if  reg[_dst] as i64  >  reg[_src] as i64 { do_jump(); },
