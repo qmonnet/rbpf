@@ -770,6 +770,38 @@ fn test_vm_jset_imm() {
 }
 
 #[test]
+fn test_vm_jmp_unsigned_extend() {
+    use rbpf::ebpf::{Insn, BE, EXIT, JEQ_IMM, MOV32_IMM, LD_W_REG};
+
+    // the insn `jeq r2, 0x80000000, +2` will be rejected
+    assert!(assemble("jeq r2, 0x80000000, +2").is_err());
+    // the prog is as follows:
+    //    ldxw r2, [r1]
+    //    be32 r2
+    //    jeq r2, 0x80000000, +2 # 0x80000000 should be interpreted as 0x0000000080000000 (unsigned)
+    //    mov32 r0, 2
+    //    exit
+    //    mov32 r0, 1
+    //    exit
+    // we build it manually to bypass the verifier in `assemble(...)`
+    let insns = vec![
+        Insn { opc: LD_W_REG, dst: 2, src: 1, off: 0, imm: 0 }, 
+        Insn { opc: BE, dst: 2, src: 0, off: 0, imm: 32 }, 
+        Insn { opc: JEQ_IMM, dst: 2, src: 0, off: 2, imm: 0x80000000u32 as i32 }, 
+        Insn { opc: MOV32_IMM, dst: 0, src: 0, off: 0, imm: 2 }, 
+        Insn { opc: EXIT, dst: 0, src: 0, off: 0, imm: 0 }, 
+        Insn { opc: MOV32_IMM, dst: 0, src: 0, off: 0, imm: 1 }, 
+        Insn { opc: EXIT, dst: 0, src: 0, off: 0, imm: 0 }
+    ];
+    let prog = insns.iter().map(|x| x.to_array()).flatten().collect::<Vec<u8>>();
+    let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    let mut data = vec![
+        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ];
+    assert_eq!(vm.execute_program(&mut data).unwrap(), 1);
+}
+
+#[test]
 fn test_vm_jset_reg() {
     let prog = assemble("
         mov32 r0, 0
