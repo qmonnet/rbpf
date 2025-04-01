@@ -17,6 +17,10 @@
 use byteorder::{ByteOrder, LittleEndian};
 use crate::lib::*;
 
+/// The default stack size for the eBPF program if there is some bpf to bpf calls.
+pub const RBPF_EBPF_LOCAL_FUNCTION_STACK_SIZE: u16 = 256;
+/// Maximum number of bpf to bpf call depth.
+pub const RBPF_MAX_CALL_DEPTH: usize = 8;
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 1000000;
 /// Size of an eBPF instructions, in bytes.

@@ -19,7 +19,8 @@
 extern crate rbpf;
 mod common;
 
-use rbpf::helpers;
+use rbpf::insn_builder::{Arch, Instruction, IntoBytes, Source};
+use rbpf::{helpers, insn_builder::BpfCode};
 use rbpf::assembler::assemble;
 use common::{TCP_SACK_ASM, TCP_SACK_MATCH, TCP_SACK_NOMATCH};
 
@@ -2225,6 +2226,19 @@ fn test_vm_stxw() {
     ];
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x44332211);
+}
+
+#[test]
+fn test_bpf_to_bpf_call(){
+    let mut program = BpfCode::new();
+    program.mov(Source::Imm, Arch::X64).set_dst(0x1).set_imm(0xff).push()
+    .call().set_src(1).set_imm(1).push()
+    .mov(Source::Imm, Arch::X64).set_dst(0x2).set_imm(0x1).push()
+    .mov(Source::Imm, Arch::X64).set_dst(0).set_imm(0xf).push()
+    .exit().push();
+    let prog = program.into_bytes();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0xf);
 }
 
 #[test]

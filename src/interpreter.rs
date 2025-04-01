@@ -6,7 +6,9 @@
 //      (Translation to Rust, MetaBuff/multiple classes addition, hashmaps for helpers)
 
 use crate::ebpf;
+use crate::ebpf::RBPF_MAX_CALL_DEPTH;
 use crate::lib::*;
+use crate::stack::{StackFrame, StackUsage};
 
 #[allow(clippy::too_many_arguments)]
 fn check_mem(
@@ -45,6 +47,7 @@ fn check_mem(
 
 pub fn execute_program(
     prog_: Option<&[u8]>,
+    stack_usage: Option<&StackUsage>,
     mem: &[u8],
     mbuff: &[u8],
     helpers: &HashMap<u32, ebpf::Helper>,
@@ -53,13 +56,14 @@ pub fn execute_program(
     const U32MAX: u64 = u32::MAX as u64;
     const SHIFT_MASK_64: u64 = 0x3f;
 
-    let prog = match prog_ {
-        Some(prog) => prog,
+    let (prog,stack_usage) = match prog_ {
+        Some(prog) => (prog, stack_usage.unwrap()),
         None => Err(Error::new(ErrorKind::Other,
                     "Error: No program set, call prog_set() to load one"))?,
     };
     let stack = vec![0u8;ebpf::STACK_SIZE];
-
+    let mut stacks = [StackFrame::new();RBPF_MAX_CALL_DEPTH];
+    let mut stack_frame_idx = 0;
     // R1 points to beginning of memory area, R10 to stack
     let mut reg: [u64;11] = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
@@ -82,6 +86,11 @@ pub fn execute_program(
     let mut insn_ptr:usize = 0;
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
+        if stack_frame_idx < RBPF_MAX_CALL_DEPTH{
+            if let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
+                stacks[stack_frame_idx].set_stack_usage(usage);
+            }
+        }
         insn_ptr += 1;
         let _dst = insn.dst as usize;
         let _src = insn.src as usize;
@@ -356,13 +365,43 @@ pub fn execute_program(
 
             // Do not delegate the check to the verifier, since registered functions can be
             // changed after the program has been verified.
-            ebpf::CALL       => if let Some(function) = helpers.get(&(insn.imm as u32)) {
-                reg[0] = function(reg[1], reg[2], reg[3], reg[4], reg[5]);
-            } else {
-                Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
-            },
+            ebpf::CALL       => {
+                match _src {
+                    // Call helper function
+                    0 => {
+                        if let Some(function) = helpers.get(&(insn.imm as u32)) {
+                            reg[0] = function(reg[1], reg[2], reg[3], reg[4], reg[5]);
+                        } else {
+                            Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
+                        }
+                    }
+                    // BPF To BPF call
+                    1 => {
+                        if stack_frame_idx >= RBPF_MAX_CALL_DEPTH {
+                            Err(Error::new(ErrorKind::Other, format!("Error: too many nested calls (max: {RBPF_MAX_CALL_DEPTH})")))?;
+                        }
+                        stacks[stack_frame_idx].save_registers(&reg[6..=9]);
+                        stacks[stack_frame_idx].save_return_address(insn_ptr);
+                        reg[10] -= stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
+                        stack_frame_idx += 1;
+                        insn_ptr += insn.imm as usize;
+                    }
+                    _ => {
+                        Err(Error::new(ErrorKind::Other, format!("Error: invalid call to function #{:?} (insn #{insn_ptr:?})", insn.imm)))?;
+                    }
+                }
+            }
             ebpf::TAIL_CALL  => unimplemented!(),
-            ebpf::EXIT       => return Ok(reg[0]),
+            ebpf::EXIT       => {
+                if stack_frame_idx > 0 {
+                    stack_frame_idx -= 1;
+                    reg[6..=9].copy_from_slice(&stacks[stack_frame_idx].get_registers());
+                    insn_ptr = stacks[stack_frame_idx].get_return_address();
+                    reg[10] += stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
+                } else {
+                    return Ok(reg[0]);
+                }
+            }
 
             _                => unreachable!()
         }

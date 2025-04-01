@@ -248,7 +248,21 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::JSLE_IMM32 => { check_jmp_offset(prog, insn_ptr)?; },
             ebpf::JSLE_REG32 => { check_jmp_offset(prog, insn_ptr)?; },
 
-            ebpf::CALL       => {},
+            ebpf::CALL       => {
+                let src = insn.src;
+                match src {
+                    0 => {
+                        if insn.imm < 0 { reject(format!("invalid call to function #{:?} (insn #{insn_ptr:?})", insn.imm))?; }
+                    }
+                    1 => {
+                        let dst_insn_ptr = insn_ptr as isize + 1 + insn.imm as isize;
+                        if dst_insn_ptr < 0 || dst_insn_ptr as usize >= (prog.len() / ebpf::INSN_SIZE) {
+                            reject(format!("call out of code to #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
+                        }
+                    }
+                    _ => { reject(format!("invalid call to function #{:?} (insn #{insn_ptr:?})", insn.imm))?; }
+                }
+            },
             ebpf::TAIL_CALL  => { unimplemented!() },
             ebpf::EXIT       => {},
 

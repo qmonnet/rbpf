@@ -35,6 +35,7 @@ extern crate cranelift_native;
 
 use crate::lib::*;
 use byteorder::{ByteOrder, LittleEndian};
+use stack::{StackUsage, StackVerifier};
 
 mod asm_parser;
 pub mod assembler;
@@ -45,6 +46,7 @@ pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
+mod stack;
 #[cfg(all(not(windows), feature = "std"))]
 mod jit;
 #[cfg(not(feature = "std"))]
@@ -66,7 +68,7 @@ pub mod lib {
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
-
+    pub use core::any::Any;
     pub use self::core::f64;
 
     #[cfg(feature = "std")]
@@ -115,6 +117,9 @@ pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 
 /// eBPF helper function.
 pub type Helper = fn(u64, u64, u64, u64, u64) -> u64;
+
+/// eBPF stack usage calculator function.
+pub type StackUsageCalculator = fn(prog:&[u8], pc:usize, data:&mut dyn Any) -> u16;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
@@ -167,6 +172,8 @@ pub struct EbpfVmMbuff<'a> {
     cranelift_prog: Option<cranelift::CraneliftProgram>,
     helpers: HashMap<u32, ebpf::Helper>,
     allowed_memory: HashSet<u64>,
+    stack_usage: Option<StackUsage>,
+    stack_verifier: StackVerifier,
 }
 
 impl<'a> EbpfVmMbuff<'a> {
@@ -186,9 +193,13 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     /// ```
     pub fn new(prog: Option<&'a [u8]>) -> Result<EbpfVmMbuff<'a>, Error> {
-        if let Some(prog) = prog {
+        let mut stack_verifier = StackVerifier::new(None, None);
+        let stack_usage = if let Some(prog) = prog {
             verifier::check(prog)?;
-        }
+            Some(stack_verifier.stack_validate(prog)?)
+        } else {
+            None
+        };
 
         Ok(EbpfVmMbuff {
             prog,
@@ -199,6 +210,8 @@ impl<'a> EbpfVmMbuff<'a> {
             cranelift_prog: None,
             helpers: HashMap::new(),
             allowed_memory: HashSet::new(),
+            stack_usage,
+            stack_verifier
         })
     }
 
@@ -223,7 +236,9 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub fn set_program(&mut self, prog: &'a [u8]) -> Result<(), Error> {
         (self.verifier)(prog)?;
+        let stack_usage = self.stack_verifier.stack_validate(prog)?;
         self.prog = Some(prog);
+        self.stack_usage = Some(stack_usage);
         Ok(())
     }
 
@@ -262,6 +277,47 @@ impl<'a> EbpfVmMbuff<'a> {
             verifier(prog)?;
         }
         self.verifier = verifier;
+        Ok(())
+    }
+
+    /// Set a new stack usage calculator function. The function should return the stack usage
+    /// of the program in bytes. If a program has been loaded to the VM already, the calculator
+    /// is immediately run.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use rbpf::lib::{Error, ErrorKind};
+    /// use rbpf::ebpf;
+    /// use core::any::Any;
+    /// // Define a simple stack usage calculator function.
+    /// fn calculator(prog: &[u8], pc: usize, data: &mut dyn Any) -> u16 {
+    ///    // This is a dummy implementation, just for the example.
+    ///    // In a real implementation, you would calculate the stack usage based on the program.
+    ///    // Here we just return a fixed value.
+    ///    16
+    /// }
+    /// 
+    /// let prog1 = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// 
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// // Change the stack usage calculator.
+    /// vm.set_stack_usage_calculator(calculator, Box::new(())).unwrap();
+    /// ```
+    pub fn set_stack_usage_calculator(
+        &mut self,
+        calculator: StackUsageCalculator,
+        data: Box<dyn Any>,
+    ) -> Result<(), Error> {
+        let mut stack_verifier = StackVerifier::new(Some(calculator), Some(data));
+        if let Some(prog) = self.prog {
+            self.stack_usage = Some(stack_verifier.stack_validate(prog)?);
+        }
+        self.stack_verifier = stack_verifier;
         Ok(())
     }
 
@@ -383,7 +439,8 @@ impl<'a> EbpfVmMbuff<'a> {
     /// assert_eq!(res, 0x2211);
     /// ```
     pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
-        interpreter::execute_program(self.prog, mem, mbuff, &self.helpers, &self.allowed_memory)
+        let stack_usage = self.stack_usage.as_ref();
+        interpreter::execute_program(self.prog,stack_usage, mem, mbuff, &self.helpers, &self.allowed_memory)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
