@@ -461,6 +461,20 @@ impl JitCompiler {
         }
     }
 
+    fn emit_local_call(&mut self, mem: &mut JitMemory, target_pc: isize) {
+        self.emit_push(mem, map_register(6));
+        self.emit_push(mem, map_register(7));
+        self.emit_push(mem, map_register(8));
+        self.emit_push(mem, map_register(9));
+        // e8 is the opcode for a CALL
+        self.emit1(mem, 0xe8); 
+        self.emit_jump_offset(mem, target_pc);
+        self.emit_pop(mem, map_register(9));
+        self.emit_pop(mem, map_register(8));
+        self.emit_pop(mem, map_register(7));
+        self.emit_pop(mem, map_register(6));
+    }
+
     fn jit_compile(&mut self, mem: &mut JitMemory, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
                    helpers: &HashMap<u32, ebpf::Helper>) -> Result<(), Error> {
         self.emit_push(mem, RBP);
@@ -515,6 +529,10 @@ impl JitCompiler {
 
         // Allocate stack space
         self.emit_alu64_imm32(mem, 0x81, 5, RSP, ebpf::STACK_SIZE as i32);
+
+        self.emit1(mem, 0xe8);
+        self.emit4(mem, 5);
+        self.emit_jmp(mem, TARGET_PC_EXIT);
 
         self.pc_locs = vec![0; prog.len() / ebpf::INSN_SIZE + 1];
 
@@ -870,24 +888,33 @@ impl JitCompiler {
                 },
 
                 ebpf::CALL       => {
-                    // For JIT, helpers in use MUST be registered at compile time. They can be
-                    // updated later, but not created after compiling (we need the address of the
-                    // helper function in the JIT-compiled program).
-                    if let Some(helper) = helpers.get(&(insn.imm as u32)) {
-                        // We reserve RCX for shifts
-                        self.emit_mov(mem, R9, RCX);
-                        self.emit_call(mem, *helper as usize);
-                    } else {
-                        Err(Error::new(ErrorKind::Other,
-                                       format!("[JIT] Error: unknown helper function (id: {:#x})",
-                                               insn.imm as u32)))?;
-                    };
+                    match insn.src {
+                        0x0 => {
+                            // For JIT, helpers in use MUST be registered at compile time. They can be
+                            // updated later, but not created after compiling (we need the address of the
+                            // helper function in the JIT-compiled program).
+                            if let Some(helper) = helpers.get(&(insn.imm as u32)) {
+                                // We reserve RCX for shifts
+                                self.emit_mov(mem, R9, RCX);
+                                self.emit_call(mem, *helper as usize);
+                            } else {
+                                Err(Error::new(ErrorKind::Other,
+                                            format!("[JIT] Error: unknown helper function (id: {:#x})",
+                                                    insn.imm as u32)))?;
+                            };
+                        }
+                        0x1 => {
+                            let target_pc = insn_ptr as isize + insn.imm as isize + 1;
+                            self.emit_local_call(mem, target_pc);
+                        }   
+                        _ => {
+                            Err(Error::new(ErrorKind::Other, format!("Error: unexpected call type {:#x}",src)))?;
+                        }
+                    }
                 },
                 ebpf::TAIL_CALL  => { unimplemented!() },
                 ebpf::EXIT       => {
-                    if insn_ptr != prog.len() / ebpf::INSN_SIZE - 1 {
-                        self.emit_jmp(mem, TARGET_PC_EXIT);
-                    };
+                    self.emit1(mem, 0xc3); // ret
                 },
 
                 _                => {

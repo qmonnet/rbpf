@@ -19,8 +19,8 @@
 extern crate rbpf;
 mod common;
 
-use rbpf::insn_builder::{Arch, Instruction, IntoBytes, Source};
-use rbpf::{helpers, insn_builder::BpfCode};
+use rbpf::ebpf::{to_insn_vec, CALL};
+use rbpf::helpers;
 use rbpf::assembler::assemble;
 use common::{TCP_SACK_ASM, TCP_SACK_MATCH, TCP_SACK_NOMATCH};
 
@@ -2230,15 +2230,35 @@ fn test_vm_stxw() {
 
 #[test]
 fn test_bpf_to_bpf_call(){
-    let mut program = BpfCode::new();
-    program.mov(Source::Imm, Arch::X64).set_dst(0x1).set_imm(0xff).push()
-    .call().set_src(1).set_imm(1).push()
-    .mov(Source::Imm, Arch::X64).set_dst(0x2).set_imm(0x1).push()
-    .mov(Source::Imm, Arch::X64).set_dst(0).set_imm(0xf).push()
-    .exit().push();
-    let prog = program.into_bytes();
-    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_program().unwrap(), 0xf);
+    let test_code = assemble(
+        "
+    mov64 r1, 0x10
+    mov64 r2, 0x1
+    call 0x4
+    mov64 r1, 0x1
+    mov64 r2, r0
+    call 0x4
+    exit
+    mov64 r0, r1
+    sub64 r0, r2
+    exit
+    mov64 r0, r2
+    add64 r0, r1
+    exit
+    ",
+    )
+    .unwrap();
+    let mut code = to_insn_vec(&test_code);
+    let mut real_code = Vec::new();
+    code.iter_mut().for_each(|insn| {
+        if insn.opc == CALL {
+            insn.src = 0x1;
+        }
+        real_code.extend_from_slice(&insn.to_array());
+    });
+    let vm = rbpf::EbpfVmNoData::new(Some(&real_code)).unwrap();
+    let vm_res= vm.execute_program().unwrap();    
+    assert_eq!(vm_res, 0x10);
 }
 
 #[test]
