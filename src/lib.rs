@@ -82,6 +82,11 @@ pub mod lib {
     pub use std::vec::Vec;
 
     #[cfg(not(feature = "std"))]
+    pub use alloc::boxed::Box;
+    #[cfg(feature = "std")]
+    pub use std::boxed::Box;
+
+    #[cfg(not(feature = "std"))]
     pub use alloc::string::{String, ToString};
     #[cfg(feature = "std")]
     pub use std::string::{String, ToString};

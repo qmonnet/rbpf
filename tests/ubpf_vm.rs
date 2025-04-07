@@ -2420,3 +2420,18 @@ fn test_vm_tcp_sack_nomatch() {
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program(mem.as_mut_slice()).unwrap(), 0x0);
 }
+
+#[test]
+#[should_panic(expected = "Error: unexpected call type #2 (insn #0)")]
+fn test_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_|{
+        Ok(())
+    }).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.execute_program().unwrap();
+}
