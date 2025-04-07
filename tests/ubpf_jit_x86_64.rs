@@ -2391,3 +2391,19 @@ fn test_bpf_to_bpf_call(){
     let vm_res= unsafe { vm.execute_program_jit().unwrap() };    
     assert_eq!(vm_res, 0x10);
 }
+
+#[test]
+#[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]
+fn test_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_|{
+        Ok(())
+    }).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { vm.execute_program_jit().unwrap() };
+}

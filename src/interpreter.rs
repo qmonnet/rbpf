@@ -387,7 +387,7 @@ pub fn execute_program(
                         insn_ptr += insn.imm as usize;
                     }
                     _ => {
-                        Err(Error::new(ErrorKind::Other, format!("Error: invalid call to function #{:?} (insn #{insn_ptr:?})", insn.imm)))?;
+                        Err(Error::new(ErrorKind::Other, format!("Error: unexpected call type #{} (insn #{})", _src, insn_ptr-1)))?;
                     }
                 }
             }

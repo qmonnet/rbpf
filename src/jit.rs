@@ -908,7 +908,7 @@ impl JitCompiler {
                             self.emit_local_call(mem, target_pc);
                         }   
                         _ => {
-                            Err(Error::new(ErrorKind::Other, format!("Error: unexpected call type {:#x}",src)))?;
+                            Err(Error::new(ErrorKind::Other, format!("[JIT] Error: unexpected call type #{:?} (insn #{insn_ptr:?})", insn.src)))?;
                         }
                     }
                 },

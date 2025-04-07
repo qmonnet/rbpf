@@ -150,3 +150,25 @@ fn test_verifier_err_write_r10() {
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
+
+#[test]
+#[should_panic(expected = "[Verifier] Error: call out of code to #2 (insn #0)")]
+fn test_verifier_err_funcall_over_the_end() {
+    let prog = &[
+        0x85, 0x10, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
+#[should_panic(expected = "[Verifier] Error: unexpected call type #2 (insn #0)")]
+fn test_verifier_err_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.execute_program().unwrap();
+}
