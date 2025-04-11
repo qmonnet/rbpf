@@ -260,7 +260,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
                             reject(format!("call out of code to #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
                         }
                     }
-                    _ => { reject(format!("unsupported call type #{:?} (insn #{insn_ptr:?})", src))?; }
+                    _ => { reject(format!("unsupported call type #{src:?} (insn #{insn_ptr:?})"))?; }
                 }
             },
             ebpf::TAIL_CALL  => { unimplemented!() },
