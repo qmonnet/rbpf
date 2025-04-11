@@ -77,6 +77,5 @@ fn print_time(time: u64) {
     let seconds = (time / 10u64.pow(9)) % 60;
     let nanosec =  time % 10u64.pow(9);
 
-    println!("Uptime: {:#x} ns == {} days {:02}:{:02}:{:02}, {} ns",
-             time, days, hours, minutes, seconds, nanosec);
+    println!("Uptime: {time:#x} ns == {days} days {hours:02}:{minutes:02}:{seconds:02}, {nanosec} ns");
 }

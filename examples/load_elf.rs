@@ -52,7 +52,7 @@ fn main() {
     let path = PathBuf::from(filename);
     let file = match elf::File::open_path(path) {
         Ok(f) => f,
-        Err(e) => panic!("Error: {:?}", e),
+        Err(e) => panic!("Error: {e:?}"),
     };
 
     let text_scn = match file.get_section(".classifier") {

@@ -838,7 +838,7 @@ fn test_vm_jmp_unsigned_extend() {
     //    exit
     // we build it manually to bypass the verifier in `assemble(...)`
     #[rustfmt::skip]
-    let insns = vec![
+    let insns = [
         Insn { opc: LD_W_REG,  dst: 2, src: 1, off: 0, imm: 0 }, 
         Insn { opc: BE,        dst: 2, src: 0, off: 0, imm: 32 }, 
         Insn { opc: JEQ_IMM,   dst: 2, src: 0, off: 2, imm: 0x80000000u32 as i32 }, 
@@ -847,7 +847,7 @@ fn test_vm_jmp_unsigned_extend() {
         Insn { opc: MOV32_IMM, dst: 0, src: 0, off: 0, imm: 1 }, 
         Insn { opc: EXIT,      dst: 0, src: 0, off: 0, imm: 0 }
     ];
-    let prog = insns.iter().map(|x| x.to_array()).flatten().collect::<Vec<u8>>();
+    let prog = insns.iter().flat_map(|x| x.to_array()).collect::<Vec<u8>>();
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     let mut data = vec![
         0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00

@@ -313,7 +313,7 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
                 match insn.src {
                     0 => { name = "call"; desc = format!("{name} {:#x}", insn.imm); },
                     1 => { name = "callx"; desc = format!("{name} {:#x}", insn.imm); },
-                    _ => { panic!("[Disassembler] Error: unsupported call insn (insn #{:?})", insn_ptr); }
+                    _ => { panic!("[Disassembler] Error: unsupported call insn (insn #{insn_ptr:?})"); }
                 }
              },
             ebpf::TAIL_CALL  => { name = "tail_call"; desc = name.to_string(); },
