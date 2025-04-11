@@ -1928,7 +1928,6 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     ///
-    ///
     /// vm.jit_compile();
     /// ```
     #[cfg(all(not(windows), feature = "std"))]

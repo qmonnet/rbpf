@@ -188,6 +188,8 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
         let name;
         let desc;
         let mut imm = insn.imm as i64;
+        #[rustfmt::skip]
+        #[allow(clippy::let_unit_value)] // assign, to avoid #[rustfmt::skip] on an expression
         match insn.opc {
 
             // BPF_LD class

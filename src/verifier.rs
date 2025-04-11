@@ -105,7 +105,9 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
         let insn = ebpf::get_insn(prog, insn_ptr);
         let mut store = false;
 
-        match insn.opc {
+        #[rustfmt::skip]
+        #[allow(clippy::let_unit_value)] // assign, to avoid #[rustfmt::skip] on an expression
+        let _ = match insn.opc {
 
             // BPF_LD class
             ebpf::LD_ABS_B   => {},
@@ -267,7 +269,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             _                => {
                 reject(format!("unknown eBPF opcode {:#2x} (insn #{insn_ptr:?})", insn.opc))?;
             },
-        }
+        };
 
         check_registers(&insn, store, insn_ptr)?;
 

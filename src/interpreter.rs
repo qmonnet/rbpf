@@ -106,7 +106,9 @@ pub fn execute_program(
             };
         }
 
-        match insn.opc {
+        #[rustfmt::skip]
+        #[allow(clippy::let_unit_value)] // assign, to avoid #[rustfmt::skip] on an expression
+        let _ = match insn.opc {
 
             // BPF_LD class
             // LD_ABS_* and LD_IND_* are supposed to load pointer to data from metadata buffer.
@@ -373,13 +375,24 @@ pub fn execute_program(
                         if let Some(function) = helpers.get(&(insn.imm as u32)) {
                             reg[0] = function(reg[1], reg[2], reg[3], reg[4], reg[5]);
                         } else {
-                            Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
+                            Err(Error::new(
+                                ErrorKind::Other,
+                                format!(
+                                    "Error: unknown helper function (id: {:#x})",
+                                    insn.imm as u32
+                                )
+                            ))?;
                         }
                     }
-                    // eBPF to eBPF call
+                    // eBPF-to-eBPF call
                     1 => {
                         if stack_frame_idx >= MAX_CALL_DEPTH {
-                            Err(Error::new(ErrorKind::Other, format!("Error: too many nested calls (max: {MAX_CALL_DEPTH})")))?;
+                            Err(Error::new(
+                                ErrorKind::Other,
+                                format!(
+                                    "Error: too many nested calls (max: {MAX_CALL_DEPTH})"
+                                )
+                            ))?;
                         }
                         stacks[stack_frame_idx].save_registers(&reg[6..=9]);
                         stacks[stack_frame_idx].save_return_address(insn_ptr);
@@ -391,7 +404,13 @@ pub fn execute_program(
                         insn_ptr += insn.imm as usize;
                     }
                     _ => {
-                        Err(Error::new(ErrorKind::Other, format!("Error: unsupported call type #{} (insn #{})", _src, insn_ptr-1)))?;
+                        Err(Error::new(
+                            ErrorKind::Other,
+                            format!("Error: unsupported call type #{} (insn #{})",
+                                _src,
+                                insn_ptr-1
+                            )
+                        ))?;
                     }
                 }
             }
@@ -408,7 +427,7 @@ pub fn execute_program(
             }
 
             _                => unreachable!()
-        }
+        };
     }
 
     unreachable!()
