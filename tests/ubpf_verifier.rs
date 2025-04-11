@@ -24,6 +24,7 @@ use rbpf::ebpf;
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported argument for LE/BE (insn #0)")]
 fn test_verifier_err_endian_size() {
+    #[rustfmt::skip]
     let prog = &[
         0xdc, 0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
         0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -33,9 +34,11 @@ fn test_verifier_err_endian_size() {
     vm.execute_program().unwrap();
 }
 
+// Note: uBPF has test-err-incomplete-lddw2, which is the same
 #[test]
 #[should_panic(expected = "[Verifier] Error: incomplete LD_DW instruction (insn #0)")]
-fn test_verifier_err_incomplete_lddw() { // Note: ubpf has test-err-incomplete-lddw2, which is the same
+fn test_verifier_err_incomplete_lddw() {
+    #[rustfmt::skip]
     let prog = &[
         0x18, 0x00, 0x00, 0x00, 0x88, 0x77, 0x66, 0x55,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -49,7 +52,8 @@ fn test_verifier_err_incomplete_lddw() { // Note: ubpf has test-err-incomplete-l
 fn test_verifier_err_infinite_loop() {
     let prog = assemble("
         ja -1
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -59,7 +63,8 @@ fn test_verifier_err_infinite_loop() {
 fn test_verifier_err_invalid_reg_dst() {
     let prog = assemble("
         mov r11, 1
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -69,7 +74,8 @@ fn test_verifier_err_invalid_reg_dst() {
 fn test_verifier_err_invalid_reg_src() {
     let prog = assemble("
         mov r0, r11
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -80,7 +86,8 @@ fn test_verifier_err_jmp_lddw() {
     let prog = assemble("
         ja +1
         lddw r0, 0x1122334455667788
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -90,7 +97,8 @@ fn test_verifier_err_jmp_lddw() {
 fn test_verifier_err_jmp_out() {
     let prog = assemble("
         ja +2
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -133,6 +141,7 @@ fn test_verifier_err_too_many_instructions() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: unknown eBPF opcode 0x6 (insn #0)")]
 fn test_verifier_err_unknown_opcode() {
+    #[rustfmt::skip]
     let prog = &[
         0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -146,7 +155,8 @@ fn test_verifier_err_unknown_opcode() {
 fn test_verifier_err_write_r10() {
     let prog = assemble("
         mov r10, 1
-        exit").unwrap();
+        exit
+        ").unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -154,6 +164,7 @@ fn test_verifier_err_write_r10() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: call out of code to #2 (insn #0)")]
 fn test_verifier_err_funcall_over_the_end() {
+    #[rustfmt::skip]
     let prog = &[
         0x85, 0x10, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

@@ -11,6 +11,7 @@ use rbpf::helpers;
 //
 // The two eBPF programs are independent and are not related to one another.
 fn main() {
+    #[rustfmt::skip]
     let prog1 = &[
         0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
         0xb4, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov32 r1, 2
@@ -24,6 +25,7 @@ fn main() {
     // constant, so that we can remain compatible with programs for the kernel. Here we also cast
     // it to a u8 so as to use it directly in program instructions.
     let hkey = helpers::BPF_KTIME_GETNS_IDX as u8;
+    #[rustfmt::skip]
     let prog2 = &[
         0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov64 r1, 0
         0xb7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov64 r1, 0
@@ -64,6 +66,11 @@ fn main() {
         time = vm.execute_program().unwrap();
     }
 
+    print_time(time);
+}
+
+#[rustfmt::skip]
+fn print_time(time: u64) {
     let days    =  time / 10u64.pow(9)  / 60   / 60  / 24;
     let hours   = (time / 10u64.pow(9)  / 60   / 60) % 24;
     let minutes = (time / 10u64.pow(9)  / 60 ) % 60;

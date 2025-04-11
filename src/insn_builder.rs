@@ -80,15 +80,16 @@ impl<I: Instruction> IntoBytes for &I {
     /// [ 1 byte ,      1 byte      , 2 bytes,  4 bytes  ]
     /// [ OP_CODE, SRC_REG | DST_REG, OFFSET , IMMEDIATE ]
     fn into_bytes(self) -> Self::Bytes {
+        #[rustfmt::skip]
         let buffer = vec![
-            self.opt_code_byte(),
-            self.get_src() << 4 | self.get_dst(),
-            self.get_off()          as u8,
-            (self.get_off() >> 8)   as u8,
-            self.get_imm()          as u8,
-            (self.get_imm() >> 8)   as u8,
-            (self.get_imm() >> 16)  as u8,
-            (self.get_imm() >> 24)  as u8,
+             self.opt_code_byte(),
+             self.get_src() << 4 | self.get_dst(),
+             self.get_off()        as u8,
+            (self.get_off() >> 8)  as u8,
+             self.get_imm()        as u8,
+            (self.get_imm() >> 8)  as u8,
+            (self.get_imm() >> 16) as u8,
+            (self.get_imm() >> 24) as u8,
         ];
         buffer
     }
@@ -1545,6 +1546,7 @@ mod tests {
                    .exit().push();
 
             let bytecode = program.into_bytes();
+            #[rustfmt::skip]
             let ref_prog = &[
                 0x07, 0x01, 0x00, 0x00, 0x05, 0x06, 0x00, 0x00,
                 0xb7, 0x02, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00,
