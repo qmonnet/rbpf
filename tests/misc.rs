@@ -602,3 +602,128 @@ fn test_verifier_fail() {
     vm.set_program(&prog).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 0xBEE);
 }
+
+#[test]
+fn test_vm_bpf_to_bpf_call(){
+    let test_code = assemble(
+        "
+        mov64 r1, 0x10
+        mov64 r2, 0x1
+        callx 0x4
+        mov64 r1, 0x1
+        mov64 r2, r0
+        callx 0x4
+        exit
+        mov64 r0, r1
+        sub64 r0, r2
+        exit
+        mov64 r0, r2
+        add64 r0, r1
+        exit
+        ").unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
+    let vm_res= vm.execute_program().unwrap();
+    assert_eq!(vm_res, 0x10);
+}
+
+#[cfg(all(not(windows), feature = "std"))]
+#[test]
+fn test_vm_jit_bpf_to_bpf_call(){
+    let test_code = assemble(
+        "
+        mov64 r1, 0x10
+        mov64 r2, 0x1
+        callx 0x4
+        mov64 r1, 0x1
+        mov64 r2, r0
+        callx 0x4
+        exit
+        mov64 r0, r1
+        sub64 r0, r2
+        exit
+        mov64 r0, r2
+        add64 r0, r1
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
+    vm.jit_compile().unwrap();
+    let vm_res= unsafe { vm.execute_program_jit().unwrap() };
+    assert_eq!(vm_res, 0x10);
+}
+
+#[test]
+#[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
+fn test_verifier_err_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error: unsupported call type #2 (insn #0)")]
+fn test_vm_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_|{
+        Ok(())
+    }).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[cfg(all(not(windows), feature = "std"))]
+#[test]
+#[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]
+fn test_vm_jit_other_type_call(){
+    let prog = &[
+        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_|{
+        Ok(())
+    }).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe { vm.execute_program_jit().unwrap() };
+}
+
+#[test]
+#[should_panic(expected = "local function (at PC 0) has improperly sized stack use (15)")]
+fn test_invalid_stack_alignment(){
+    let prog = assemble("
+        mov r0, 0x1
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.set_stack_usage_calculator(|_,_,_| 15, Box::new(())).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error: out of bounds memory store (insn #8)")]
+fn test_stack_overflow(){
+    // The stdw instruction is used to test the stack overflow.
+    let test_code = assemble(
+        "
+        mov64 r1, 0x10
+        mov64 r2, 0x1
+        callx 0x4
+        mov64 r1, 0x1
+        mov64 r2, r0
+        callx 0x5
+        exit
+        stdw [r10-8], 0xcd
+        mov64 r0, r1
+        sub64 r0, r2
+        exit
+        mov64 r0, r2
+        add64 r0, r1
+        exit").unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
+    vm.set_stack_usage_calculator(|_,_,_| 512, Box::new(())).unwrap();
+    vm.execute_program().unwrap();
+}

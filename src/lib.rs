@@ -68,7 +68,7 @@ pub mod lib {
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
-    pub use core::any::Any;
+    pub use self::core::any::Any;
     pub use self::core::f64;
 
     #[cfg(feature = "std")]
@@ -445,7 +445,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         let stack_usage = self.stack_usage.as_ref();
-        interpreter::execute_program(self.prog,stack_usage, mem, mbuff, &self.helpers, &self.allowed_memory)
+        interpreter::execute_program(self.prog, stack_usage, mem, mbuff, &self.helpers, &self.allowed_memory)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -860,6 +860,42 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
         self.parent.set_verifier(verifier)
+    }
+
+    /// Set a new stack usage calculator function. The function should return the stack usage
+    /// of the program in bytes. If a program has been loaded to the VM already, the calculator
+    /// is immediately run.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::lib::{Error, ErrorKind};
+    /// use rbpf::ebpf;
+    /// use core::any::Any;
+    /// // Define a simple stack usage calculator function.
+    /// fn calculator(prog: &[u8], pc: usize, data: &mut dyn Any) -> u16 {
+    ///    // This is a dummy implementation, just for the example.
+    ///    // In a real implementation, you would calculate the stack usage based on the program.
+    ///    // Here we just return a fixed value.
+    ///    16
+    /// }
+    ///
+    /// let prog1 = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// // Change the stack usage calculator.
+    /// vm.set_stack_usage_calculator(calculator, Box::new(())).unwrap();
+    /// ```
+    pub fn set_stack_usage_calculator(
+        &mut self,
+        calculator: StackUsageCalculator,
+        data: Box<dyn Any>,
+    ) -> Result<(), Error> {
+        self.parent.set_stack_usage_calculator(calculator, data)
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within
@@ -1341,6 +1377,42 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.set_verifier(verifier)
     }
 
+    /// Set a new stack usage calculator function. The function should return the stack usage
+    /// of the program in bytes. If a program has been loaded to the VM already, the calculator
+    /// is immediately run.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::lib::{Error, ErrorKind};
+    /// use rbpf::ebpf;
+    /// use core::any::Any;
+    /// // Define a simple stack usage calculator function.
+    /// fn calculator(prog: &[u8], pc: usize, data: &mut dyn Any) -> u16 {
+    ///    // This is a dummy implementation, just for the example.
+    ///    // In a real implementation, you would calculate the stack usage based on the program.
+    ///    // Here we just return a fixed value.
+    ///    16
+    /// }
+    ///
+    /// let prog1 = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// // Change the stack usage calculator.
+    /// vm.set_stack_usage_calculator(calculator, Box::new(())).unwrap();
+    /// ```
+    pub fn set_stack_usage_calculator(
+        &mut self,
+        calculator: StackUsageCalculator,
+        data: Box<dyn Any>,
+    ) -> Result<(), Error> {
+        self.parent.set_stack_usage_calculator(calculator, data)
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1724,6 +1796,42 @@ impl<'a> EbpfVmNoData<'a> {
     /// ```
     pub fn set_verifier(&mut self, verifier: Verifier) -> Result<(), Error> {
         self.parent.set_verifier(verifier)
+    }
+
+    /// Set a new stack usage calculator function. The function should return the stack usage
+    /// of the program in bytes. If a program has been loaded to the VM already, the calculator
+    /// is immediately run.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rbpf::lib::{Error, ErrorKind};
+    /// use rbpf::ebpf;
+    /// use core::any::Any;
+    /// // Define a simple stack usage calculator function.
+    /// fn calculator(prog: &[u8], pc: usize, data: &mut dyn Any) -> u16 {
+    ///    // This is a dummy implementation, just for the example.
+    ///    // In a real implementation, you would calculate the stack usage based on the program.
+    ///    // Here we just return a fixed value.
+    ///    16
+    /// }
+    ///
+    /// let prog1 = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    ///
+    /// // Instantiate a VM.
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
+    /// // Change the stack usage calculator.
+    /// vm.set_stack_usage_calculator(calculator, Box::new(())).unwrap();
+    /// ```
+    pub fn set_stack_usage_calculator(
+        &mut self,
+        calculator: StackUsageCalculator,
+        data: Box<dyn Any>,
+    ) -> Result<(), Error> {
+        self.parent.set_stack_usage_calculator(calculator, data)
     }
 
     /// Register a built-in or user-defined helper function in order to use it later from within

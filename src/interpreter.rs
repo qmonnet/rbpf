@@ -6,7 +6,7 @@
 //      (Translation to Rust, MetaBuff/multiple classes addition, hashmaps for helpers)
 
 use crate::ebpf;
-use crate::ebpf::RBPF_MAX_CALL_DEPTH;
+use crate::ebpf::MAX_CALL_DEPTH;
 use crate::lib::*;
 use crate::stack::{StackFrame, StackUsage};
 
@@ -56,14 +56,15 @@ pub fn execute_program(
     const U32MAX: u64 = u32::MAX as u64;
     const SHIFT_MASK_64: u64 = 0x3f;
 
-    let (prog,stack_usage) = match prog_ {
+    let (prog, stack_usage) = match prog_ {
         Some(prog) => (prog, stack_usage.unwrap()),
         None => Err(Error::new(ErrorKind::Other,
                     "Error: No program set, call prog_set() to load one"))?,
     };
     let stack = vec![0u8;ebpf::STACK_SIZE];
-    let mut stacks = [StackFrame::new();RBPF_MAX_CALL_DEPTH];
+    let mut stacks = [StackFrame::new();MAX_CALL_DEPTH];
     let mut stack_frame_idx = 0;
+
     // R1 points to beginning of memory area, R10 to stack
     let mut reg: [u64;11] = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
@@ -86,7 +87,7 @@ pub fn execute_program(
     let mut insn_ptr:usize = 0;
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
-        if stack_frame_idx < RBPF_MAX_CALL_DEPTH{
+        if stack_frame_idx < MAX_CALL_DEPTH{
             if let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
                 stacks[stack_frame_idx].set_stack_usage(usage);
             }
@@ -375,19 +376,22 @@ pub fn execute_program(
                             Err(Error::new(ErrorKind::Other, format!("Error: unknown helper function (id: {:#x})", insn.imm as u32)))?;
                         }
                     }
-                    // BPF To BPF call
+                    // eBPF to eBPF call
                     1 => {
-                        if stack_frame_idx >= RBPF_MAX_CALL_DEPTH {
-                            Err(Error::new(ErrorKind::Other, format!("Error: too many nested calls (max: {RBPF_MAX_CALL_DEPTH})")))?;
+                        if stack_frame_idx >= MAX_CALL_DEPTH {
+                            Err(Error::new(ErrorKind::Other, format!("Error: too many nested calls (max: {MAX_CALL_DEPTH})")))?;
                         }
                         stacks[stack_frame_idx].save_registers(&reg[6..=9]);
                         stacks[stack_frame_idx].save_return_address(insn_ptr);
+                        // Why we don't need to check the stack usage here?
+                        // When the stack is exhausted, if there are instructions in the new function
+                        // that read or write to the stack, check_mem_load or check_mem_store will return an error.
                         reg[10] -= stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
                         stack_frame_idx += 1;
                         insn_ptr += insn.imm as usize;
                     }
                     _ => {
-                        Err(Error::new(ErrorKind::Other, format!("Error: unexpected call type #{} (insn #{})", _src, insn_ptr-1)))?;
+                        Err(Error::new(ErrorKind::Other, format!("Error: unsupported call type #{} (insn #{})", _src, insn_ptr-1)))?;
                     }
                 }
             }

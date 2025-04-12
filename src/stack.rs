@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
 use core::any::Any;
 
 use crate::{
-    ebpf::{self, RBPF_EBPF_LOCAL_FUNCTION_STACK_SIZE},
+    ebpf::{self, LOCAL_FUNCTION_STACK_SIZE},
     lib::*,
     StackUsageCalculator,
 };
@@ -61,7 +63,7 @@ pub enum StackUsageType {
 impl StackUsageType {
     pub fn stack_usage(&self) -> u16 {
         match self {
-            StackUsageType::Default => RBPF_EBPF_LOCAL_FUNCTION_STACK_SIZE,
+            StackUsageType::Default => LOCAL_FUNCTION_STACK_SIZE,
             StackUsageType::Custom(size) => *size,
         }
     }
@@ -112,9 +114,11 @@ impl StackVerifier {
         pc: usize,
     ) -> Result<StackUsageType, Error> {
         let mut ty = StackUsageType::Default;
-        if let Some(calculator) = self.calculator {
-            let size = calculator(prog, pc, self.data.as_mut().unwrap());
-            ty = StackUsageType::Custom(size);
+        match self.calculator {
+            Some(calculator) => {
+                ty = StackUsageType::Custom(calculator(prog, pc, self.data.as_mut().unwrap()));
+            }
+            None => return Ok(ty),
         }
         if ty.stack_usage() % 16 > 0 {
             Err(Error::new(

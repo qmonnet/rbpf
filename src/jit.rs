@@ -466,7 +466,7 @@ impl JitCompiler {
         self.emit_push(mem, map_register(7));
         self.emit_push(mem, map_register(8));
         self.emit_push(mem, map_register(9));
-        // e8 is the opcode for a CALL
+        // 0xe8 is the opcode for a CALL
         self.emit1(mem, 0xe8); 
         self.emit_jump_offset(mem, target_pc);
         self.emit_pop(mem, map_register(9));
@@ -530,8 +530,14 @@ impl JitCompiler {
         // Allocate stack space
         self.emit_alu64_imm32(mem, 0x81, 5, RSP, ebpf::STACK_SIZE as i32);
 
+        // Use a call to set up a place where we can land after eBPF program's
+        // final EXIT call. This will make JIT of BPF EXIT call easier in the
+        // presence of calls to local functions.
         self.emit1(mem, 0xe8);
         self.emit4(mem, 5);
+
+        // We jump over this instruction in the first place; return here
+        // after the eBPF program is finished executing.
         self.emit_jmp(mem, TARGET_PC_EXIT);
 
         self.pc_locs = vec![0; prog.len() / ebpf::INSN_SIZE + 1];
