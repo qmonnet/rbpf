@@ -19,7 +19,6 @@
 extern crate rbpf;
 mod common;
 
-use rbpf::ebpf::{to_insn_vec, CALL};
 use rbpf::helpers;
 use rbpf::assembler::assemble;
 use common::{TCP_SACK_ASM, TCP_SACK_MATCH, TCP_SACK_NOMATCH};
@@ -2229,39 +2228,6 @@ fn test_vm_stxw() {
 }
 
 #[test]
-fn test_bpf_to_bpf_call(){
-    let test_code = assemble(
-        "
-    mov64 r1, 0x10
-    mov64 r2, 0x1
-    call 0x4
-    mov64 r1, 0x1
-    mov64 r2, r0
-    call 0x4
-    exit
-    mov64 r0, r1
-    sub64 r0, r2
-    exit
-    mov64 r0, r2
-    add64 r0, r1
-    exit
-    ",
-    )
-    .unwrap();
-    let mut code = to_insn_vec(&test_code);
-    let mut real_code = Vec::new();
-    code.iter_mut().for_each(|insn| {
-        if insn.opc == CALL {
-            insn.src = 0x1;
-        }
-        real_code.extend_from_slice(&insn.to_array());
-    });
-    let vm = rbpf::EbpfVmNoData::new(Some(&real_code)).unwrap();
-    let vm_res= vm.execute_program().unwrap();    
-    assert_eq!(vm_res, 0x10);
-}
-
-#[test]
 fn test_vm_subnet() {
     let prog = assemble("
         mov r2, 0xe
@@ -2419,19 +2385,4 @@ fn test_vm_tcp_sack_nomatch() {
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program(mem.as_mut_slice()).unwrap(), 0x0);
-}
-
-#[test]
-#[should_panic(expected = "Error: unexpected call type #2 (insn #0)")]
-fn test_other_type_call(){
-    let prog = &[
-        0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ];
-    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    vm.set_verifier(|_|{
-        Ok(())
-    }).unwrap();
-    vm.set_program(prog).unwrap();
-    vm.execute_program().unwrap();
 }

@@ -8,7 +8,7 @@ use crate::asm_parser::Operand::{Integer, Memory, Register, Nil};
 use crate::ebpf;
 use crate::ebpf::Insn;
 use self::InstructionType::{AluBinary, AluUnary, LoadAbs, LoadInd, LoadImm, LoadReg, StoreImm,
-                            StoreReg, JumpUnconditional, JumpConditional, Call, Endian, NoOperand};
+                            StoreReg, JumpUnconditional, JumpConditional, Call, Callx, Endian, NoOperand};
 use crate::lib::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -24,6 +24,7 @@ enum InstructionType {
     JumpUnconditional,
     JumpConditional,
     Call,
+    Callx,
     Endian(i64),
     NoOperand,
 }
@@ -68,6 +69,7 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
         entry("exit", NoOperand, ebpf::EXIT);
         entry("ja", JumpUnconditional, ebpf::JA);
         entry("call", Call, ebpf::CALL);
+        entry("callx", Callx, ebpf::CALL);
         entry("lddw", LoadImm, ebpf::LD_DW_IMM);
 
         // AluUnary.
@@ -170,6 +172,7 @@ fn encode(inst_type: InstructionType, opc: u8, operands: &[Operand]) -> Result<I
             insn(opc | ebpf::BPF_K, dst, 0, off, imm)
         }
         (Call, Integer(imm), Nil, Nil) => insn(opc, 0, 0, 0, imm),
+        (Callx, Integer(imm), Nil, Nil) => insn(opc, 0, 1, 0, imm),
         (Endian(size), Register(dst), Nil, Nil) => insn(opc, dst, 0, 0, size),
         (LoadImm, Register(dst), Integer(imm), Nil) => insn(opc, dst, 0, 0, (imm << 32) >> 32),
         _ => Err(format!("Unexpected operands: {operands:?}")),

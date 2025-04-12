@@ -17,10 +17,6 @@
 use byteorder::{ByteOrder, LittleEndian};
 use crate::lib::*;
 
-/// The default stack size for the eBPF program if there is some bpf to bpf calls.
-pub const RBPF_EBPF_LOCAL_FUNCTION_STACK_SIZE: u16 = 256;
-/// Maximum number of bpf to bpf call depth.
-pub const RBPF_MAX_CALL_DEPTH: usize = 8;
 /// Maximum number of instructions in an eBPF program.
 pub const PROG_MAX_INSNS: usize = 1000000;
 /// Size of an eBPF instructions, in bytes.
@@ -29,6 +25,10 @@ pub const INSN_SIZE: usize = 8;
 pub const PROG_MAX_SIZE: usize = PROG_MAX_INSNS * INSN_SIZE;
 /// Stack for the eBPF stack, in bytes.
 pub const STACK_SIZE: usize = 512;
+/// The default stack size for the eBPF program if there is some eBPF to eBPF calls.
+pub const LOCAL_FUNCTION_STACK_SIZE: u16 = 256;
+/// Maximum number of eBPF to eBPF call depth.
+pub const MAX_CALL_DEPTH: usize = 8;
 
 // eBPF op codes.
 // See also https://www.kernel.org/doc/Documentation/networking/filter.txt

@@ -307,7 +307,13 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
             ebpf::JSLT_REG   => { name = "jslt"; desc = jmp_reg_str(name, &insn); },
             ebpf::JSLE_IMM   => { name = "jsle"; desc = jmp_imm_str(name, &insn); },
             ebpf::JSLE_REG   => { name = "jsle"; desc = jmp_reg_str(name, &insn); },
-            ebpf::CALL       => { name = "call"; desc = format!("{name} {:#x}", insn.imm); },
+            ebpf::CALL       => {
+                match insn.src {
+                    0 => { name = "call"; desc = format!("{name} {:#x}", insn.imm); },
+                    1 => { name = "callx"; desc = format!("{name} {:#x}", insn.imm); },
+                    _ => { panic!("[Disassembler] Error: unsupported call insn (insn #{:?})", insn_ptr); }
+                }
+             },
             ebpf::TAIL_CALL  => { name = "tail_call"; desc = name.to_string(); },
             ebpf::EXIT       => { name = "exit";      desc = name.to_string(); },
 

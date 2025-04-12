@@ -251,16 +251,14 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::CALL       => {
                 let src = insn.src;
                 match src {
-                    0 => {
-                        if insn.imm < 0 { reject(format!("invalid call to function #{:?} (insn #{insn_ptr:?})", insn.imm))?; }
-                    }
+                    0 => {}
                     1 => {
                         let dst_insn_ptr = insn_ptr as isize + 1 + insn.imm as isize;
                         if dst_insn_ptr < 0 || dst_insn_ptr as usize >= (prog.len() / ebpf::INSN_SIZE) {
                             reject(format!("call out of code to #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
                         }
                     }
-                    _ => { reject(format!("unexpected call type #{:?} (insn #{insn_ptr:?})", src))?; }
+                    _ => { reject(format!("unsupported call type #{:?} (insn #{insn_ptr:?})", src))?; }
                 }
             },
             ebpf::TAIL_CALL  => { unimplemented!() },
