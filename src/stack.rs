@@ -120,16 +120,6 @@ impl StackVerifier {
             }
             None => return Ok(ty),
         }
-        if ty.stack_usage() % 16 > 0 {
-            Err(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "local function (at PC {}) has improperly sized stack use ({})",
-                    pc,
-                    ty.stack_usage()
-                ),
-            ))?;
-        }
         Ok(ty)
     }
 }
