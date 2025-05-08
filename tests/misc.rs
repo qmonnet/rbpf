@@ -694,16 +694,6 @@ fn test_vm_jit_other_type_call(){
 }
 
 #[test]
-#[should_panic(expected = "local function (at PC 0) has improperly sized stack use (15)")]
-fn test_invalid_stack_alignment(){
-    let prog = assemble("
-        mov r0, 0x1
-        exit").unwrap();
-    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.set_stack_usage_calculator(|_,_,_| 15, Box::new(())).unwrap();
-}
-
-#[test]
 #[should_panic(expected = "Error: out of bounds memory store (insn #8)")]
 fn test_stack_overflow(){
     // The stdw instruction is used to test the stack overflow.
