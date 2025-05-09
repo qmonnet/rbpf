@@ -50,10 +50,13 @@ fn test_verifier_err_incomplete_lddw() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: infinite loop")]
 fn test_verifier_err_infinite_loop() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         ja -1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -61,10 +64,13 @@ fn test_verifier_err_infinite_loop() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: invalid destination register (insn #0)")]
 fn test_verifier_err_invalid_reg_dst() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         mov r11, 1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -72,10 +78,13 @@ fn test_verifier_err_invalid_reg_dst() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: invalid source register (insn #0)")]
 fn test_verifier_err_invalid_reg_src() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         mov r0, r11
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -83,11 +92,14 @@ fn test_verifier_err_invalid_reg_src() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: jump to middle of LD_DW at #2 (insn #0)")]
 fn test_verifier_err_jmp_lddw() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         ja +1
         lddw r0, 0x1122334455667788
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -95,10 +107,13 @@ fn test_verifier_err_jmp_lddw() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: jump out of code to #3 (insn #0)")]
 fn test_verifier_err_jmp_out() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         ja +2
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -106,18 +121,24 @@ fn test_verifier_err_jmp_out() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: program does not end with “EXIT” instruction")]
 fn test_verifier_err_no_exit() {
-    let prog = assemble("
-        mov32 r0, 0").unwrap();
+    let prog = assemble(
+        "
+        mov32 r0, 0",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
 
 #[test]
 fn test_verifier_err_no_exit_backward_jump() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         ja +1
         exit
-        ja -2").unwrap();
+        ja -2",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }
@@ -127,12 +148,14 @@ fn test_verifier_err_no_exit_backward_jump() {
 fn test_verifier_err_too_many_instructions() {
     // uBPF uses 65637 instructions, because it sets its limit at 65636.
     // We use the classic 4096 limit from kernel, so no need to produce as many instructions.
-    let mut prog = (0..(1_000_000 * ebpf::INSN_SIZE)).map( |x| match x % 8 {
+    let mut prog = (0..(1_000_000 * ebpf::INSN_SIZE))
+        .map(|x| match x % 8 {
             0 => 0xb7,
             1 => 0x01,
-            _ => 0
-    }).collect::<Vec<u8>>();
-    prog.append(&mut vec![ 0x95, 0, 0, 0, 0, 0, 0, 0 ]);
+            _ => 0,
+        })
+        .collect::<Vec<u8>>();
+    prog.append(&mut vec![0x95, 0, 0, 0, 0, 0, 0, 0]);
 
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
@@ -153,10 +176,13 @@ fn test_verifier_err_unknown_opcode() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: cannot write into register r10 (insn #0)")]
 fn test_verifier_err_write_r10() {
-    let prog = assemble("
+    let prog = assemble(
+        "
         mov r10, 1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.execute_program().unwrap();
 }

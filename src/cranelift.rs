@@ -16,8 +16,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
 use crate::ebpf::{
-    self, Insn, BPF_ALU_OP_MASK, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32, BPF_JNE,
-    BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE, BPF_IND,
+    self, Insn, BPF_ALU_OP_MASK, BPF_IND, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32,
+    BPF_JNE, BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE,
 };
 use crate::lib::*;
 
@@ -906,13 +906,18 @@ impl CraneliftCompiler {
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
                 ebpf::CALL => {
-                    let func_ref = self.helper_func_refs
+                    let func_ref = self
+                        .helper_func_refs
                         .get(&(insn.imm as u32))
                         .copied()
                         .ok_or_else(|| {
-                            Error::new(ErrorKind::Other,
-                                format!("[CRANELIFT] Error: unknown helper function (id: {:#x})",
-                                        insn.imm as u32))
+                            Error::new(
+                                ErrorKind::Other,
+                                format!(
+                                    "[CRANELIFT] Error: unknown helper function (id: {:#x})",
+                                    insn.imm as u32
+                                ),
+                            )
                         })?;
 
                     let arg0 = bcx.use_var(self.registers[1]);

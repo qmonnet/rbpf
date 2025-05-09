@@ -39,4 +39,3 @@ pub enum ErrorKind {
     #[allow(dead_code)]
     Other,
 }
-

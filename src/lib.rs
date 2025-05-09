@@ -46,11 +46,11 @@ pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
-mod stack;
 #[cfg(all(not(windows), feature = "std"))]
 mod jit;
 #[cfg(not(feature = "std"))]
 mod no_std_error;
+mod stack;
 mod verifier;
 
 /// Reexports all the types needed from the `std`, `core`, and `alloc`
@@ -64,12 +64,12 @@ pub mod lib {
         pub use std::*;
     }
 
+    pub use self::core::any::Any;
     pub use self::core::convert::TryInto;
+    pub use self::core::f64;
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
-    pub use self::core::any::Any;
-    pub use self::core::f64;
 
     #[cfg(feature = "std")]
     pub use std::println;
@@ -124,7 +124,7 @@ pub type Verifier = fn(prog: &[u8]) -> Result<(), Error>;
 pub type Helper = fn(u64, u64, u64, u64, u64) -> u64;
 
 /// eBPF stack usage calculator function.
-pub type StackUsageCalculator = fn(prog:&[u8], pc:usize, data:&mut dyn Any) -> u16;
+pub type StackUsageCalculator = fn(prog: &[u8], pc: usize, data: &mut dyn Any) -> u16;
 
 // A metadata buffer with two offset indications. It can be used in one kind of eBPF VM to simulate
 // the use of a metadata buffer each time the program is executed, without the user having to
@@ -216,7 +216,7 @@ impl<'a> EbpfVmMbuff<'a> {
             helpers: HashMap::new(),
             allowed_memory: HashSet::new(),
             stack_usage,
-            stack_verifier
+            stack_verifier,
         })
     }
 
@@ -288,9 +288,9 @@ impl<'a> EbpfVmMbuff<'a> {
     /// Set a new stack usage calculator function. The function should return the stack usage
     /// of the program in bytes. If a program has been loaded to the VM already, the calculator
     /// is immediately run.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use rbpf::lib::{Error, ErrorKind};
     /// use rbpf::ebpf;
@@ -302,12 +302,12 @@ impl<'a> EbpfVmMbuff<'a> {
     ///    // Here we just return a fixed value.
     ///    16
     /// }
-    /// 
+    ///
     /// let prog1 = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
     ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
     /// ];
-    /// 
+    ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog1)).unwrap();
     /// // Change the stack usage calculator.
@@ -445,7 +445,14 @@ impl<'a> EbpfVmMbuff<'a> {
     /// ```
     pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
         let stack_usage = self.stack_usage.as_ref();
-        interpreter::execute_program(self.prog, stack_usage, mem, mbuff, &self.helpers, &self.allowed_memory)
+        interpreter::execute_program(
+            self.prog,
+            stack_usage,
+            mem,
+            mbuff,
+            &self.helpers,
+            &self.allowed_memory,
+        )
     }
 
     /// JIT-compile the loaded program. No argument required for this.

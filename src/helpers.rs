@@ -47,7 +47,7 @@ pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 #[allow(unused_variables)]
 #[allow(deprecated)]
 #[cfg(feature = "std")]
-pub fn bpf_time_getns (unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+pub fn bpf_time_getns(unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     time::precise_time_ns()
 }
 
@@ -95,19 +95,17 @@ pub const BPF_TRACE_PRINTK_IDX: u32 = 6;
 #[allow(dead_code)]
 #[allow(unused_variables)]
 #[cfg(feature = "std")]
-pub fn bpf_trace_printf (unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
+pub fn bpf_trace_printf(unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
     println!("bpf_trace_printf: {arg3:#x}, {arg4:#x}, {arg5:#x}");
-    let size_arg = | x | {
+    let size_arg = |x| {
         if x == 0 {
             1
         } else {
             (x as f64).log(16.0).floor() as u64 + 1
         }
     };
-    "bpf_trace_printf: 0x, 0x, 0x\n".len() as u64
-        + size_arg(arg3) + size_arg(arg4) + size_arg(arg5)
+    "bpf_trace_printf: 0x, 0x, 0x\n".len() as u64 + size_arg(arg3) + size_arg(arg4) + size_arg(arg5)
 }
-
 
 // Helpers coming from uBPF <https://github.com/iovisor/ubpf/blob/master/vm/test.c>
 
@@ -122,12 +120,12 @@ pub fn bpf_trace_printf (unused1: u64, unused2: u64, arg3: u64, arg4: u64, arg5:
 /// let gathered = helpers::gather_bytes(0x11, 0x22, 0x33, 0x44, 0x55);
 /// assert_eq!(gathered, 0x1122334455);
 /// ```
-pub fn gather_bytes (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
-    arg1.wrapping_shl(32) |
-    arg2.wrapping_shl(24) |
-    arg3.wrapping_shl(16) |
-    arg4.wrapping_shl(8)  |
-    arg5
+pub fn gather_bytes(arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u64 {
+    arg1.wrapping_shl(32)
+        | arg2.wrapping_shl(24)
+        | arg3.wrapping_shl(16)
+        | arg4.wrapping_shl(8)
+        | arg5
 }
 
 /// Same as `void *memfrob(void *s, size_t n);` in `string.h` in C. See the GNU manual page (in
@@ -148,7 +146,7 @@ pub fn gather_bytes (arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u
 /// assert_eq!(val, 0x112233);
 /// ```
 #[allow(unused_variables)]
-pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+pub fn memfrob(ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     for i in 0..len {
         unsafe {
             let p = (ptr + i) as *mut u8;
@@ -193,7 +191,7 @@ pub fn memfrob (ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) ->
 #[allow(dead_code)]
 #[allow(unused_variables)]
 #[cfg(feature = "std")] // sqrt is only available when using `std`
-pub fn sqrti (arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+pub fn sqrti(arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     (arg1 as f64).sqrt() as u64
 }
 
@@ -212,7 +210,7 @@ pub fn sqrti (arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64)
 /// ```
 #[allow(dead_code)]
 #[allow(unused_variables)]
-pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u64 {
+pub fn strcmp(arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u64 {
     // C-like strcmp, maybe shorter than converting the bytes to string and comparing?
     if arg1 == 0 || arg2 == 0 {
         return u64::MAX;
@@ -223,8 +221,8 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
         let mut a_val = *(a as *const u8);
         let mut b_val = *(b as *const u8);
         while a_val == b_val && a_val != 0 && b_val != 0 {
-            a +=1 ;
-            b +=1 ;
+            a += 1;
+            b += 1;
             a_val = *(a as *const u8);
             b_val = *(b as *const u8);
         }
@@ -243,7 +241,7 @@ pub fn strcmp (arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u
 #[allow(dead_code)]
 #[allow(unused_variables)]
 #[cfg(feature = "std")]
-pub fn rand (min: u64, max: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+pub fn rand(min: u64, max: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     use std::cell::Cell;
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

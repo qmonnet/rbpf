@@ -11,16 +11,23 @@ use rbpf::disassembler::to_insn_vec;
 
 // Using a macro to keep actual line numbers in failure output
 macro_rules! disasm {
-    ($src:expr) => {
-        {
-            let src = $src.trim().lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n");
-            let asm = assemble(&src).expect("Can't assemble from string");
-            let insn = to_insn_vec(&asm);
-            let reasm = insn.into_iter().map(|ins| ins.desc).collect::<Vec<_>>().join("\n");
+    ($src:expr) => {{
+        let src = $src
+            .trim()
+            .lines()
+            .map(|l| l.trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let asm = assemble(&src).expect("Can't assemble from string");
+        let insn = to_insn_vec(&asm);
+        let reasm = insn
+            .into_iter()
+            .map(|ins| ins.desc)
+            .collect::<Vec<_>>()
+            .join("\n");
 
-            assert_eq!(src, reasm);
-        }
-    }
+        assert_eq!(src, reasm);
+    }};
 }
 
 #[test]
@@ -130,7 +137,8 @@ fn test_stxh() {
 // Test all supported AluBinary mnemonics.
 #[test]
 fn test_alu_binary() {
-    disasm!("
+    disasm!(
+        "
         add64 r1, r2
         sub64 r1, r2
         mul64 r1, r2
@@ -143,9 +151,11 @@ fn test_alu_binary() {
         xor64 r1, r2
         mov64 r1, r2
         arsh64 r1, r2
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         add64 r1, 0x2
         sub64 r1, 0x2
         mul64 r1, 0x2
@@ -158,9 +168,11 @@ fn test_alu_binary() {
         xor64 r1, 0x2
         mov64 r1, 0x2
         arsh64 r1, 0x2
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         add32 r1, r2
         sub32 r1, r2
         mul32 r1, r2
@@ -173,9 +185,11 @@ fn test_alu_binary() {
         xor32 r1, r2
         mov32 r1, r2
         arsh32 r1, r2
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         add32 r1, 0x2
         sub32 r1, 0x2
         mul32 r1, 0x2
@@ -188,77 +202,91 @@ fn test_alu_binary() {
         xor32 r1, 0x2
         mov32 r1, 0x2
         arsh32 r1, 0x2
-        ");
+        "
+    );
 }
 
 // Test all supported AluUnary mnemonics.
 #[test]
 fn test_alu_unary() {
-    disasm!("
+    disasm!(
+        "
         neg64 r1
         neg32 r1
-        ");
+        "
+    );
 }
 
 // Test all supported LoadAbs mnemonics.
 #[test]
 fn test_load_abs() {
-    disasm!("
+    disasm!(
+        "
         ldabsw 0x1
         ldabsh 0x1
         ldabsb 0x1
         ldabsdw 0x1
-        ");
+        "
+    );
 }
 
 // Test all supported LoadInd mnemonics.
 #[test]
 fn test_load_ind() {
-    disasm!("
+    disasm!(
+        "
         ldindw r1, 0x2
         ldindh r1, 0x2
         ldindb r1, 0x2
         ldinddw r1, 0x2
-        ");
+        "
+    );
 }
 
 // Test all supported LoadReg mnemonics.
 #[test]
 fn test_load_reg() {
-    disasm!(r"
+    disasm!(
+        r"
         ldxw r1, [r2+0x3]
         ldxh r1, [r2+0x3]
         ldxb r1, [r2+0x3]
         ldxdw r1, [r2+0x3]
-        ");
+        "
+    );
 }
 
 // Test all supported StoreImm mnemonics.
 #[test]
 fn test_store_imm() {
-    disasm!("
+    disasm!(
+        "
         stw [r1+0x2], 0x3
         sth [r1+0x2], 0x3
         stb [r1+0x2], 0x3
         stdw [r1+0x2], 0x3
-        ");
+        "
+    );
 }
 
 // Test all supported StoreReg mnemonics.
 #[test]
 fn test_store_reg() {
-    disasm!("
+    disasm!(
+        "
         stxw [r1+0x2], r3
         stxh [r1+0x2], r3
         stxb [r1+0x2], r3
         stxdw [r1+0x2], r3
-        ");
+        "
+    );
 }
 
 // Test all supported JumpConditional mnemonics.
 #[test]
 fn test_jump_conditional() {
-    disasm!("
+    disasm!(
+        "
         jeq r1, r2, +0x3
         jgt r1, r2, +0x3
         jge r1, r2, +0x3
@@ -270,9 +298,11 @@ fn test_jump_conditional() {
         jsge r1, r2, -0x3
         jslt r1, r2, +0x3
         jsle r1, r2, -0x3
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         jeq r1, 0x2, +0x3
         jgt r1, 0x2, +0x3
         jge r1, 0x2, +0x3
@@ -284,9 +314,11 @@ fn test_jump_conditional() {
         jsge r1, 0x2, -0x3
         jslt r1, 0x2, +0x3
         jsle r1, 0x2, -0x3
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         jeq32 r1, r2, +0x3
         jgt32 r1, r2, +0x3
         jge32 r1, r2, +0x3
@@ -298,9 +330,11 @@ fn test_jump_conditional() {
         jsge32 r1, r2, -0x3
         jslt32 r1, r2, +0x3
         jsle32 r1, r2, -0x3
-        ");
+        "
+    );
 
-    disasm!("
+    disasm!(
+        "
         jeq32 r1, 0x2, +0x3
         jgt32 r1, 0x2, +0x3
         jge32 r1, 0x2, +0x3
@@ -312,20 +346,23 @@ fn test_jump_conditional() {
         jsge32 r1, 0x2, -0x3
         jslt32 r1, 0x2, +0x3
         jsle32 r1, 0x2, -0x3
-        ");
+        "
+    );
 }
 
 // Test all supported Endian mnemonics.
 #[test]
 fn test_endian() {
-    disasm!("
+    disasm!(
+        "
         be16 r1
         be32 r1
         be64 r1
         le16 r1
         le32 r1
         le64 r1
-        ");
+        "
+    );
 }
 
 #[test]
@@ -366,10 +403,19 @@ fn test_offset_overflow() {
         jeq r1, r2, -0x8000
         jeq32 r1, 0x2, -0x8000
         jeq32 r1, r2, -0x8000
-    ".trim().lines().map(|l| l.trim()).collect::<Vec<_>>().join("\n");
+    "
+    .trim()
+    .lines()
+    .map(|l| l.trim())
+    .collect::<Vec<_>>()
+    .join("\n");
 
     let prog = to_insn_vec(&insns);
-    let asm = prog.into_iter().map(|ins| ins.desc).collect::<Vec<_>>().join("\n");
+    let asm = prog
+        .into_iter()
+        .map(|ins| ins.desc)
+        .collect::<Vec<_>>()
+        .join("\n");
 
     assert_eq!(asm, expected_output);
 }

@@ -50,7 +50,8 @@ fn main() {
     // reimplement uptime in eBPF, in Rust. Because why not.
 
     vm.set_program(prog2).unwrap();
-    vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns).unwrap();
+    vm.register_helper(helpers::BPF_KTIME_GETNS_IDX, helpers::bpf_time_getns)
+        .unwrap();
 
     let time;
 

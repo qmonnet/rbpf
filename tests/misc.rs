@@ -15,10 +15,10 @@
 
 extern crate rbpf;
 
-use rbpf::lib::{Error, ErrorKind};
 use rbpf::assembler::assemble;
 #[cfg(feature = "std")]
 use rbpf::helpers;
+use rbpf::lib::{Error, ErrorKind};
 
 // The following two examples have been compiled from C with the following command:
 //
@@ -163,7 +163,8 @@ fn test_vm_block_port() {
     ];
 
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
-    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+        .unwrap();
 
     let res = vm.execute_program(packet).unwrap();
     println!("Program returned: {res:?} ({res:#x})");
@@ -247,7 +248,8 @@ fn test_jit_block_port() {
     ];
 
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
-    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+        .unwrap();
     vm.jit_compile().unwrap();
 
     unsafe {
@@ -268,13 +270,11 @@ fn test_vm_mbuff() {
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &[
-        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
-    ];
+    let mem = &[0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
     let mbuff = [0u8; 32];
     unsafe {
-        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data = mbuff.as_ptr().offset(8) as *mut u64;
         let data_end = mbuff.as_ptr().offset(24) as *mut u64;
         data.write_unaligned(mem.as_ptr() as u64);
         data_end.write_unaligned(mem.as_ptr() as u64 + mem.len() as u64);
@@ -291,19 +291,26 @@ fn test_vm_mbuff_with_rust_api() {
 
     let mut program = BpfCode::new();
     program
-        .load_x(MemSize::DoubleWord).set_dst(0x01).set_src(0x01).set_off(0x00_08).push()
-        .load_x(MemSize::HalfWord).set_dst(0x00).set_src(0x01).set_off(0x00_02).push()
-        .exit().push();
+        .load_x(MemSize::DoubleWord)
+        .set_dst(0x01)
+        .set_src(0x01)
+        .set_off(0x00_08)
+        .push()
+        .load_x(MemSize::HalfWord)
+        .set_dst(0x00)
+        .set_src(0x01)
+        .set_off(0x00_02)
+        .push()
+        .exit()
+        .push();
 
-    let mem = &[
-        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
-    ];
+    let mem = &[0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
     let mbuff = [0u8; 32];
     unsafe {
-        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data = mbuff.as_ptr().offset(8) as *mut u64;
         let data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data     = mem.as_ptr() as u64;
+        *data = mem.as_ptr() as u64;
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
@@ -323,15 +330,13 @@ fn test_jit_mbuff() {
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ];
-    let mem = &mut [
-        0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
-    ];
+    let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
     let mut mbuff = [0u8; 32];
     unsafe {
-        let data     = mbuff.as_ptr().offset(8)  as *mut u64;
+        let data = mbuff.as_ptr().offset(8) as *mut u64;
         let data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data     = mem.as_ptr() as u64;
+        *data = mem.as_ptr() as u64;
         *data_end = mem.as_ptr() as u64 + mem.len() as u64;
     }
 
@@ -602,8 +607,7 @@ fn verifier_success(_prog: &[u8]) -> Result<(), Error> {
 }
 
 fn verifier_fail(_prog: &[u8]) -> Result<(), Error> {
-    Err(Error::new(ErrorKind::Other,
-                   "Gaggablaghblagh!"))
+    Err(Error::new(ErrorKind::Other, "Gaggablaghblagh!"))
 }
 
 #[test]
@@ -611,7 +615,8 @@ fn test_verifier_success() {
     let prog = assemble(
         "mov32 r0, 0xBEE
          exit",
-    ).unwrap();
+    )
+    .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(verifier_success).unwrap();
     vm.set_program(&prog).unwrap();
@@ -624,7 +629,8 @@ fn test_verifier_fail() {
     let prog = assemble(
         "mov32 r0, 0xBEE
          exit",
-    ).unwrap();
+    )
+    .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(verifier_fail).unwrap();
     vm.set_program(&prog).unwrap();
@@ -632,7 +638,7 @@ fn test_verifier_fail() {
 }
 
 #[test]
-fn test_vm_bpf_to_bpf_call(){
+fn test_vm_bpf_to_bpf_call() {
     let test_code = assemble(
         "
         mov64 r1, 0x10
@@ -648,15 +654,17 @@ fn test_vm_bpf_to_bpf_call(){
         mov64 r0, r2
         add64 r0, r1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
-    let vm_res= vm.execute_program().unwrap();
+    let vm_res = vm.execute_program().unwrap();
     assert_eq!(vm_res, 0x10);
 }
 
 #[cfg(all(not(windows), feature = "std"))]
 #[test]
-fn test_vm_jit_bpf_to_bpf_call(){
+fn test_vm_jit_bpf_to_bpf_call() {
     let test_code = assemble(
         "
         mov64 r1, 0x10
@@ -672,16 +680,18 @@ fn test_vm_jit_bpf_to_bpf_call(){
         mov64 r0, r2
         add64 r0, r1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
     vm.jit_compile().unwrap();
-    let vm_res= unsafe { vm.execute_program_jit().unwrap() };
+    let vm_res = unsafe { vm.execute_program_jit().unwrap() };
     assert_eq!(vm_res, 0x10);
 }
 
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
-fn test_verifier_err_other_type_call(){
+fn test_verifier_err_other_type_call() {
     #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
@@ -693,16 +703,14 @@ fn test_verifier_err_other_type_call(){
 
 #[test]
 #[should_panic(expected = "Error: unsupported call type #2 (insn #0)")]
-fn test_vm_other_type_call(){
+fn test_vm_other_type_call() {
     #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    vm.set_verifier(|_|{
-        Ok(())
-    }).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
     vm.set_program(prog).unwrap();
     vm.execute_program().unwrap();
 }
@@ -710,16 +718,14 @@ fn test_vm_other_type_call(){
 #[cfg(all(not(windows), feature = "std"))]
 #[test]
 #[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]
-fn test_vm_jit_other_type_call(){
+fn test_vm_jit_other_type_call() {
     #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
-    vm.set_verifier(|_|{
-        Ok(())
-    }).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
     vm.set_program(prog).unwrap();
     vm.jit_compile().unwrap();
     unsafe { vm.execute_program_jit().unwrap() };
@@ -727,7 +733,7 @@ fn test_vm_jit_other_type_call(){
 
 #[test]
 #[should_panic(expected = "Error: out of bounds memory store (insn #8)")]
-fn test_stack_overflow(){
+fn test_stack_overflow() {
     // The stdw instruction is used to test the stack overflow.
     let test_code = assemble(
         "
@@ -745,8 +751,11 @@ fn test_stack_overflow(){
         mov64 r0, r2
         add64 r0, r1
         exit
-        ").unwrap();
+        ",
+    )
+    .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
-    vm.set_stack_usage_calculator(|_,_,_| 512, Box::new(())).unwrap();
+    vm.set_stack_usage_calculator(|_, _, _| 512, Box::new(()))
+        .unwrap();
     vm.execute_program().unwrap();
 }

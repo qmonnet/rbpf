@@ -46,7 +46,6 @@ use rbpf::helpers;
 // Once the bytecode has been edited, we can load the bytecode directly from the ELF object file.
 
 fn main() {
-
     let filename = "examples/load_elf__block_a_port.o";
 
     let path = PathBuf::from(filename);
@@ -109,7 +108,8 @@ fn main() {
     ];
 
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
-    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf).unwrap();
+    vm.register_helper(helpers::BPF_TRACE_PRINTK_IDX, helpers::bpf_trace_printf)
+        .unwrap();
 
     let res = vm.execute_program(packet1).unwrap();
     println!("Packet #1, program returned: {res:?} ({res:#x})");
