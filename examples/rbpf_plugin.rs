@@ -5,8 +5,7 @@
 use std::io::Read;
 
 // Helper function used by https://github.com/Alan-Jowett/bpf_conformance/blob/main/tests/call_unwind_fail.data
-fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64
-{
+fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64 {
     a
 }
 
@@ -16,8 +15,8 @@ fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
     #[cfg_attr(not(feature = "std"), allow(unused_mut))] // in no_std, jit variable isn't mutated
-    let mut jit : bool = false;
-    let mut cranelift : bool = false;
+    let mut jit: bool = false;
+    let mut cranelift: bool = false;
     let mut program_text = String::new();
     let mut memory_text = String::new();
 
@@ -37,20 +36,23 @@ fn main() {
             "--help" => {
                 println!("Usage: rbpf_plugin [memory] < program");
                 return;
-            },
+            }
             "--jit" => {
-                #[cfg(any(windows, not(feature = "std")))] {
+                #[cfg(any(windows, not(feature = "std")))]
+                {
                     println!("JIT not supported");
                     return;
                 }
-                #[cfg(all(not(windows), feature = "std"))] {
+                #[cfg(all(not(windows), feature = "std"))]
+                {
                     jit = true;
                 }
-            },
+            }
             "--cranelift" => {
                 cranelift = true;
 
-                #[cfg(not(feature = "cranelift"))] {
+                #[cfg(not(feature = "cranelift"))]
+                {
                     let _ = cranelift;
                     println!("Cranelift is not enabled");
                     return;
@@ -66,7 +68,7 @@ fn main() {
                     program_text = args[0].clone();
                     args.remove(0);
                 }
-            },
+            }
             _ => panic!("Unknown argument {}", args[0]),
         }
         args.remove(0);
@@ -92,29 +94,32 @@ fn main() {
     // Register the helper function used by call_unwind_fail.data test.
     vm.register_helper(5, _unwind).unwrap();
 
-    let result : u64;
+    let result: u64;
     if jit {
-        #[cfg(any(windows, not(feature = "std")))] {
+        #[cfg(any(windows, not(feature = "std")))]
+        {
             println!("JIT not supported");
             return;
         }
-        #[cfg(all(not(windows), feature = "std"))] {
+        #[cfg(all(not(windows), feature = "std"))]
+        {
             unsafe {
                 vm.jit_compile().unwrap();
                 result = vm.execute_program_jit(&mut memory).unwrap();
             }
         }
     } else if cranelift {
-        #[cfg(not(feature = "cranelift"))] {
+        #[cfg(not(feature = "cranelift"))]
+        {
             println!("Cranelift is not enabled");
             return;
         }
-        #[cfg(feature = "cranelift")] {
+        #[cfg(feature = "cranelift")]
+        {
             vm.cranelift_compile().unwrap();
             result = vm.execute_program_cranelift(&mut memory).unwrap();
         }
-    }
-    else {
+    } else {
         result = vm.execute_program(&mut memory).unwrap();
     }
     println!("{result:x}");

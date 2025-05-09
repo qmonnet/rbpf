@@ -278,7 +278,8 @@ fn test_cranelift_call() {
 #[test]
 #[should_panic(expected = "[CRANELIFT] Error: unknown helper function (id: 0x3f)")]
 fn test_cranelift_err_call_unreg() {
-    let prog = assemble("
+    let prog = assemble(
+        "
          mov r1, 1
          mov r2, 2
          mov r3, 3
@@ -286,7 +287,9 @@ fn test_cranelift_err_call_unreg() {
          mov r5, 5
          call 63
          exit
-    ").unwrap();
+    ",
+    )
+    .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.cranelift_compile().unwrap();
 }
@@ -309,7 +312,10 @@ fn test_cranelift_call_memfrob() {
     vm.register_helper(1, helpers::memfrob).unwrap();
     let mem = &mut [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x102292e2f2c0708);
+    assert_eq!(
+        vm.execute_program_cranelift(mem).unwrap(),
+        0x102292e2f2c0708
+    );
 }
 
 test_cranelift!(
@@ -2108,7 +2114,10 @@ fn test_cranelift_tcp_sack_match() {
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(), 0x1);
+    assert_eq!(
+        vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(),
+        0x1
+    );
 }
 
 #[test]
@@ -2117,9 +2126,11 @@ fn test_cranelift_tcp_sack_nomatch() {
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(), 0x0);
+    assert_eq!(
+        vm.execute_program_cranelift(mem.as_mut_slice()).unwrap(),
+        0x0
+    );
 }
-
 
 #[test]
 fn test_cranelift_ldabsb() {
@@ -2190,7 +2201,10 @@ fn test_cranelift_ldabsdw() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0xaa99887766554433);
+    assert_eq!(
+        vm.execute_program_cranelift(mem).unwrap(),
+        0xaa99887766554433
+    );
 }
 
 #[test]
@@ -2266,5 +2280,8 @@ fn test_cranelift_ldinddw() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0xccbbaa9988776655);
+    assert_eq!(
+        vm.execute_program_cranelift(mem).unwrap(),
+        0xccbbaa9988776655
+    );
 }

@@ -4,9 +4,9 @@
 //! Functions in this module are used to handle eBPF programs with a higher level representation,
 //! for example to disassemble the code into a human-readable format.
 
-use log::warn;
 #[cfg(not(feature = "std"))]
 use log::info;
+use log::warn;
 
 use crate::ebpf;
 use crate::lib::*;
@@ -24,8 +24,8 @@ fn alu_reg_str(name: &str, insn: &ebpf::Insn) -> String {
 #[inline]
 fn byteswap_str(name: &str, insn: &ebpf::Insn) -> String {
     match insn.imm {
-        16 | 32 | 64 => {},
-        _ => warn!("[Disassembler] Warning: Invalid offset value for {name} insn")
+        16 | 32 | 64 => {}
+        _ => warn!("[Disassembler] Warning: Invalid offset value for {name} insn"),
     }
     format!("{name}{} r{}", insn.imm, insn.dst)
 }
@@ -35,7 +35,12 @@ fn ld_st_imm_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} [r{}+{:#x}], {:#x}", insn.dst, insn.off, insn.imm)
     } else {
-        format!("{name} [r{}-{:#x}], {:#x}", insn.dst, -(insn.off as isize), insn.imm)
+        format!(
+            "{name} [r{}-{:#x}], {:#x}",
+            insn.dst,
+            -(insn.off as isize),
+            insn.imm
+        )
     }
 }
 
@@ -44,7 +49,12 @@ fn ld_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, [r{}+{:#x}]", insn.dst, insn.src, insn.off)
     } else {
-        format!("{name} r{}, [r{}-{:#x}]", insn.dst, insn.src, -(insn.off as isize))
+        format!(
+            "{name} r{}, [r{}-{:#x}]",
+            insn.dst,
+            insn.src,
+            -(insn.off as isize)
+        )
     }
 }
 
@@ -53,7 +63,12 @@ fn st_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} [r{}+{:#x}], r{}", insn.dst, insn.off, insn.src)
     } else {
-        format!("{name} [r{}-{:#x}], r{}", insn.dst, -(insn.off as isize), insn.src)
+        format!(
+            "{name} [r{}-{:#x}], r{}",
+            insn.dst,
+            -(insn.off as isize),
+            insn.src
+        )
     }
 }
 
@@ -72,7 +87,12 @@ fn jmp_imm_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, {:#x}, +{:#x}", insn.dst, insn.imm, insn.off)
     } else {
-        format!("{name} r{}, {:#x}, -{:#x}", insn.dst, insn.imm, -(insn.off as isize))
+        format!(
+            "{name} r{}, {:#x}, -{:#x}",
+            insn.dst,
+            insn.imm,
+            -(insn.off as isize)
+        )
     }
 }
 
@@ -81,7 +101,12 @@ fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
     if insn.off >= 0 {
         format!("{name} r{}, r{}, +{:#x}", insn.dst, insn.src, insn.off)
     } else {
-        format!("{name} r{}, r{}, -{:#x}", insn.dst, insn.src, -(insn.off as isize))
+        format!(
+            "{name} r{}, r{}, -{:#x}",
+            insn.dst,
+            insn.src,
+            -(insn.off as isize)
+        )
     }
 }
 
@@ -103,20 +128,20 @@ fn jmp_reg_str(name: &str, insn: &ebpf::Insn) -> String {
 #[derive(Debug, PartialEq, Eq)]
 pub struct HLInsn {
     /// Operation code.
-    pub opc:  u8,
+    pub opc: u8,
     /// Name (mnemonic). This name is not canon.
     pub name: String,
     /// Description of the instruction. This is not canon.
     pub desc: String,
     /// Destination register operand.
-    pub dst:  u8,
+    pub dst: u8,
     /// Source register operand.
-    pub src:  u8,
+    pub src: u8,
     /// Offset operand.
-    pub off:  i16,
+    pub off: i16,
     /// Immediate value operand. For `LD_DW_IMM` instructions, contains the whole value merged from
     /// the two 8-bytes parts of the instruction.
-    pub imm:  i64,
+    pub imm: i64,
 }
 
 /// Return a vector of `struct HLInsn` built from an eBPF program.
@@ -172,15 +197,17 @@ pub struct HLInsn {
 /// ```
 pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
     if prog.len() % ebpf::INSN_SIZE != 0 {
-        panic!("[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
-               ebpf::INSN_SIZE);
+        panic!(
+            "[Disassembler] Error: eBPF program length must be a multiple of {:?} octets",
+            ebpf::INSN_SIZE
+        );
     }
     if prog.is_empty() {
         return vec![];
     }
 
     let mut res = vec![];
-    let mut insn_ptr:usize = 0;
+    let mut insn_ptr: usize = 0;
 
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
@@ -350,19 +377,19 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
         };
 
         let hl_insn = HLInsn {
-            opc:  insn.opc,
+            opc: insn.opc,
             name: name.to_string(),
             desc,
-            dst:  insn.dst,
-            src:  insn.src,
-            off:  insn.off,
+            dst: insn.dst,
+            src: insn.src,
+            off: insn.off,
             imm,
         };
 
         res.push(hl_insn);
 
         insn_ptr += 1;
-    };
+    }
     res
 }
 
@@ -397,12 +424,14 @@ pub fn to_insn_vec(prog: &[u8]) -> Vec<HLInsn> {
 /// exit
 /// ```
 pub fn disassemble(prog: &[u8]) {
-    #[cfg(feature = "std")] {
+    #[cfg(feature = "std")]
+    {
         for insn in to_insn_vec(prog) {
             println!("{}", insn.desc);
         }
     }
-    #[cfg(not(feature = "std"))] {
+    #[cfg(not(feature = "std"))]
+    {
         for insn in to_insn_vec(prog) {
             info!("{}", insn.desc);
         }

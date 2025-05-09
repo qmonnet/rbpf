@@ -19,21 +19,21 @@ fn check_mem(
     mbuff: &[u8],
     mem: &[u8],
     stack: &[u8],
-    allowed_memory: &HashSet<u64>
+    allowed_memory: &HashSet<u64>,
 ) -> Result<(), Error> {
     if let Some(addr_end) = addr.checked_add(len as u64) {
-      if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
-          return Ok(());
-      }
-      if mem.as_ptr() as u64 <= addr && addr_end <= mem.as_ptr() as u64 + mem.len() as u64 {
-          return Ok(());
-      }
-      if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
-          return Ok(());
-      }
-      if allowed_memory.contains(&addr) {
-          return Ok(());
-      }
+        if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
+            return Ok(());
+        }
+        if mem.as_ptr() as u64 <= addr && addr_end <= mem.as_ptr() as u64 + mem.len() as u64 {
+            return Ok(());
+        }
+        if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
+            return Ok(());
+        }
+        if allowed_memory.contains(&addr) {
+            return Ok(());
+        }
     }
 
     Err(Error::new(ErrorKind::Other, format!(
@@ -58,36 +58,65 @@ pub fn execute_program(
 
     let (prog, stack_usage) = match prog_ {
         Some(prog) => (prog, stack_usage.unwrap()),
-        None => Err(Error::new(ErrorKind::Other,
-                    "Error: No program set, call prog_set() to load one"))?,
+        None => Err(Error::new(
+            ErrorKind::Other,
+            "Error: No program set, call prog_set() to load one",
+        ))?,
     };
-    let stack = vec![0u8;ebpf::STACK_SIZE];
-    let mut stacks = [StackFrame::new();MAX_CALL_DEPTH];
+    let stack = vec![0u8; ebpf::STACK_SIZE];
+    let mut stacks = [StackFrame::new(); MAX_CALL_DEPTH];
     let mut stack_frame_idx = 0;
 
     // R1 points to beginning of memory area, R10 to stack
-    let mut reg: [u64;11] = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.as_ptr() as u64 + stack.len() as u64
+    let mut reg: [u64; 11] = [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        stack.as_ptr() as u64 + stack.len() as u64,
     ];
     if !mbuff.is_empty() {
         reg[1] = mbuff.as_ptr() as u64;
-    }
-    else if !mem.is_empty() {
+    } else if !mem.is_empty() {
         reg[1] = mem.as_ptr() as u64;
     }
 
-    let check_mem_load = | addr: u64, len: usize, insn_ptr: usize | {
-        check_mem(addr, len, "load", insn_ptr, mbuff, mem, &stack, allowed_memory)
+    let check_mem_load = |addr: u64, len: usize, insn_ptr: usize| {
+        check_mem(
+            addr,
+            len,
+            "load",
+            insn_ptr,
+            mbuff,
+            mem,
+            &stack,
+            allowed_memory,
+        )
     };
-    let check_mem_store = | addr: u64, len: usize, insn_ptr: usize | {
-        check_mem(addr, len, "store", insn_ptr, mbuff, mem, &stack, allowed_memory)
+    let check_mem_store = |addr: u64, len: usize, insn_ptr: usize| {
+        check_mem(
+            addr,
+            len,
+            "store",
+            insn_ptr,
+            mbuff,
+            mem,
+            &stack,
+            allowed_memory,
+        )
     };
 
     // Loop on instructions
-    let mut insn_ptr:usize = 0;
+    let mut insn_ptr: usize = 0;
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
-        if stack_frame_idx < MAX_CALL_DEPTH{
+        if stack_frame_idx < MAX_CALL_DEPTH {
             if let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
                 stacks[stack_frame_idx].set_stack_usage(usage);
             }

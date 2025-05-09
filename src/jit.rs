@@ -8,11 +8,11 @@
 #![allow(clippy::single_match)]
 
 use std::alloc;
-use std::mem;
 use std::collections::HashMap;
-use std::fmt::Formatter;
 use std::fmt::Error as FormatterError;
+use std::fmt::Formatter;
 use std::io::{Error, ErrorKind};
+use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr;
 
@@ -33,7 +33,7 @@ const TARGET_PC_EXIT: isize = TARGET_OFFSET + 1;
 
 #[derive(Copy, Clone)]
 enum OperandSize {
-    S8  = 8,
+    S8 = 8,
     S16 = 16,
     S32 = 32,
     S64 = 64,
@@ -48,8 +48,8 @@ const RSP: u8 = 4;
 const RBP: u8 = 5;
 const RSI: u8 = 6;
 const RDI: u8 = 7;
-const R8:  u8 = 8;
-const R9:  u8 = 9;
+const R8: u8 = 8;
+const R9: u8 = 9;
 const R10: u8 = 10;
 const R11: u8 = 11;
 //const R12: u8 = 12;
@@ -58,7 +58,7 @@ const R14: u8 = 14;
 const R15: u8 = 15;
 
 const REGISTER_MAP_SIZE: usize = 11;
-const REGISTER_MAP: [u8;REGISTER_MAP_SIZE] = [
+const REGISTER_MAP: [u8; REGISTER_MAP_SIZE] = [
     RAX, // 0  return value
     RDI, // 1  arg 1
     RSI, // 2  arg 2
@@ -70,8 +70,8 @@ const REGISTER_MAP: [u8;REGISTER_MAP_SIZE] = [
     R14, // 8  callee-saved
     R15, // 9  callee-saved
     RBP, // 10 stack pointer
-    // R10 and R11 are used to compute store a constant pointer to mem and to compute offset for
-    // LD_ABS_* and LD_IND_* operations, so they are not mapped to any eBPF register.
+         // R10 and R11 are used to compute store a constant pointer to mem and to compute offset for
+         // LD_ABS_* and LD_IND_* operations, so they are not mapped to any eBPF register.
 ];
 
 // Return the x86 register for the given eBPF register
@@ -89,27 +89,27 @@ macro_rules! emit_bytes {
             ptr.write_unaligned($data);
         }
         $mem.offset += size;
-    }}
+    }};
 }
 
 #[derive(Debug)]
 struct Jump {
     offset_loc: usize,
-    target_pc:  isize,
+    target_pc: isize,
 }
 
 #[derive(Debug)]
 struct JitCompiler {
-    pc_locs:         Vec<usize>,
+    pc_locs: Vec<usize>,
     special_targets: HashMap<isize, usize>,
-    jumps:           Vec<Jump>,
+    jumps: Vec<Jump>,
 }
 
 impl JitCompiler {
     fn new() -> JitCompiler {
         JitCompiler {
-            pc_locs:         vec![],
-            jumps:           vec![],
+            pc_locs: vec![],
+            jumps: vec![],
             special_targets: HashMap::new(),
         }
     }
@@ -167,10 +167,10 @@ impl JitCompiler {
     // Skipped if no bits would be set.
     fn emit_basic_rex(&self, mem: &mut JitMemory, w: u8, src: u8, dst: u8) {
         if self.basix_rex_would_set_bits(w, src, dst) {
-            let is_masked = | val, mask | { match val & mask {
+            let is_masked = |val, mask| match val & mask {
                 0 => 0,
-                _ => 1
-            }};
+                _ => 1,
+            };
             self.emit_rex(mem, w, is_masked(src, 8), 0, is_masked(dst, 8));
         }
     }
@@ -252,7 +252,7 @@ impl JitCompiler {
     fn emit_load(&self, mem: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
         let data = match size {
             OperandSize::S64 => 1,
-            _ => 0
+            _ => 0,
         };
         self.emit_basic_rex(mem, data, dst, src);
 
@@ -261,12 +261,12 @@ impl JitCompiler {
                 // movzx
                 self.emit1(mem, 0x0f);
                 self.emit1(mem, 0xb6);
-            },
+            }
             OperandSize::S16 => {
                 // movzx
                 self.emit1(mem, 0x0f);
                 self.emit1(mem, 0xb7);
-            },
+            }
             OperandSize::S32 | OperandSize::S64 => {
                 // mov
                 self.emit1(mem, 0x8b);
@@ -377,7 +377,15 @@ impl JitCompiler {
         self.special_targets.insert(target, mem.offset);
     }
 
-    fn emit_muldivmod(&mut self, mem: &mut JitMemory, pc: u16, opc: u8, src: u8, dst: u8, imm: i32) {
+    fn emit_muldivmod(
+        &mut self,
+        mem: &mut JitMemory,
+        pc: u16,
+        opc: u8,
+        src: u8,
+        dst: u8,
+        imm: i32,
+    ) {
         let mul = (opc & ebpf::BPF_ALU_OP_MASK) == (ebpf::MUL32_IMM & ebpf::BPF_ALU_OP_MASK);
         let div = (opc & ebpf::BPF_ALU_OP_MASK) == (ebpf::DIV32_IMM & ebpf::BPF_ALU_OP_MASK);
         let modrm = (opc & ebpf::BPF_ALU_OP_MASK) == (ebpf::MOD32_IMM & ebpf::BPF_ALU_OP_MASK);
@@ -469,7 +477,7 @@ impl JitCompiler {
         self.emit_push(mem, map_register(8));
         self.emit_push(mem, map_register(9));
         // 0xe8 is the opcode for a CALL
-        self.emit1(mem, 0xe8); 
+        self.emit1(mem, 0xe8);
         self.emit_jump_offset(mem, target_pc);
         self.emit_pop(mem, map_register(9));
         self.emit_pop(mem, map_register(8));
@@ -477,8 +485,14 @@ impl JitCompiler {
         self.emit_pop(mem, map_register(6));
     }
 
-    fn jit_compile(&mut self, mem: &mut JitMemory, prog: &[u8], use_mbuff: bool, update_data_ptr: bool,
-                   helpers: &HashMap<u32, ebpf::Helper>) -> Result<(), Error> {
+    fn jit_compile(
+        &mut self,
+        mem: &mut JitMemory,
+        prog: &[u8],
+        use_mbuff: bool,
+        update_data_ptr: bool,
+        helpers: &HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
         self.emit_push(mem, RBP);
         self.emit_push(mem, RBX);
         self.emit_push(mem, R13);
@@ -501,25 +515,25 @@ impl JitCompiler {
                 if map_register(1) != RDX {
                     self.emit_mov(mem, RDX, map_register(1));
                 }
-            },
+            }
             (true, false) => {
                 // We use a mbuff already pointing to mem and mem_end: move it to register 1.
                 if map_register(1) != RDI {
                     self.emit_mov(mem, RDI, map_register(1));
                 }
-            },
+            }
             (true, true) => {
                 // We have a fixed (simulated) mbuff: update mem and mem_end offset values in it.
 
                 // Store mem at mbuff + mem_offset. Trash R8.
-                self.emit_alu64(mem, 0x01, RDI, R8);                // add mbuff to mem_offset in R8
+                self.emit_alu64(mem, 0x01, RDI, R8); // add mbuff to mem_offset in R8
                 self.emit_store(mem, OperandSize::S64, RDX, R8, 0); // set mem at mbuff + mem_offset
 
                 // Store mem_end at mbuff + mem_end_offset. Trash R9.
-                self.emit_load(mem, OperandSize::S64, RDX, R8, 0);  // load mem into R8
-                self.emit_alu64(mem, 0x01, RCX, R8);                // add mem_len to mem (= mem_end)
-                self.emit_alu64(mem, 0x01, RDI, R9);                // add mbuff to mem_end_offset
-                self.emit_store(mem, OperandSize::S64, R8, R9, 0);  // store mem_end
+                self.emit_load(mem, OperandSize::S64, RDX, R8, 0); // load mem into R8
+                self.emit_alu64(mem, 0x01, RCX, R8); // add mem_len to mem (= mem_end)
+                self.emit_alu64(mem, 0x01, RDI, R9); // add mbuff to mem_end_offset
+                self.emit_store(mem, OperandSize::S64, R8, R9, 0); // store mem_end
 
                 // Move rdi into register 1
                 if map_register(1) != RDI {
@@ -546,7 +560,7 @@ impl JitCompiler {
 
         self.pc_locs = vec![0; prog.len() / ebpf::INSN_SIZE + 1];
 
-        let mut insn_ptr:usize = 0;
+        let mut insn_ptr: usize = 0;
         while insn_ptr * ebpf::INSN_SIZE < prog.len() {
             let insn = ebpf::get_insn(prog, insn_ptr);
 
@@ -978,12 +992,11 @@ impl JitCompiler {
         Ok(())
     }
 
-    fn resolve_jumps(&mut self, mem: &mut JitMemory) -> Result<(), Error>
-    {
+    fn resolve_jumps(&mut self, mem: &mut JitMemory) -> Result<(), Error> {
         for jump in &self.jumps {
             let target_loc = match self.special_targets.get(&jump.target_pc) {
                 Some(target) => *target,
-                None         => self.pc_locs[jump.target_pc as usize]
+                None => self.pc_locs[jump.target_pc as usize],
             };
 
             // Assumes jump offset is at end of instruction
@@ -1001,13 +1014,17 @@ impl JitCompiler {
 
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
-    layout:   alloc::Layout,
-    offset:   usize,
+    layout: alloc::Layout,
+    offset: usize,
 }
 
 impl<'a> JitMemory<'a> {
-    pub fn new(prog: &[u8], helpers: &HashMap<u32, ebpf::Helper>, use_mbuff: bool,
-               update_data_ptr: bool) -> Result<JitMemory<'a>, Error> {
+    pub fn new(
+        prog: &[u8],
+        helpers: &HashMap<u32, ebpf::Helper>,
+        use_mbuff: bool,
+        update_data_ptr: bool,
+    ) -> Result<JitMemory<'a>, Error> {
         let layout;
 
         // Allocate the appropriately sized memory.
