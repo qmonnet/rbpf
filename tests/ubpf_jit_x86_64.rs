@@ -16,7 +16,7 @@
 
 // These are unit tests for the eBPF JIT compiler.
 
-#![cfg(all(not(windows), feature = "std"))]
+#![cfg(feature = "std")]
 
 extern crate rbpf;
 mod common;

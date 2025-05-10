@@ -7,18 +7,12 @@
 
 #![allow(clippy::single_match)]
 
-use std::alloc;
-use std::collections::HashMap;
-use std::fmt::Error as FormatterError;
-use std::fmt::Formatter;
-use std::io::{Error, ErrorKind};
-use std::mem;
-use std::ops::{Index, IndexMut};
-use std::ptr;
-
-use crate::ebpf;
-
-extern crate libc;
+use crate::{ebpf, Error, ErrorKind, HashMap};
+use core::fmt::Error as FormatterError;
+use core::fmt::Formatter;
+use core::mem;
+use core::ops::{Index, IndexMut};
+use core::ptr;
 
 type MachineCode = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
@@ -1001,11 +995,11 @@ impl JitCompiler {
 
             // Assumes jump offset is at end of instruction
             unsafe {
-                let offset_loc = jump.offset_loc as i32 + std::mem::size_of::<i32>() as i32;
+                let offset_loc = jump.offset_loc as i32 + core::mem::size_of::<i32>() as i32;
                 let rel = &(target_loc as i32 - offset_loc) as *const i32;
 
                 let offset_ptr = mem.contents.as_ptr().add(jump.offset_loc) as *mut u8;
-                ptr::copy_nonoverlapping(rel.cast::<u8>(), offset_ptr, std::mem::size_of::<i32>());
+                ptr::copy_nonoverlapping(rel.cast::<u8>(), offset_ptr, core::mem::size_of::<i32>());
             }
         }
         Ok(())
@@ -1014,41 +1008,75 @@ impl JitCompiler {
 
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
-    layout: alloc::Layout,
+    #[cfg(feature = "std")]
+    _allocation: region::Allocation,
     offset: usize,
 }
 
 impl<'a> JitMemory<'a> {
+    #[cfg(feature = "std")]
     pub fn new(
         prog: &[u8],
         helpers: &HashMap<u32, ebpf::Helper>,
         use_mbuff: bool,
         update_data_ptr: bool,
     ) -> Result<JitMemory<'a>, Error> {
-        let layout;
-
         // Allocate the appropriately sized memory.
-        let contents = unsafe {
+        let (contents, allocation) = unsafe {
             // Create a layout with the proper size and alignment.
             let size = NUM_PAGES * PAGE_SIZE;
-            layout = alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE);
 
-            // Allocate the region of memory.
-            let ptr = alloc::alloc(layout);
+            let mut alloc = region::alloc(size, region::Protection::READ_WRITE_EXECUTE)
+                .map_err(|_| std::io::ErrorKind::Other)?;
+            let ptr = alloc.as_mut_ptr::<u8>();
+
             if ptr.is_null() {
                 return Err(Error::from(std::io::ErrorKind::OutOfMemory));
             }
 
-            // Protect it.
-            libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
+            debug_assert!(ptr as usize % PAGE_SIZE == 0);
 
             // Convert to a slice.
-            std::slice::from_raw_parts_mut(ptr, size)
+            (std::slice::from_raw_parts_mut(ptr, size), alloc)
         };
 
         let mut mem = JitMemory {
             contents,
-            layout,
+            _allocation: allocation,
+            offset: 0,
+        };
+
+        let mut jit = JitCompiler::new();
+        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+        jit.resolve_jumps(&mut mem)?;
+
+        Ok(mem)
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn new(
+        prog: &[u8],
+        executable_memory: &'a mut [u8],
+        helpers: &HashMap<u32, ebpf::Helper>,
+        use_mbuff: bool,
+        update_data_ptr: bool,
+    ) -> Result<JitMemory<'a>, Error> {
+        let contents = executable_memory;
+        if contents.len() < NUM_PAGES * PAGE_SIZE {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Executable memory is too small",
+            ));
+        }
+        if contents.as_ptr() as usize % PAGE_SIZE != 0 {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Executable memory is not aligned",
+            ));
+        }
+
+        let mut mem = JitMemory {
+            contents,
             offset: 0,
         };
 
@@ -1078,15 +1106,7 @@ impl IndexMut<usize> for JitMemory<'_> {
     }
 }
 
-impl Drop for JitMemory<'_> {
-    fn drop(&mut self) {
-        unsafe {
-            alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
-        }
-    }
-}
-
-impl std::fmt::Debug for JitMemory<'_> {
+impl core::fmt::Debug for JitMemory<'_> {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatterError> {
         fmt.write_str("JIT contents: [")?;
         fmt.write_str(" ] | ")?;

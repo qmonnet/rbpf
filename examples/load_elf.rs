@@ -115,19 +115,9 @@ fn main() {
     println!("Packet #1, program returned: {res:?} ({res:#x})");
     assert_eq!(res, 0xffffffff);
 
-    #[cfg(not(windows))]
-    {
-        vm.jit_compile().unwrap();
+    vm.jit_compile().unwrap();
 
-        let res = unsafe { vm.execute_program_jit(packet2).unwrap() };
-        println!("Packet #2, program returned: {res:?} ({res:#x})");
-        assert_eq!(res, 0);
-    }
-
-    #[cfg(windows)]
-    {
-        let res = vm.execute_program(packet2).unwrap();
-        println!("Packet #2, program returned: {:?} ({:#x})", res, res);
-        assert_eq!(res, 0);
-    }
+    let res = unsafe { vm.execute_program_jit(packet2).unwrap() };
+    println!("Packet #2, program returned: {res:?} ({res:#x})");
+    assert_eq!(res, 0);
 }

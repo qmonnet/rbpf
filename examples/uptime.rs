@@ -55,14 +55,14 @@ fn main() {
 
     let time;
 
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(feature = "std")]
     {
         vm.jit_compile().unwrap();
 
         time = unsafe { vm.execute_program_jit().unwrap() };
     }
 
-    #[cfg(any(windows, not(feature = "std")))]
+    #[cfg(not(feature = "std"))]
     {
         time = vm.execute_program().unwrap();
     }
