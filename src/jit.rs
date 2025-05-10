@@ -7,7 +7,7 @@
 
 #![allow(clippy::single_match)]
 
-use crate::{ebpf, Error, ErrorKind, HashMap};
+use crate::{ebpf, format, vec, Error, ErrorKind, HashMap, Vec};
 use core::fmt::Error as FormatterError;
 use core::fmt::Formatter;
 use core::mem;

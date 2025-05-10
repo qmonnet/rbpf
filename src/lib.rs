@@ -78,6 +78,8 @@ pub mod lib {
     #[cfg(not(feature = "std"))]
     pub use alloc::vec::Vec;
     #[cfg(feature = "std")]
+    pub use std::vec;
+    #[cfg(feature = "std")]
     pub use std::vec::Vec;
 
     #[cfg(not(feature = "std"))]
@@ -107,6 +109,8 @@ pub mod lib {
 
     #[cfg(not(feature = "std"))]
     pub use alloc::format;
+    #[cfg(feature = "std")]
+    pub use std::format;
 }
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
@@ -170,7 +174,6 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog: Option<&'a [u8]>,
     verifier: Verifier,
-    #[cfg(feature = "std")]
     jit: Option<jit::JitMemory<'a>>,
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
@@ -208,7 +211,6 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(EbpfVmMbuff {
             prog,
             verifier: verifier::check,
-            #[cfg(feature = "std")]
             jit: None,
             #[cfg(feature = "cranelift")]
             cranelift_prog: None,
@@ -551,13 +553,11 @@ impl<'a> EbpfVmMbuff<'a> {
     /// vm.jit_compile();
     ///
     /// // Provide both a reference to the packet data, and to the metadata buffer.
-    /// # #[cfg(feature = "std")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem, &mut mbuff).unwrap();
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    #[cfg(feature = "std")]
     pub unsafe fn execute_program_jit(
         &self,
         mem: &mut [u8],
@@ -568,7 +568,7 @@ impl<'a> EbpfVmMbuff<'a> {
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => std::ptr::null_mut(),
+            0 => core::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8,
         };
         // The last two arguments are not used in this function. They would be used if there was a
@@ -1109,7 +1109,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.jit = Some(jit::JitMemory::new(
             prog,
             executable_memory,
-            &self.helpers,
+            &self.parent.helpers,
             true,
             true,
         )?);
@@ -1156,7 +1156,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// vm.jit_compile();
     ///
     /// // Provide only a reference to the packet data. We do not manage the metadata buffer.
-    /// # #[cfg(feature = "std")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0xdd);
@@ -1164,7 +1163,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    #[cfg(feature = "std")]
     pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -1611,10 +1609,10 @@ impl<'a> EbpfVmRaw<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        self.jit = Some(jit::JitMemory::new(
+        self.parent.jit = Some(jit::JitMemory::new(
             prog,
             executable_memory,
-            &self.helpers,
+            &self.parent.helpers,
             false,
             false,
         )?);
@@ -1652,13 +1650,11 @@ impl<'a> EbpfVmRaw<'a> {
     /// # #[cfg(feature = "std")]
     /// vm.jit_compile();
     ///
-    /// # #[cfg(feature = "std")]
     /// unsafe {
     ///     let res = vm.execute_program_jit(mem).unwrap();
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    #[cfg(feature = "std")]
     pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
@@ -2050,13 +2046,11 @@ impl<'a> EbpfVmNoData<'a> {
     /// # #[cfg(feature = "std")]
     /// vm.jit_compile();
     ///
-    /// # #[cfg(feature = "std")]
     /// unsafe {
     ///     let res = vm.execute_program_jit().unwrap();
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    #[cfg(feature = "std")]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
     }
