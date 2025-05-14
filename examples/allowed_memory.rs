@@ -2,7 +2,7 @@
 // Copyright 2024 Akenes SA <wouter.dullaert@exoscale.ch>
 
 extern crate elf;
-use std::{iter::FromIterator, ptr::addr_of};
+use std::{ptr::addr_of};
 
 extern crate rbpf;
 
@@ -40,8 +40,7 @@ fn main() {
         .unwrap();
 
     let start = addr_of!(MAP_VALUE) as u64;
-    let addrs = Vec::from_iter(start..start + size_of::<Value>() as u64);
-    vm.register_allowed_memory(&addrs);
+    vm.register_allowed_memory(start..start + size_of::<Value>() as u64);
 
     let res = vm.execute_program().unwrap();
     assert_eq!(res, 1);

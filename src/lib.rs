@@ -35,6 +35,7 @@ extern crate cranelift_native;
 
 use crate::lib::*;
 use byteorder::{ByteOrder, LittleEndian};
+use core::ops::Range;
 use stack::{StackUsage, StackVerifier};
 
 mod asm_parser;
@@ -180,7 +181,7 @@ pub struct EbpfVmMbuff<'a> {
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
     helpers: HashMap<u32, ebpf::Helper>,
-    allowed_memory: HashSet<u64>,
+    allowed_memory: HashSet<Range<u64>>,
     stack_usage: Option<StackUsage>,
     stack_verifier: StackVerifier,
 }
@@ -400,7 +401,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -416,13 +416,10 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs: &[u64]) {
-        for i in addrs {
-            self.allowed_memory.insert(*i);
-        }
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.allowed_memory.insert(addrs_range);
     }
 
     /// Execute the program loaded, with the given packet data and metadata buffer.
@@ -1025,7 +1022,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -1041,11 +1037,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -1568,7 +1563,6 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -1584,11 +1578,10 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -2019,7 +2012,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -2035,11 +2027,10 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
