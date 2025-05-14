@@ -371,6 +371,20 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmMbuff::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.helpers = helpers;
+        Ok(())
+    }
+
     /// Register a set of addresses that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -983,6 +997,19 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmFixedMbuff::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
+    }
+
     /// Register an object that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -1513,6 +1540,19 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmRaw::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
+    }
+
     /// Register an object that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -1949,6 +1989,19 @@ impl<'a> EbpfVmNoData<'a> {
         function: fn(u64, u64, u64, u64, u64) -> u64,
     ) -> Result<(), Error> {
         self.parent.register_helper(key, function)
+    }
+
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmNoData::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
     }
 
     /// Register an object that the eBPF program is allowed to load and store.
