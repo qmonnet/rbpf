@@ -71,6 +71,7 @@ pub mod lib {
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
+    pub use hashbrown::{HashMap,HashSet};
 
     #[cfg(feature = "std")]
     pub use std::println;
@@ -98,9 +99,9 @@ pub mod lib {
     // BTree-based implementations of Maps and Sets. The cranelift module uses
     // BTrees by default, hence we need to expose it twice here.
     #[cfg(not(feature = "std"))]
-    pub use alloc::collections::{BTreeMap as HashMap, BTreeMap, BTreeSet as HashSet, BTreeSet};
+    pub use alloc::collections::{BTreeMap};
     #[cfg(feature = "std")]
-    pub use std::collections::{BTreeMap, HashMap, HashSet};
+    pub use std::collections::{BTreeMap};
 
     /// In no_std we use a custom implementation of the error which acts as a
     /// replacement for the io Error.
