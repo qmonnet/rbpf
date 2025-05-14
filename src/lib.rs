@@ -35,6 +35,7 @@ extern crate cranelift_native;
 
 use crate::lib::*;
 use byteorder::{ByteOrder, LittleEndian};
+use core::ops::Range;
 use stack::{StackUsage, StackVerifier};
 
 mod asm_parser;
@@ -46,7 +47,7 @@ pub mod ebpf;
 pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 mod jit;
 #[cfg(not(feature = "std"))]
 mod no_std_error;
@@ -70,6 +71,7 @@ pub mod lib {
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
+    pub use hashbrown::{HashMap,HashSet};
 
     #[cfg(feature = "std")]
     pub use std::println;
@@ -78,6 +80,8 @@ pub mod lib {
     pub use alloc::vec;
     #[cfg(not(feature = "std"))]
     pub use alloc::vec::Vec;
+    #[cfg(feature = "std")]
+    pub use std::vec;
     #[cfg(feature = "std")]
     pub use std::vec::Vec;
 
@@ -95,9 +99,9 @@ pub mod lib {
     // BTree-based implementations of Maps and Sets. The cranelift module uses
     // BTrees by default, hence we need to expose it twice here.
     #[cfg(not(feature = "std"))]
-    pub use alloc::collections::{BTreeMap as HashMap, BTreeMap, BTreeSet as HashSet, BTreeSet};
+    pub use alloc::collections::{BTreeMap};
     #[cfg(feature = "std")]
-    pub use std::collections::{BTreeMap, HashMap, HashSet};
+    pub use std::collections::{BTreeMap};
 
     /// In no_std we use a custom implementation of the error which acts as a
     /// replacement for the io Error.
@@ -108,6 +112,8 @@ pub mod lib {
 
     #[cfg(not(feature = "std"))]
     pub use alloc::format;
+    #[cfg(feature = "std")]
+    pub use std::format;
 }
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
@@ -171,12 +177,12 @@ struct MetaBuff {
 pub struct EbpfVmMbuff<'a> {
     prog: Option<&'a [u8]>,
     verifier: Verifier,
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     jit: Option<jit::JitMemory<'a>>,
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
     helpers: HashMap<u32, ebpf::Helper>,
-    allowed_memory: HashSet<u64>,
+    allowed_memory: HashSet<Range<u64>>,
     stack_usage: Option<StackUsage>,
     stack_verifier: StackVerifier,
 }
@@ -209,7 +215,7 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(EbpfVmMbuff {
             prog,
             verifier: verifier::check,
-            #[cfg(all(not(windows), feature = "std"))]
+            #[cfg(not(windows))]
             jit: None,
             #[cfg(feature = "cranelift")]
             cranelift_prog: None,
@@ -367,6 +373,20 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmMbuff::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.helpers = helpers;
+        Ok(())
+    }
+
     /// Register a set of addresses that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -382,7 +402,6 @@ impl<'a> EbpfVmMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -398,13 +417,10 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs: &[u64]) {
-        for i in addrs {
-            self.allowed_memory.insert(*i);
-        }
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.allowed_memory.insert(addrs_range);
     }
 
     /// Execute the program loaded, with the given packet data and metadata buffer.
@@ -487,6 +503,28 @@ impl<'a> EbpfVmMbuff<'a> {
         Ok(())
     }
 
+    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
+    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmMbuff::jit_compile]
+    /// function.
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
+        let prog = match self.prog {
+            Some(prog) => prog,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
+        };
+        self.jit = Some(jit::JitMemory::new(
+            prog,
+            executable_memory,
+            &self.helpers,
+            true,
+            false,
+        )?);
+        Ok(())
+    }
+
     /// Execute the previously JIT-compiled program, with the given packet data and metadata
     /// buffer, in a manner very similar to `execute_program()`.
     ///
@@ -539,7 +577,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///     assert_eq!(res, 0x2211);
     /// }
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(
         &self,
         mem: &mut [u8],
@@ -550,7 +588,7 @@ impl<'a> EbpfVmMbuff<'a> {
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
-            0 => std::ptr::null_mut(),
+            0 => core::ptr::null_mut(),
             _ => mem.as_ptr() as *mut u8,
         };
         // The last two arguments are not used in this function. They would be used if there was a
@@ -957,6 +995,19 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmFixedMbuff::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
+    }
+
     /// Register an object that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -972,7 +1023,6 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -988,11 +1038,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -1079,6 +1128,28 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         Ok(())
     }
 
+    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
+    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmFixedMbuff::jit_compile]
+    /// function.
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
+        let prog = match self.parent.prog {
+            Some(prog) => prog,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
+        };
+        self.parent.jit = Some(jit::JitMemory::new(
+            prog,
+            executable_memory,
+            &self.parent.helpers,
+            true,
+            true,
+        )?);
+        Ok(())
+    }
+
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
     /// similar to `execute_program()`.
     ///
@@ -1127,7 +1198,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// ```
     // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -1465,6 +1536,19 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmRaw::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
+    }
+
     /// Register an object that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -1480,7 +1564,6 @@ impl<'a> EbpfVmRaw<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -1496,11 +1579,10 @@ impl<'a> EbpfVmRaw<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -1565,6 +1647,28 @@ impl<'a> EbpfVmRaw<'a> {
         Ok(())
     }
 
+    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
+    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmRaw::jit_compile]
+    /// function.
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
+        let prog = match self.parent.prog {
+            Some(prog) => prog,
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Error: No program set, call prog_set() to load one",
+            ))?,
+        };
+        self.parent.jit = Some(jit::JitMemory::new(
+            prog,
+            executable_memory,
+            &self.parent.helpers,
+            false,
+            false,
+        )?);
+        Ok(())
+    }
+
     /// Execute the previously JIT-compiled program, with the given packet data, in a manner very
     /// similar to `execute_program()`.
     ///
@@ -1602,7 +1706,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///     assert_eq!(res, 0x22cc);
     /// }
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
         self.parent.execute_program_jit(mem, &mut mbuff)
@@ -1881,6 +1985,19 @@ impl<'a> EbpfVmNoData<'a> {
         self.parent.register_helper(key, function)
     }
 
+    /// Register a set of built-in or user-defined helper functions in order to use them later from
+    /// within the eBPF program. It is a convenience function to register multiple helpers at once.
+    /// See [EbpfVmNoData::register_helper] for more information.
+    ///
+    /// # Warning
+    /// This function will replace any previously registered helpers with the new set.
+    pub fn register_helper_set(
+        &mut self,
+        helpers: HashMap<u32, ebpf::Helper>,
+    ) -> Result<(), Error> {
+        self.parent.register_helper_set(helpers)
+    }
+
     /// Register an object that the eBPF program is allowed to load and store.
     ///
     /// When using certain helpers, typically map lookups, the Linux kernel will return pointers
@@ -1896,7 +2013,6 @@ impl<'a> EbpfVmNoData<'a> {
     /// # Examples
     ///
     /// ```
-    /// use std::iter::FromIterator;
     /// use std::ptr::addr_of;
     ///
     /// struct MapValue {
@@ -1912,11 +2028,10 @@ impl<'a> EbpfVmNoData<'a> {
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     /// let start = addr_of!(VALUE) as u64;
-    /// let addrs = Vec::from_iter(start..start+size_of::<MapValue>() as u64);
-    /// vm.register_allowed_memory(&addrs);
+    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
     /// ```
-    pub fn register_allowed_memory(&mut self, allowed: &[u64]) {
-        self.parent.register_allowed_memory(allowed)
+    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        self.parent.register_allowed_memory(addrs_range)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -1940,6 +2055,14 @@ impl<'a> EbpfVmNoData<'a> {
     #[cfg(all(not(windows), feature = "std"))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         self.parent.jit_compile()
+    }
+
+    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
+    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmNoData::jit_compile]
+    /// function.
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
+        self.parent.jit_compile(executable_memory)
     }
 
     /// Execute the program loaded, without providing pointers to any memory area whatsoever.
@@ -1995,7 +2118,7 @@ impl<'a> EbpfVmNoData<'a> {
     ///     assert_eq!(res, 0x1122);
     /// }
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
         self.parent.execute_program_jit(&mut [])
     }

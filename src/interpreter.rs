@@ -9,6 +9,7 @@ use crate::ebpf;
 use crate::ebpf::MAX_CALL_DEPTH;
 use crate::lib::*;
 use crate::stack::{StackFrame, StackUsage};
+use core::ops::Range;
 
 #[allow(clippy::too_many_arguments)]
 fn check_mem(
@@ -19,7 +20,7 @@ fn check_mem(
     mbuff: &[u8],
     mem: &[u8],
     stack: &[u8],
-    allowed_memory: &HashSet<u64>,
+    allowed_memory: &HashSet<Range<u64>>,
 ) -> Result<(), Error> {
     if let Some(addr_end) = addr.checked_add(len as u64) {
         if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
@@ -31,7 +32,7 @@ fn check_mem(
         if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
             return Ok(());
         }
-        if allowed_memory.contains(&addr) {
+        if allowed_memory.iter().any(|range| range.contains(&addr)) {
             return Ok(());
         }
     }
@@ -51,7 +52,7 @@ pub fn execute_program(
     mem: &[u8],
     mbuff: &[u8],
     helpers: &HashMap<u32, ebpf::Helper>,
-    allowed_memory: &HashSet<u64>,
+    allowed_memory: &HashSet<Range<u64>>,
 ) -> Result<u64, Error> {
     const U32MAX: u64 = u32::MAX as u64;
     const SHIFT_MASK_64: u64 = 0x3f;
