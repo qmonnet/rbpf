@@ -99,9 +99,9 @@ pub mod lib {
     // BTree-based implementations of Maps and Sets. The cranelift module uses
     // BTrees by default, hence we need to expose it twice here.
     #[cfg(not(feature = "std"))]
-    pub use alloc::collections::{BTreeMap};
+    pub use alloc::collections::BTreeMap;
     #[cfg(feature = "std")]
-    pub use std::collections::{BTreeMap};
+    pub use std::collections::BTreeMap;
 
     /// In no_std we use a custom implementation of the error which acts as a
     /// replacement for the io Error.
@@ -179,6 +179,8 @@ pub struct EbpfVmMbuff<'a> {
     verifier: Verifier,
     #[cfg(not(windows))]
     jit: Option<jit::JitMemory<'a>>,
+    #[cfg(all(not(windows), not(feature = "std")))]
+    custom_exec_memory: Option<&'a mut [u8]>,
     #[cfg(feature = "cranelift")]
     cranelift_prog: Option<cranelift::CraneliftProgram>,
     helpers: HashMap<u32, ebpf::Helper>,
@@ -217,6 +219,8 @@ impl<'a> EbpfVmMbuff<'a> {
             verifier: verifier::check,
             #[cfg(not(windows))]
             jit: None,
+            #[cfg(all(not(windows), not(feature = "std")))]
+            custom_exec_memory: None,
             #[cfg(feature = "cranelift")]
             cranelift_prog: None,
             helpers: HashMap::new(),
@@ -329,6 +333,27 @@ impl<'a> EbpfVmMbuff<'a> {
             self.stack_usage = Some(stack_verifier.stack_validate(prog)?);
         }
         self.stack_verifier = stack_verifier;
+        Ok(())
+    }
+
+    /// Set a custom executable memory for the JIT-compiled program.
+    /// We need this for no_std because we cannot use the default memory allocator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+    /// let mut memory = [0u8; 1024];
+    /// // Use mmap or other means to modify the permissions of the memory to be executable.
+    /// vm.set_jit_exec_memory(&mut memory);
+    /// ```
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn set_jit_exec_memory(&mut self, memory: &'a mut [u8]) -> Result<(), Error> {
+        self.custom_exec_memory = Some(memory);
         Ok(())
     }
 
@@ -476,7 +501,7 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog {
             Some(prog) => prog,
@@ -485,29 +510,27 @@ impl<'a> EbpfVmMbuff<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        self.jit = Some(jit::JitMemory::new(prog, &self.helpers, true, false)?);
-        Ok(())
-    }
-
-    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
-    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmMbuff::jit_compile]
-    /// function.
-    #[cfg(all(not(windows), not(feature = "std")))]
-    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
-        let prog = match self.prog {
-            Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
-                "Error: No program set, call prog_set() to load one",
-            ))?,
-        };
-        self.jit = Some(jit::JitMemory::new(
-            prog,
-            executable_memory,
-            &self.helpers,
-            true,
-            false,
-        )?);
+        #[cfg(feature = "std")]
+        {
+            self.jit = Some(jit::JitMemory::new(prog, &self.helpers, true, false)?);
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            let exec_memory = match self.custom_exec_memory.take() {
+                Some(memory) => memory,
+                None => return Err(Error::new(
+                    ErrorKind::Other,
+                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                ))?,
+            };
+            self.jit = Some(jit::JitMemory::new(
+                prog,
+                exec_memory,
+                &self.helpers,
+                true,
+                false,
+            )?);
+        }
         Ok(())
     }
 
@@ -929,6 +952,27 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         self.parent.set_stack_usage_calculator(calculator, data)
     }
 
+    /// Set a custom executable memory for the JIT-compiled program.
+    /// We need this for no_std because we cannot use the default memory allocator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
+    /// let mut memory = [0u8; 1024];
+    /// // Use mmap or other means to modify the permissions of the memory to be executable.
+    /// vm.set_jit_exec_memory(&mut memory);
+    /// ```
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn set_jit_exec_memory(&mut self, memory: &'a mut [u8]) -> Result<(), Error> {
+        self.parent.custom_exec_memory = Some(memory);
+        Ok(())
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1088,7 +1132,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
@@ -1097,29 +1141,27 @@ impl<'a> EbpfVmFixedMbuff<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, true, true)?);
-        Ok(())
-    }
-
-    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
-    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmFixedMbuff::jit_compile]
-    /// function.
-    #[cfg(all(not(windows), not(feature = "std")))]
-    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
-        let prog = match self.parent.prog {
-            Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
-                "Error: No program set, call prog_set() to load one",
-            ))?,
-        };
-        self.parent.jit = Some(jit::JitMemory::new(
-            prog,
-            executable_memory,
-            &self.parent.helpers,
-            true,
-            true,
-        )?);
+        #[cfg(feature = "std")]
+        {
+            self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, true, true)?);
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            let exec_memory = match self.parent.custom_exec_memory.take() {
+                Some(memory) => memory,
+                None => return Err(Error::new(
+                    ErrorKind::Other,
+                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                ))?,
+            };
+            self.parent.jit = Some(jit::JitMemory::new(
+                prog,
+                exec_memory,
+                &self.parent.helpers,
+                true,
+                true,
+            )?);
+        }
         Ok(())
     }
 
@@ -1464,6 +1506,27 @@ impl<'a> EbpfVmRaw<'a> {
         self.parent.set_stack_usage_calculator(calculator, data)
     }
 
+    /// Set a custom executable memory for the JIT-compiled program.
+    /// We need this for no_std because we cannot use the default memory allocator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    /// let mut memory = [0u8; 1024];
+    /// // Use mmap or other means to modify the permissions of the memory to be executable.
+    /// vm.set_jit_exec_memory(&mut memory);
+    /// ```
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn set_jit_exec_memory(&mut self, memory: &'a mut [u8]) -> Result<(), Error> {
+        self.parent.custom_exec_memory = Some(memory);
+        Ok(())
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1589,7 +1652,7 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
@@ -1598,34 +1661,32 @@ impl<'a> EbpfVmRaw<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        self.parent.jit = Some(jit::JitMemory::new(
-            prog,
-            &self.parent.helpers,
-            false,
-            false,
-        )?);
-        Ok(())
-    }
-
-    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
-    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmRaw::jit_compile]
-    /// function.
-    #[cfg(all(not(windows), not(feature = "std")))]
-    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
-        let prog = match self.parent.prog {
-            Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
-                "Error: No program set, call prog_set() to load one",
-            ))?,
-        };
-        self.parent.jit = Some(jit::JitMemory::new(
-            prog,
-            executable_memory,
-            &self.parent.helpers,
-            false,
-            false,
-        )?);
+        #[cfg(feature = "std")]
+        {
+            self.parent.jit = Some(jit::JitMemory::new(
+                prog,
+                &self.parent.helpers,
+                false,
+                false,
+            )?);
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            let exec_memory = match self.parent.custom_exec_memory.take() {
+                Some(memory) => memory,
+                None => return Err(Error::new(
+                    ErrorKind::Other,
+                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                ))?,
+            };
+            self.parent.jit = Some(jit::JitMemory::new(
+                prog,
+                exec_memory,
+                &self.parent.helpers,
+                false,
+                false,
+            )?);
+        }
         Ok(())
     }
 
@@ -1905,6 +1966,26 @@ impl<'a> EbpfVmNoData<'a> {
         self.parent.set_stack_usage_calculator(calculator, data)
     }
 
+    /// Set a custom executable memory for the JIT-compiled program.
+    /// We need this for no_std because we cannot use the default memory allocator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let prog = &[
+    ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    ///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+    /// ];
+    /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    /// let mut memory = [0u8; 1024];
+    /// // Use mmap or other means to modify the permissions of the memory to be executable.
+    /// vm.set_jit_exec_memory(&mut memory);
+    /// ```
+    #[cfg(all(not(windows), not(feature = "std")))]
+    pub fn set_jit_exec_memory(&mut self, memory: &'a mut [u8]) -> Result<(), Error> {
+        self.parent.set_jit_exec_memory(memory)
+    }
+
     /// Register a built-in or user-defined helper function in order to use it later from within
     /// the eBPF program. The helper is registered into a hashmap, so the `key` can be any `u32`.
     ///
@@ -1999,17 +2080,9 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// vm.jit_compile();
     /// ```
-    #[cfg(all(not(windows), feature = "std"))]
+    #[cfg(not(windows))]
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         self.parent.jit_compile()
-    }
-
-    /// JIT-compile the loaded program. The user has to provide a mutable slice of memory that
-    /// will be used for the JIT-compiled code. For more information, see the [EbpfVmNoData::jit_compile]
-    /// function.
-    #[cfg(all(not(windows), not(feature = "std")))]
-    pub fn jit_compile(&mut self, executable_memory: &'a mut [u8]) -> Result<(), Error> {
-        self.parent.jit_compile(executable_memory)
     }
 
     /// Execute the program loaded, without providing pointers to any memory area whatsoever.
