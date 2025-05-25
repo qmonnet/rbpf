@@ -210,7 +210,7 @@ useful for programs that should be compatible with the Linux kernel and
 therefore must use specific helper numbers.
 
 ```rust,ignore
-pub fn register_allowed_memory(&mut self,, addrs_range: Range<u64>) -> ()
+pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) -> ()
 ```
 
 This function adds a list of memory addresses that the eBPF program is allowed
