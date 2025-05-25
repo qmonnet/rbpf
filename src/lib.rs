@@ -71,7 +71,7 @@ pub mod lib {
     pub use self::core::mem;
     pub use self::core::mem::ManuallyDrop;
     pub use self::core::ptr;
-    pub use hashbrown::{HashMap,HashSet};
+    pub use hashbrown::{HashMap, HashSet};
 
     #[cfg(feature = "std")]
     pub use std::println;
