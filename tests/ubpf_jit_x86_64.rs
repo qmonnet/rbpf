@@ -16,7 +16,7 @@
 
 // These are unit tests for the eBPF JIT compiler.
 
-#![cfg(all(not(windows), feature = "std"))]
+#![cfg(not(windows))]
 
 extern crate rbpf;
 mod common;
@@ -24,6 +24,21 @@ mod common;
 use common::{TCP_SACK_ASM, TCP_SACK_MATCH, TCP_SACK_NOMATCH};
 use rbpf::assembler::assemble;
 use rbpf::helpers;
+
+#[cfg(not(feature = "std"))]
+fn alloc_exec_memory() -> Box<[u8]> {
+    let size = 4096;
+    let layout = std::alloc::Layout::from_size_align(size, 4096).unwrap();
+    unsafe {
+        let ptr = std::alloc::alloc(layout);
+        assert!(!ptr.is_null(), "Failed to allocate memory");
+
+        libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
+
+        let slice = std::slice::from_raw_parts_mut(ptr, size);
+        Box::from_raw(slice)
+    }
+}
 
 #[test]
 fn test_jit_add() {
@@ -38,6 +53,10 @@ fn test_jit_add() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x3);
@@ -71,6 +90,10 @@ fn test_jit_alu64_arith() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x2a);
@@ -108,6 +131,10 @@ fn test_jit_alu64_bit() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x11);
@@ -141,6 +168,10 @@ fn test_jit_alu_arith() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x2a);
@@ -176,6 +207,10 @@ fn test_jit_alu_bit() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x11);
@@ -194,6 +229,10 @@ fn test_jit_arsh32_high_shift() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x4);
@@ -212,6 +251,10 @@ fn test_jit_arsh() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xffff8000);
@@ -232,6 +275,10 @@ fn test_jit_arsh64() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xfffffffffffffff8);
@@ -251,6 +298,10 @@ fn test_jit_arsh_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xffff8000);
@@ -269,6 +320,10 @@ fn test_jit_be16() {
     .unwrap();
     let mem = &mut [0x11, 0x22];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1122);
@@ -287,6 +342,10 @@ fn test_jit_be16_high() {
     .unwrap();
     let mem = &mut [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1122);
@@ -305,6 +364,10 @@ fn test_jit_be32() {
     .unwrap();
     let mem = &mut [0x11, 0x22, 0x33, 0x44];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11223344);
@@ -323,6 +386,10 @@ fn test_jit_be32_high() {
     .unwrap();
     let mem = &mut [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11223344);
@@ -341,6 +408,10 @@ fn test_jit_be64() {
     .unwrap();
     let mem = &mut [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1122334455667788);
@@ -363,6 +434,10 @@ fn test_jit_call() {
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0102030405);
@@ -386,6 +461,10 @@ fn test_jit_call_memfrob() {
     let mem = &mut [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     vm.register_helper(1, helpers::memfrob).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x102292e2f2c0708);
@@ -428,6 +507,10 @@ fn test_jit_div32_high_divisor() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x3);
@@ -445,6 +528,10 @@ fn test_jit_div32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x3);
@@ -463,6 +550,10 @@ fn test_jit_div32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x3);
@@ -481,6 +572,10 @@ fn test_jit_div64_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x300000000);
@@ -500,6 +595,10 @@ fn test_jit_div64_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x300000000);
@@ -521,6 +620,10 @@ fn test_jit_div32_highreg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x2);
@@ -539,6 +642,10 @@ fn test_jit_div64_highreg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x2);
@@ -557,6 +664,10 @@ fn test_jit_early_exit() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x3);
@@ -584,6 +695,10 @@ fn test_jit_err_call_unreg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         vm.execute_program_jit().unwrap();
@@ -601,6 +716,10 @@ fn test_jit_div64_by_zero_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -618,6 +737,10 @@ fn test_jit_div_by_zero_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -635,6 +758,10 @@ fn test_jit_mod64_by_zero_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -652,6 +779,10 @@ fn test_jit_mod_by_zero_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -670,6 +801,10 @@ fn test_jit_div64_by_zero_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -688,6 +823,10 @@ fn test_jit_div_by_zero_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -706,6 +845,10 @@ fn test_jit_mod64_by_zero_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -724,6 +867,10 @@ fn test_jit_mod_by_zero_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -754,6 +901,10 @@ fn test_jit_exit() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -772,6 +923,10 @@ fn test_jit_ja() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -794,6 +949,10 @@ fn test_jit_jeq_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -817,6 +976,10 @@ fn test_jit_jeq_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -839,6 +1002,10 @@ fn test_jit_jge_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -862,6 +1029,10 @@ fn test_jit_jle_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -887,6 +1058,10 @@ fn test_jit_jle_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -909,6 +1084,10 @@ fn test_jit_jgt_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -933,6 +1112,10 @@ fn test_jit_jgt_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -955,6 +1138,10 @@ fn test_jit_jlt_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -979,6 +1166,10 @@ fn test_jit_jlt_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1000,6 +1191,10 @@ fn test_jit_jit_bounce() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1023,6 +1218,10 @@ fn test_jit_jne_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1045,6 +1244,10 @@ fn test_jit_jset_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1068,6 +1271,10 @@ fn test_jit_jset_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1091,6 +1298,10 @@ fn test_jit_jsge_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1116,6 +1327,10 @@ fn test_jit_jsge_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1139,6 +1354,10 @@ fn test_jit_jsle_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1165,6 +1384,10 @@ fn test_jit_jsle_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1187,6 +1410,10 @@ fn test_jit_jsgt_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1210,6 +1437,10 @@ fn test_jit_jsgt_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1232,6 +1463,10 @@ fn test_jit_jslt_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1256,6 +1491,10 @@ fn test_jit_jslt_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1281,6 +1520,10 @@ fn test_jit_jeq32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1307,6 +1550,10 @@ fn test_jit_jeq32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1332,6 +1579,10 @@ fn test_jit_jge32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1358,6 +1609,10 @@ fn test_jit_jge32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1383,6 +1638,10 @@ fn test_jit_jgt32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1411,6 +1670,10 @@ fn test_jit_jgt32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1437,6 +1700,10 @@ fn test_jit_jle32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1465,6 +1732,10 @@ fn test_jit_jle32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1490,6 +1761,10 @@ fn test_jit_jlt32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1517,6 +1792,10 @@ fn test_jit_jlt32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1543,6 +1822,10 @@ fn test_jit_jne32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1570,6 +1853,10 @@ fn test_jit_jne32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1595,6 +1882,10 @@ fn test_jit_jset32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1621,6 +1912,10 @@ fn test_jit_jset32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1647,6 +1942,10 @@ fn test_jit_jsge32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1675,6 +1974,10 @@ fn test_jit_jsge32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1700,6 +2003,10 @@ fn test_jit_jsgt32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1726,6 +2033,10 @@ fn test_jit_jsgt32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1752,6 +2063,10 @@ fn test_jit_jsle32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1781,6 +2096,10 @@ fn test_jit_jsle32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1806,6 +2125,10 @@ fn test_jit_jslt32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1833,6 +2156,10 @@ fn test_jit_jslt32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -1849,6 +2176,10 @@ fn test_jit_lddw() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1122334455667788);
@@ -1865,6 +2196,10 @@ fn test_jit_lddw2() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x80000000);
@@ -1915,6 +2250,10 @@ fn test_jit_ldxb_all() {
         0x08, 0x09
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x9876543210);
@@ -1932,6 +2271,10 @@ fn test_jit_ldxb() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0x11, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11);
@@ -1953,6 +2296,10 @@ fn test_jit_ldxdw() {
         0x77, 0x88, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x8877665544332211);
@@ -2014,6 +2361,10 @@ fn test_jit_ldxh_all() {
         0x00, 0x08, 0x00, 0x09
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x9876543210);
@@ -2065,6 +2416,10 @@ fn test_jit_ldxh_all2() {
         0x01, 0x00, 0x02, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x3ff);
@@ -2082,6 +2437,10 @@ fn test_jit_ldxh() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x2211);
@@ -2101,6 +2460,10 @@ fn test_jit_ldxh_same_reg() {
     .unwrap();
     let mem = &mut [0xff, 0xff];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1234);
@@ -2154,6 +2517,10 @@ fn test_jit_ldxw_all() {
         0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x030f0f);
@@ -2171,6 +2538,10 @@ fn test_jit_ldxw() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x44332211);
@@ -2189,6 +2560,10 @@ fn test_jit_le16() {
     .unwrap();
     let mem = &mut [0x22, 0x11];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1122);
@@ -2207,6 +2582,10 @@ fn test_jit_le32() {
     .unwrap();
     let mem = &mut [0x44, 0x33, 0x22, 0x11];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11223344);
@@ -2225,6 +2604,10 @@ fn test_jit_le64() {
     .unwrap();
     let mem = &mut [0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1122334455667788);
@@ -2243,6 +2626,10 @@ fn test_jit_lsh_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x10);
@@ -2262,6 +2649,10 @@ fn test_jit_mod() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x5);
@@ -2279,6 +2670,10 @@ fn test_jit_mod32() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -2302,6 +2697,10 @@ fn test_jit_mod64() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x30ba5a04);
@@ -2319,6 +2718,10 @@ fn test_jit_mov() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -2336,6 +2739,10 @@ fn test_jit_mul32_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xc);
@@ -2354,6 +2761,10 @@ fn test_jit_mul32_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xc);
@@ -2372,6 +2783,10 @@ fn test_jit_mul32_reg_overflow() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x4);
@@ -2389,6 +2804,10 @@ fn test_jit_mul64_imm() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x100000004);
@@ -2407,6 +2826,10 @@ fn test_jit_mul64_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x100000004);
@@ -2431,6 +2854,10 @@ fn test_jit_mul_loop() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x75db9c97);
@@ -2448,6 +2875,10 @@ fn test_jit_neg64() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xfffffffffffffffe);
@@ -2465,6 +2896,10 @@ fn test_jit_neg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xfffffffe);
@@ -2495,6 +2930,10 @@ fn test_jit_prime() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -2513,6 +2952,10 @@ fn test_jit_rhs32() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x00ffffff);
@@ -2531,6 +2974,10 @@ fn test_jit_rsh_reg() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x1);
@@ -2554,6 +3001,10 @@ fn test_jit_stack() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0xcd);
@@ -2586,6 +3037,10 @@ fn test_jit_stack2() {
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
     vm.register_helper(1, helpers::memfrob).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x01020304);
@@ -2604,6 +3059,10 @@ fn test_jit_stb() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11);
@@ -2626,6 +3085,10 @@ fn test_jit_stdw() {
         0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x44332211);
@@ -2644,6 +3107,10 @@ fn test_jit_sth() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x2211);
@@ -2687,6 +3154,10 @@ fn test_jit_string_stack() {
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(4, helpers::strcmp).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit().unwrap(), 0x0);
@@ -2705,6 +3176,10 @@ fn test_jit_stw() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x44332211);
@@ -2724,6 +3199,10 @@ fn test_jit_stxb() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x11);
@@ -2758,6 +3237,10 @@ fn test_jit_stxb_all() {
     .unwrap();
     let mem = &mut [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xf0f2f3f4f5f6f7f8);
@@ -2781,6 +3264,10 @@ fn test_jit_stxb_all2() {
     .unwrap();
     let mem = &mut [0xff, 0xff];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xf1f9);
@@ -2821,6 +3308,10 @@ fn test_jit_stxb_chain() {
         0x00, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x2a);
@@ -2846,6 +3337,10 @@ fn test_jit_stxdw() {
         0xff, 0xff, 0xcc, 0xdd
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x8877665544332211);
@@ -2865,6 +3360,10 @@ fn test_jit_stxh() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x2211);
@@ -2884,6 +3383,10 @@ fn test_jit_stxw() {
     .unwrap();
     let mem = &mut [0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x44332211);
@@ -2925,6 +3428,10 @@ fn test_jit_subnet() {
         0x03, 0x00
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1);
@@ -2974,6 +3481,10 @@ fn test_jit_tcp_port80_match() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x1);
@@ -3000,6 +3511,10 @@ fn test_jit_tcp_port80_nomatch() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x0);
@@ -3026,6 +3541,10 @@ fn test_jit_tcp_port80_nomatch_ethertype() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x0);
@@ -3052,6 +3571,10 @@ fn test_jit_tcp_port80_nomatch_proto() {
     ];
     let prog = &PROG_TCP_PORT_80;
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x0);
@@ -3063,6 +3586,10 @@ fn test_jit_tcp_sack_match() {
     let mut mem = TCP_SACK_MATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem.as_mut_slice()).unwrap(), 0x1);
@@ -3074,6 +3601,10 @@ fn test_jit_tcp_sack_nomatch() {
     let mut mem = TCP_SACK_NOMATCH.to_vec();
     let prog = assemble(TCP_SACK_ASM).unwrap();
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem.as_mut_slice()).unwrap(), 0x0);

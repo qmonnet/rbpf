@@ -86,6 +86,21 @@ use rbpf::lib::{Error, ErrorKind};
 // Cargo.toml file (see comments above), so here we use just the hardcoded bytecode instructions
 // instead.
 
+#[cfg(all(not(windows),not(feature="std")))]
+fn alloc_exec_memory() -> Box<[u8]> {
+    let size = 4096;
+    let layout = std::alloc::Layout::from_size_align(size, 4096).unwrap();
+    unsafe {
+        let ptr = std::alloc::alloc(layout);
+        assert!(!ptr.is_null(), "Failed to allocate memory");
+
+        libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
+
+        let slice = std::slice::from_raw_parts_mut(ptr, size);
+        Box::from_raw(slice)
+    }
+}
+
 #[test]
 #[cfg(feature = "std")]
 fn test_vm_block_port() {
@@ -320,7 +335,7 @@ fn test_vm_mbuff_with_rust_api() {
 
 // Program and memory come from uBPF test ldxh.
 #[test]
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 fn test_jit_mbuff() {
     #[rustfmt::skip]
     let prog = &[
@@ -342,12 +357,16 @@ fn test_jit_mbuff() {
 
     unsafe {
         let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
         vm.jit_compile().unwrap();
         assert_eq!(vm.execute_program_jit(mem, &mut mbuff).unwrap(), 0x2211);
     }
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsb() {
     #[rustfmt::skip]
@@ -363,13 +382,17 @@ fn test_vm_jit_ldabsb() {
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x33);
 
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x33);
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsh() {
     #[rustfmt::skip]
@@ -385,13 +408,17 @@ fn test_vm_jit_ldabsh() {
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x4433);
 
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x4433);
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsw() {
     #[rustfmt::skip]
@@ -406,6 +433,10 @@ fn test_vm_jit_ldabsw() {
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x66554433);
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
 
     unsafe {
@@ -413,7 +444,7 @@ fn test_vm_jit_ldabsw() {
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsdw() {
     #[rustfmt::skip]
@@ -428,6 +459,10 @@ fn test_vm_jit_ldabsdw() {
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0xaa99887766554433);
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
 
     unsafe {
@@ -468,7 +503,7 @@ fn test_vm_err_ldabsb_nomem() {
     // Memory check not implemented for JIT yet.
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindb() {
     #[rustfmt::skip]
@@ -485,13 +520,17 @@ fn test_vm_jit_ldindb() {
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x88);
 
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x88);
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindh() {
     #[rustfmt::skip]
@@ -508,13 +547,17 @@ fn test_vm_jit_ldindh() {
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x9988);
 
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x9988);
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindw() {
     #[rustfmt::skip]
@@ -530,6 +573,10 @@ fn test_vm_jit_ldindw() {
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x88776655);
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
 
     unsafe {
@@ -537,7 +584,7 @@ fn test_vm_jit_ldindw() {
     };
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldinddw() {
     #[rustfmt::skip]
@@ -553,6 +600,10 @@ fn test_vm_jit_ldinddw() {
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0xccbbaa9988776655);
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
 
     unsafe {
@@ -662,7 +713,7 @@ fn test_vm_bpf_to_bpf_call() {
     assert_eq!(vm_res, 0x10);
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 fn test_vm_jit_bpf_to_bpf_call() {
     let test_code = assemble(
@@ -684,6 +735,10 @@ fn test_vm_jit_bpf_to_bpf_call() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     let vm_res = unsafe { vm.execute_program_jit().unwrap() };
     assert_eq!(vm_res, 0x10);
@@ -715,7 +770,7 @@ fn test_vm_other_type_call() {
     vm.execute_program().unwrap();
 }
 
-#[cfg(all(not(windows), feature = "std"))]
+#[cfg(not(windows))]
 #[test]
 #[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]
 fn test_vm_jit_other_type_call() {
@@ -727,6 +782,10 @@ fn test_vm_jit_other_type_call() {
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(|_| Ok(())).unwrap();
     vm.set_program(prog).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe { vm.execute_program_jit().unwrap() };
 }
