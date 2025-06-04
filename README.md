@@ -163,7 +163,7 @@ checked with a very simple verifier (nothing close to the one for Linux
 kernel). Users are also able to replace it with a custom verifier.
 
 For `struct EbpfVmFixedMbuff`, two additional arguments must be passed to the
-constructor: `data_offset` and `data_end_offset`. They are the offset (byte
+constructor: `data_offset` and `data_end_offset`. They are the offset (byte
 number) at which the pointers to the beginning and to the end, respectively, of
 the memory area of packet data are to be stored in the internal metadata buffer
 each time the program is executed. Other structs do not use this mechanism and
