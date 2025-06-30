@@ -1010,6 +1010,8 @@ pub struct JitMemory<'a> {
     contents: &'a mut [u8],
     #[cfg(feature = "std")]
     layout: std::alloc::Layout,
+    #[cfg(feature = "alloc")]
+    layout: core::alloc::Layout,
     offset: usize,
 }
 
@@ -1055,7 +1057,45 @@ impl<'a> JitMemory<'a> {
         Ok(mem)
     }
 
-    #[cfg(not(feature = "std"))]
+    #[cfg(feature = "alloc")]
+    pub fn new(
+        prog: &[u8],
+        helpers: &HashMap<u32, ebpf::Helper>,
+        use_mbuff: bool,
+        update_data_ptr: bool,
+    ) -> Result<JitMemory<'a>, Error> {
+        let layout;
+
+        // Allocate the appropriately sized memory.
+        let contents = unsafe {
+            // Create a layout with the proper size and alignment.
+            let size = NUM_PAGES * PAGE_SIZE;
+            layout = core::alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE);
+
+            // Allocate the region of memory.
+            let ptr = alloc::alloc::alloc(layout);
+            if ptr.is_null() {
+                return Err(Error::new(ErrorKind::Other, "Out of memory"));
+            }
+
+            // Convert to a slice.
+            no_std_compat::slice::from_raw_parts_mut(ptr, size)
+        };
+
+        let mut mem = JitMemory {
+            contents,
+            layout,
+            offset: 0,
+        };
+
+        let mut jit = JitCompiler::new();
+        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+        jit.resolve_jumps(&mut mem)?;
+
+        Ok(mem)
+    }
+
+    #[cfg(not(any(feature = "std", feature = "alloc")))]
     pub fn new(
         prog: &[u8],
         executable_memory: &'a mut [u8],
@@ -1108,11 +1148,14 @@ impl IndexMut<usize> for JitMemory<'_> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl Drop for JitMemory<'_> {
     fn drop(&mut self) {
         unsafe {
+            #[cfg(feature = "std")]
             std::alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
+            #[cfg(feature = "alloc")]
+            alloc::alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
         }
     }
 }

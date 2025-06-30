@@ -568,7 +568,10 @@ get more information and examples on how to use it.
 
 ## Build features
 
-### `no_std`
+> [!WARNING]
+> To rbpf developers: The `std` and `alloc` features are mutually exclusive. If you want to add [a feature](https://doc.rust-lang.org/cargo/reference/features.html) to this codebase you need to make sure to update the feature matrix in [the CI](https://github.com/qmonnet/rbpf/blob/main/.github/workflows/test.yaml#L21).
+
+### `std`
 
 The `rbpf` crate has a Cargo feature named "std" that is enabled by default. To
 use `rbpf` in `no_std` environments this feature needs to be disabled. To do
@@ -581,14 +584,24 @@ rbpf = { version = "0.3.0", default-features = false }
 ```
 
 Note that when using this crate in `no_std` environments, the `jit` module
-isn't available. This is because it depends on functions provided by `libc`
-(`libc::posix_memalign()`, `libc::mprotect()`) which aren't available on
-`no_std`.
+isn't available, unless the `alloc` feature is turned on. This is because
+it depends on allocation being memory aligned and a memory protection function
+provided by `libc` (`libc::mprotect()`) which isn't available on `no_std`.
 
 The `assembler` module is available, albeit with reduced debugging features. It
 depends on the `combine` crate providing parser combinators. Under `no_std`
 this crate only provides simple parsers which generate less descriptive error
 messages.
+
+### `alloc`
+
+The `rbpf` crate has a Cargo feature named "alloc" that is not enabled by
+default. `std` must be turned off and is mutually exclusive with alloc.
+When `alloc` is turned on the code importing rbpf must provide an
+implementation of the [`GlobalAlloc` trait](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html).
+All JIT examples will work that do not require the "std" feature.
+The `time` and `rand` functions will not be available, for example.
+
 
 ## Feedback welcome!
 

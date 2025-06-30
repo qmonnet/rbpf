@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         toolchain: [stable, beta, nightly]
-        features: [--all-features]
+        features: [--features "std cranelift"]
         include:
           - toolchain: nightly
             features: --no-default-features
@@ -75,7 +75,8 @@ jobs:
 
       - name: Build plug-in
         run: |
-          cargo build --all-features --release --example rbpf_plugin
+          cargo build --no-default-features --features "std cranelift" --release --example rbpf_plugin
+          cargo build --no-default-features --features "alloc" --release --example rbpf_plugin_alloc
 
       - name: Run BPF conformance tests - Interpreter
         run: |
@@ -94,6 +95,15 @@ jobs:
           --plugin_path /rbpf/target/release/examples/rbpf_plugin \
           --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
           --plugin_options "--jit" || true
+          
+      - name: Run BPF conformance tests Alloc feature - JIT
+        run: |
+          docker run -v ${{github.workspace}}:/rbpf --rm \
+          "${{ env.CONFORMANCE_IMAGE }}" \
+          bin/bpf_conformance_runner --test_file_directory tests \
+          --plugin_path /rbpf/target/release/examples/rbpf_plugin_alloc \
+          --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
+          --plugin_options "--jit" || true          
 
       - name: Run BPF conformance tests - Cranelift
         run: |
@@ -111,7 +121,8 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          cargo llvm-cov --lcov --all --all-features --all-targets > lcov.info
+          cargo build --no-default-features --features "std cranelift" --release --example rbpf_plugin
+          cargo llvm-cov --no-default-features --features "alloc" --lcov --all --all-targets > lcov_alloc.info
 
       - name: Upload coverage to coveralls
         uses: coverallsapp/github-action@master
