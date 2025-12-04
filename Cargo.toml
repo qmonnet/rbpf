@@ -35,6 +35,9 @@ combine = { version = "4.6", default-features = false }
 libc = { version = "0.2", optional = true }
 time = { version = "0.2", optional = true }
 
+# Optional Dependencies for using alloc
+no-std-compat = {version = "0.4.1", optional = true }
+
 # Optional Dependencies for the CraneLift JIT
 cranelift-codegen = { version = "0.99", optional = true }
 cranelift-frontend = { version = "0.99", optional = true }
@@ -52,6 +55,7 @@ hex = "0.4.3"
 [features]
 default = ["std"]
 std = ["dep:time", "dep:libc", "combine/std"]
+alloc = ["dep:no-std-compat"]
 cranelift = [
     "dep:cranelift-codegen",
     "dep:cranelift-frontend",

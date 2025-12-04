@@ -4,6 +4,12 @@
 // Path: examples/rbpf_plugin.rs
 use std::io::Read;
 
+#[cfg(all(not(windows), not(feature = "std"), feature = "alloc"))]
+use std::alloc::System;
+#[cfg(all(not(windows), not(feature = "std"), feature = "alloc"))]
+#[global_allocator]
+static GLOBAL: System = System;
+
 // Helper function used by https://github.com/Alan-Jowett/bpf_conformance/blob/main/tests/call_unwind_fail.data
 fn _unwind(a: u64, _b: u64, _c: u64, _d: u64, _e: u64) -> u64 {
     a
@@ -38,12 +44,12 @@ fn main() {
                 return;
             }
             "--jit" => {
-                #[cfg(any(windows, not(feature = "std")))]
+                #[cfg(not(any(feature = "std", feature = "alloc")))]
                 {
                     println!("JIT not supported");
                     return;
                 }
-                #[cfg(all(not(windows), feature = "std"))]
+                #[cfg(all(not(windows), any(feature = "std", feature = "alloc")))]
                 {
                     jit = true;
                 }
@@ -96,12 +102,12 @@ fn main() {
 
     let result: u64;
     if jit {
-        #[cfg(any(windows, not(feature = "std")))]
+        #[cfg(not(any(feature = "std", feature = "alloc")))]
         {
             println!("JIT not supported");
             return;
         }
-        #[cfg(all(not(windows), feature = "std"))]
+        #[cfg(all(not(windows), any(feature = "std", feature = "alloc")))]
         {
             unsafe {
                 vm.jit_compile().unwrap();
