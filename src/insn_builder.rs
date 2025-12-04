@@ -110,72 +110,72 @@ impl BpfCode {
     }
 
     /// create ADD instruction
-    pub fn add(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn add(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Add)
     }
 
     /// create SUB instruction
-    pub fn sub(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn sub(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Sub)
     }
 
     /// create MUL instruction
-    pub fn mul(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn mul(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Mul)
     }
 
     /// create DIV instruction
-    pub fn div(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn div(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Div)
     }
 
     /// create OR instruction
-    pub fn bit_or(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_or(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::BitOr)
     }
 
     /// create AND instruction
-    pub fn bit_and(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_and(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::BitAnd)
     }
 
     /// create LSHIFT instruction
-    pub fn left_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn left_shift(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::LShift)
     }
 
     /// create RSHIFT instruction
-    pub fn right_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn right_shift(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::RShift)
     }
 
     /// create NEGATE instruction
-    pub fn negate(&mut self, arch: Arch) -> Move {
+    pub fn negate(&mut self, arch: Arch) -> Move<'_> {
         self.mov_internal(Source::Imm, arch, OpBits::Negate)
     }
 
     /// create MOD instruction
-    pub fn modulo(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn modulo(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Mod)
     }
 
     /// create XOR instruction
-    pub fn bit_xor(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn bit_xor(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::BitXor)
     }
 
     /// create MOV instruction
-    pub fn mov(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn mov(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::Mov)
     }
 
     /// create SIGNED RSHIFT instruction
-    pub fn signed_right_shift(&mut self, source: Source, arch: Arch) -> Move {
+    pub fn signed_right_shift(&mut self, source: Source, arch: Arch) -> Move<'_> {
         self.mov_internal(source, arch, OpBits::SignRShift)
     }
 
     #[inline]
-    fn mov_internal(&mut self, source: Source, arch_bits: Arch, op_bits: OpBits) -> Move {
+    fn mov_internal(&mut self, source: Source, arch_bits: Arch, op_bits: OpBits) -> Move<'_> {
         Move {
             bpf_code: self,
             src_bit: source,
@@ -192,7 +192,7 @@ impl BpfCode {
     }
 
     /// create byte swap instruction
-    pub fn swap_bytes(&mut self, endian: Endian) -> SwapBytes {
+    pub fn swap_bytes(&mut self, endian: Endian) -> SwapBytes<'_> {
         SwapBytes {
             bpf_code: self,
             endian,
@@ -207,27 +207,27 @@ impl BpfCode {
     }
 
     /// create LOAD instruction, IMMEDIATE is the source
-    pub fn load(&mut self, mem_size: MemSize) -> Load {
+    pub fn load(&mut self, mem_size: MemSize) -> Load<'_> {
         self.load_internal(mem_size, Addressing::Imm, BPF_LD)
     }
 
     /// create ABSOLUTE LOAD instruction
-    pub fn load_abs(&mut self, mem_size: MemSize) -> Load {
+    pub fn load_abs(&mut self, mem_size: MemSize) -> Load<'_> {
         self.load_internal(mem_size, Addressing::Abs, BPF_LD)
     }
 
     /// create INDIRECT LOAD instruction
-    pub fn load_ind(&mut self, mem_size: MemSize) -> Load {
+    pub fn load_ind(&mut self, mem_size: MemSize) -> Load<'_> {
         self.load_internal(mem_size, Addressing::Ind, BPF_LD)
     }
 
     /// create LOAD instruction, MEMORY is the source
-    pub fn load_x(&mut self, mem_size: MemSize) -> Load {
+    pub fn load_x(&mut self, mem_size: MemSize) -> Load<'_> {
         self.load_internal(mem_size, Addressing::Mem, BPF_LDX)
     }
 
     #[inline]
-    fn load_internal(&mut self, mem_size: MemSize, addressing: Addressing, source: u8) -> Load {
+    fn load_internal(&mut self, mem_size: MemSize, addressing: Addressing, source: u8) -> Load<'_> {
         Load {
             bpf_code: self,
             addressing,
@@ -244,17 +244,17 @@ impl BpfCode {
     }
 
     /// creates STORE instruction, IMMEDIATE is the source
-    pub fn store(&mut self, mem_size: MemSize) -> Store {
+    pub fn store(&mut self, mem_size: MemSize) -> Store<'_> {
         self.store_internal(mem_size, BPF_IMM)
     }
 
     /// creates STORE instruction, MEMORY is the source
-    pub fn store_x(&mut self, mem_size: MemSize) -> Store {
+    pub fn store_x(&mut self, mem_size: MemSize) -> Store<'_> {
         self.store_internal(mem_size, BPF_MEM | BPF_STX)
     }
 
     #[inline]
-    fn store_internal(&mut self, mem_size: MemSize, source: u8) -> Store {
+    fn store_internal(&mut self, mem_size: MemSize, source: u8) -> Store<'_> {
         Store {
             bpf_code: self,
             mem_size,
@@ -270,12 +270,12 @@ impl BpfCode {
     }
 
     /// create unconditional JMP instruction
-    pub fn jump_unconditional(&mut self) -> Jump {
+    pub fn jump_unconditional(&mut self) -> Jump<'_> {
         self.jump_conditional(Cond::Abs, Source::Imm)
     }
 
     /// create conditional JMP instruction
-    pub fn jump_conditional(&mut self, cond: Cond, src_bit: Source) -> Jump {
+    pub fn jump_conditional(&mut self, cond: Cond, src_bit: Source) -> Jump<'_> {
         Jump {
             bpf_code: self,
             cond,
@@ -291,7 +291,7 @@ impl BpfCode {
     }
 
     /// create CALL instruction
-    pub fn call(&mut self) -> FunctionCall {
+    pub fn call(&mut self) -> FunctionCall<'_> {
         FunctionCall {
             bpf_code: self,
             insn: Insn {
@@ -305,7 +305,7 @@ impl BpfCode {
     }
 
     /// create EXIT instruction
-    pub fn exit(&mut self) -> Exit {
+    pub fn exit(&mut self) -> Exit<'_> {
         Exit {
             bpf_code: self,
             insn: Insn {

@@ -37,7 +37,7 @@ fn check_mem(
         }
     }
 
-    Err(Error::new(ErrorKind::Other, format!(
+    Err(Error::other(format!(
         "Error: out of bounds memory {} (insn #{:?}), addr {:#x}, size {:?}\nmbuff: {:#x}/{:#x}, mem: {:#x}/{:#x}, stack: {:#x}/{:#x}",
         access_type, insn_ptr, addr, len,
         mbuff.as_ptr() as u64, mbuff.len(),
@@ -59,8 +59,7 @@ pub fn execute_program(
 
     let (prog, stack_usage) = match prog_ {
         Some(prog) => (prog, stack_usage.unwrap()),
-        None => Err(Error::new(
-            ErrorKind::Other,
+        None => Err(Error::other(
             "Error: No program set, call prog_set() to load one",
         ))?,
     };
@@ -405,8 +404,7 @@ pub fn execute_program(
                         if let Some(function) = helpers.get(&(insn.imm as u32)) {
                             reg[0] = function(reg[1], reg[2], reg[3], reg[4], reg[5]);
                         } else {
-                            Err(Error::new(
-                                ErrorKind::Other,
+                            Err(Error::other(
                                 format!(
                                     "Error: unknown helper function (id: {:#x})",
                                     insn.imm as u32
@@ -417,8 +415,7 @@ pub fn execute_program(
                     // eBPF-to-eBPF call
                     1 => {
                         if stack_frame_idx >= MAX_CALL_DEPTH {
-                            Err(Error::new(
-                                ErrorKind::Other,
+                            Err(Error::other(
                                 format!(
                                     "Error: too many nested calls (max: {MAX_CALL_DEPTH})"
                                 )
@@ -434,8 +431,7 @@ pub fn execute_program(
                         insn_ptr += insn.imm as usize;
                     }
                     _ => {
-                        Err(Error::new(
-                            ErrorKind::Other,
+                        Err(Error::other(
                             format!("Error: unsupported call type #{} (insn #{})",
                                 _src,
                                 insn_ptr-1

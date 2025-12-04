@@ -505,8 +505,7 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.prog {
             Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
+            None => Err(Error::other(
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
@@ -612,8 +611,7 @@ impl<'a> EbpfVmMbuff<'a> {
                 0,
                 0,
             )),
-            None => Err(Error::new(
-                ErrorKind::Other,
+            None => Err(Error::other(
                 "Error: program has not been JIT-compiled",
             )),
         }
@@ -1095,7 +1093,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
-            Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
+            Err(Error::other(format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
         }
         LittleEndian::write_u64(
@@ -1136,8 +1134,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
+            None => Err(Error::other(
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
@@ -1233,8 +1230,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
                 self.mbuff.data_offset,
                 self.mbuff.data_end_offset,
             )),
-            None => Err(Error::new(
-                ErrorKind::Other,
+            None => Err(Error::other(
                 "Error: program has not been JIT-compiled",
             )),
         }
@@ -1656,8 +1652,7 @@ impl<'a> EbpfVmRaw<'a> {
     pub fn jit_compile(&mut self) -> Result<(), Error> {
         let prog = match self.parent.prog {
             Some(prog) => prog,
-            None => Err(Error::new(
-                ErrorKind::Other,
+            None => Err(Error::other(
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };

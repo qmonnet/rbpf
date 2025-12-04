@@ -18,7 +18,7 @@ extern crate rbpf;
 use rbpf::assembler::assemble;
 #[cfg(feature = "std")]
 use rbpf::helpers;
-use rbpf::lib::{Error, ErrorKind};
+use rbpf::lib::Error;
 
 // The following two examples have been compiled from C with the following command:
 //
@@ -658,7 +658,7 @@ fn verifier_success(_prog: &[u8]) -> Result<(), Error> {
 }
 
 fn verifier_fail(_prog: &[u8]) -> Result<(), Error> {
-    Err(Error::new(ErrorKind::Other, "Gaggablaghblagh!"))
+    Err(Error::other("Gaggablaghblagh!"))
 }
 
 #[test]
