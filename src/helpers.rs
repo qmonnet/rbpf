@@ -28,27 +28,32 @@ use crate::lib::*;
 /// <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/bpf.h>.
 pub const BPF_KTIME_GETNS_IDX: u32 = 5;
 
-/// Get monotonic time (since boot time) in nanoseconds. All arguments are unused.
+/// Get elapsed time in nanoseconds since the first call to this helper. All arguments are unused.
+///
+/// This helper provides a monotonic clock suitable for measuring time intervals in eBPF programs.
+/// Unlike the kernel's `bpf_ktime_getns()` which returns time since boot, this implementation
+/// returns time elapsed since the helper was first invoked.
 ///
 /// # Examples
 ///
 /// ```
 /// use rbpf::helpers;
 ///
-/// let t = helpers::bpf_time_getns(0, 0, 0, 0, 0);
-/// let d =  t / 10u64.pow(9)  / 60   / 60  / 24;
-/// let h = (t / 10u64.pow(9)  / 60   / 60) % 24;
-/// let m = (t / 10u64.pow(9)  / 60 ) % 60;
-/// let s = (t / 10u64.pow(9)) % 60;
-/// let ns = t % 10u64.pow(9);
-/// println!("Uptime: {:#x} == {} days {}:{}:{}, {} ns", t, d, h, m, s, ns);
+/// let t1 = helpers::bpf_time_getns(0, 0, 0, 0, 0);
+/// let t2 = helpers::bpf_time_getns(0, 0, 0, 0, 0);
+/// assert!(t2 >= t1);
+/// println!("Elapsed: {} ns", t2 - t1);
 /// ```
 #[allow(dead_code)]
 #[allow(unused_variables)]
-#[allow(deprecated)]
 #[cfg(feature = "std")]
 pub fn bpf_time_getns(unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
-    time::precise_time_ns()
+    use std::sync::OnceLock;
+    use std::time::Instant;
+
+    static START: OnceLock<Instant> = OnceLock::new();
+    let start = START.get_or_init(Instant::now);
+    start.elapsed().as_nanos() as u64
 }
 
 // bpf_trace_printk()
