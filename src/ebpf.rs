@@ -616,7 +616,7 @@ pub fn get_insn(prog: &[u8], idx: usize) -> Insn {
 /// ]);
 /// ```
 pub fn to_insn_vec(prog: &[u8]) -> Vec<Insn> {
-    if prog.len() % INSN_SIZE != 0 {
+    if !prog.len().is_multiple_of(INSN_SIZE) {
         panic!(
             "Error: eBPF program length must be a multiple of {INSN_SIZE:?} octets"
         );

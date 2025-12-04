@@ -7,7 +7,9 @@
 
 #![allow(clippy::single_match)]
 
-use crate::{ebpf, format, vec, Error, ErrorKind, HashMap, Vec};
+use crate::{ebpf, format, vec, Error, HashMap, Vec};
+#[cfg(not(feature = "std"))]
+use crate::ErrorKind;
 use core::fmt::Error as FormatterError;
 use core::fmt::Formatter;
 use core::mem;
@@ -921,8 +923,7 @@ impl JitCompiler {
                                 self.emit_mov(mem, R9, RCX);
                                 self.emit_call(mem, *helper as usize);
                             } else {
-                                Err(Error::new(
-                                    ErrorKind::Other,
+                                Err(Error::other(
                                     format!(
                                         "[JIT] Error: unknown helper function (id: {:#x})",
                                         insn.imm as u32
@@ -935,8 +936,7 @@ impl JitCompiler {
                             self.emit_local_call(mem, target_pc);
                         }
                         _ => {
-                            Err(Error::new(
-                                ErrorKind::Other,
+                            Err(Error::other(
                                 format!(
                                     "[JIT] Error: unexpected call type #{:?} (insn #{insn_ptr:?})",
                                     insn.src
@@ -951,8 +951,7 @@ impl JitCompiler {
                 }
 
                 _                => {
-                    Err(Error::new(
-                        ErrorKind::Other,
+                    Err(Error::other(
                         format!(
                             "[JIT] Error: unknown eBPF opcode {:#2x} (insn #{insn_ptr:?})",
                             insn.opc

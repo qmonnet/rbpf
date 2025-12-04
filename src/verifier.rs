@@ -23,11 +23,11 @@ use crate::lib::*;
 
 fn reject<S: AsRef<str>>(msg: S) -> Result<(), Error> {
     let full_msg = format!("[Verifier] Error: {}", msg.as_ref());
-    Err(Error::new(ErrorKind::Other, full_msg))
+    Err(Error::other(full_msg))
 }
 
 fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
-    if prog.len() % ebpf::INSN_SIZE != 0 {
+    if !prog.len().is_multiple_of(ebpf::INSN_SIZE) {
         reject(format!(
             "eBPF program length must be a multiple of {:?} octets",
             ebpf::INSN_SIZE
