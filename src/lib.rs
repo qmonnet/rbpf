@@ -16,8 +16,6 @@
 extern crate byteorder;
 extern crate combine;
 extern crate log;
-#[cfg(feature = "std")]
-extern crate time;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
