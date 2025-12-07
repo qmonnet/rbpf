@@ -13,6 +13,9 @@
 // Configures the crate to be `no_std` when `std` feature is disabled.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(all(feature = "std", feature = "alloc"))]
+compile_error!("feature \"std\" and feature \"alloc\" cannot be enabled at the same time");
+
 extern crate byteorder;
 extern crate combine;
 extern crate log;
@@ -509,11 +512,11 @@ impl<'a> EbpfVmMbuff<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "std", feature = "alloc"))]
         {
             self.jit = Some(jit::JitMemory::new(prog, &self.helpers, true, false)?);
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "std", feature = "alloc")))]
         {
             let exec_memory = match self.custom_exec_memory.take() {
                 Some(memory) => memory,
@@ -1138,11 +1141,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "std", feature = "alloc"))]
         {
             self.parent.jit = Some(jit::JitMemory::new(prog, &self.parent.helpers, true, true)?);
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "std", feature = "alloc")))]
         {
             let exec_memory = match self.parent.custom_exec_memory.take() {
                 Some(memory) => memory,
@@ -1656,7 +1659,7 @@ impl<'a> EbpfVmRaw<'a> {
                 "Error: No program set, call prog_set() to load one",
             ))?,
         };
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "std", feature = "alloc"))]
         {
             self.parent.jit = Some(jit::JitMemory::new(
                 prog,
@@ -1665,7 +1668,7 @@ impl<'a> EbpfVmRaw<'a> {
                 false,
             )?);
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "std", feature = "alloc")))]
         {
             let exec_memory = match self.parent.custom_exec_memory.take() {
                 Some(memory) => memory,
