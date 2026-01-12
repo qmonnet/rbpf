@@ -600,18 +600,18 @@ impl<'a> EbpfVmMbuff<'a> {
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
-        match &self.jit {
-            Some(jit) => Ok(jit.get_prog()(
-                mbuff.as_ptr() as *mut u8,
-                mbuff.len(),
-                mem_ptr,
-                mem.len(),
-                0,
-                0,
-            )),
-            None => Err(Error::other(
-                "Error: program has not been JIT-compiled",
-            )),
+        unsafe {
+            match &self.jit {
+                Some(jit) => Ok(jit.get_prog()(
+                    mbuff.as_ptr() as *mut u8,
+                    mbuff.len(),
+                    mem_ptr,
+                    mem.len(),
+                    0,
+                    0,
+                )),
+                None => Err(Error::other("Error: program has not been JIT-compiled")),
+            }
         }
     }
 
@@ -1219,18 +1219,18 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             _ => mem.as_ptr() as *mut u8,
         };
 
-        match &self.parent.jit {
-            Some(jit) => Ok(jit.get_prog()(
-                self.mbuff.buffer.as_ptr() as *mut u8,
-                self.mbuff.buffer.len(),
-                mem_ptr,
-                mem.len(),
-                self.mbuff.data_offset,
-                self.mbuff.data_end_offset,
-            )),
-            None => Err(Error::other(
-                "Error: program has not been JIT-compiled",
-            )),
+        unsafe {
+            match &self.parent.jit {
+                Some(jit) => Ok(jit.get_prog()(
+                    self.mbuff.buffer.as_ptr() as *mut u8,
+                    self.mbuff.buffer.len(),
+                    mem_ptr,
+                    mem.len(),
+                    self.mbuff.data_offset,
+                    self.mbuff.data_end_offset,
+                )),
+                None => Err(Error::other("Error: program has not been JIT-compiled")),
+            }
         }
     }
 
@@ -1723,7 +1723,7 @@ impl<'a> EbpfVmRaw<'a> {
     #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
         let mut mbuff = vec![];
-        self.parent.execute_program_jit(mem, &mut mbuff)
+        unsafe { self.parent.execute_program_jit(mem, &mut mbuff) }
     }
 
     /// Compile the loaded program using the Cranelift JIT.
@@ -2133,7 +2133,7 @@ impl<'a> EbpfVmNoData<'a> {
     /// ```
     #[cfg(not(windows))]
     pub unsafe fn execute_program_jit(&self) -> Result<u64, Error> {
-        self.parent.execute_program_jit(&mut [])
+        unsafe { self.parent.execute_program_jit(&mut []) }
     }
 
     /// Compile the loaded program using the Cranelift JIT.
