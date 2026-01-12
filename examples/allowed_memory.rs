@@ -2,6 +2,9 @@
 // Copyright 2024 Akenes SA <wouter.dullaert@exoscale.ch>
 
 extern crate elf;
+use elf::endian::AnyEndian;
+use elf::ElfBytes;
+use std::path::PathBuf;
 use std::{ptr::addr_of};
 
 extern crate rbpf;
@@ -31,11 +34,27 @@ fn bpf_lookup_elem(_map: u64, key_addr: u64, _flags: u64, _u4: u64, _u5: u64) ->
     0
 }
 
-fn main() {
-    let file = elf::File::open_path(OBJ_FILE_PATH).unwrap();
-    let func = file.get_section("classifier").unwrap();
+fn get_prog_data(filename: &str) -> Vec<u8> {
+    let path = PathBuf::from(filename);
+    let file_data = std::fs::read(path).expect("Could not read file");
+    let slice = file_data.as_slice();
+    let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Fail to parse ELF file");
 
-    let mut vm = rbpf::EbpfVmNoData::new(Some(&func.data)).unwrap();
+    let classifier_section_header = match file.section_header_by_name("classifier") {
+        Ok(Some(header)) => header,
+        Ok(None) => panic!("No .classifier section found"),
+        Err(e) => panic!("Error while searching for classifier section: {}", e),
+    };
+
+    file
+        .section_data(&classifier_section_header)
+        .expect("Failed to get classifier section data").0.to_vec()
+}
+
+fn main() {
+    let prog = get_prog_data(OBJ_FILE_PATH);
+
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(BPF_MAP_LOOKUP_ELEM_IDX, bpf_lookup_elem)
         .unwrap();
 
