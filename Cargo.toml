@@ -27,8 +27,8 @@ include = [
 
 # Default features (std) are disabled so that the dependencies don't pull in the
 # standard library when the crate is compiled for no_std
-byteorder = { version = "1.2", default-features = false }
-log = { version = "0.4.21", default-features = false }
+byteorder = { version = "1.5", default-features = false }
+log = { version = "0.4", default-features = false }
 combine = { version = "4.6", default-features = false }
 
 # Optional Dependencies when using the standard library
@@ -40,7 +40,7 @@ cranelift-frontend = { version = "0.127", optional = true }
 cranelift-jit = { version = "0.127", optional = true }
 cranelift-native = { version = "0.127", optional = true }
 cranelift-module = { version = "0.127", optional = true }
-hashbrown = { version = "0.15", default-features = false, features = ["default-hasher"] }
+hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
 
 [dev-dependencies]
 libc = { version = "0.2" }
