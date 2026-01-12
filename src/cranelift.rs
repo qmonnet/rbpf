@@ -161,17 +161,17 @@ impl CraneliftCompiler {
         entry: Block,
     ) -> Result<(), Error> {
         // Register the VM registers as variables
-        for var in self.registers.iter() {
-            bcx.declare_var(*var, I64);
+        for var in self.registers.iter_mut() {
+            *var = bcx.declare_var(I64);
         }
 
         // Register the bounds check variables
-        bcx.declare_var(self.mem_start, I64);
-        bcx.declare_var(self.mem_end, I64);
-        bcx.declare_var(self.mbuf_start, I64);
-        bcx.declare_var(self.mbuf_end, I64);
-        bcx.declare_var(self.stack_start, I64);
-        bcx.declare_var(self.stack_end, I64);
+        self.mem_start = bcx.declare_var(I64);
+        self.mem_end = bcx.declare_var(I64);
+        self.mbuf_start = bcx.declare_var(I64);
+        self.mbuf_end = bcx.declare_var(I64);
+        self.stack_start = bcx.declare_var(I64);
+        self.stack_end = bcx.declare_var(I64);
 
         // Register the helpers
         for (k, _) in self.helpers.iter() {
@@ -197,10 +197,11 @@ impl CraneliftCompiler {
         }
 
         // Register the stack
-        let ss = bcx.create_sized_stack_slot(StackSlotData {
-            kind: StackSlotKind::ExplicitSlot,
-            size: STACK_SIZE as u32,
-        });
+        let ss = bcx.create_sized_stack_slot(StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            STACK_SIZE as u32,
+            0,
+        ));
         let addr_ty = self.isa.pointer_type();
         let stack_addr = bcx.ins().stack_addr(addr_ty, ss, STACK_SIZE as i32);
         bcx.def_var(self.registers[10], stack_addr);
@@ -1070,7 +1071,7 @@ impl CraneliftCompiler {
 
         // TODO: We can potentially throw a custom trap code here to indicate
         // which check failed.
-        bcx.ins().trapz(valid, TrapCode::HeapOutOfBounds);
+        bcx.ins().trapz(valid, TrapCode::HEAP_OUT_OF_BOUNDS);
     }
 
     /// Analyze the program and build the CFG
