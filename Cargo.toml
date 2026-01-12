@@ -35,11 +35,11 @@ combine = { version = "4.6", default-features = false }
 libc = { version = "0.2", optional = true }
 
 # Optional Dependencies for the CraneLift JIT
-cranelift-codegen = { version = "0.99", optional = true }
-cranelift-frontend = { version = "0.99", optional = true }
-cranelift-jit = { version = "0.99", optional = true }
-cranelift-native = { version = "0.99", optional = true }
-cranelift-module = { version = "0.99", optional = true }
+cranelift-codegen = { version = "0.127", optional = true }
+cranelift-frontend = { version = "0.127", optional = true }
+cranelift-jit = { version = "0.127", optional = true }
+cranelift-native = { version = "0.127", optional = true }
+cranelift-module = { version = "0.127", optional = true }
 hashbrown = { version = "0.15", default-features = false, features = ["default-hasher"] }
 
 [dev-dependencies]
