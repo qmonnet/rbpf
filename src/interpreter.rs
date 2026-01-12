@@ -116,11 +116,10 @@ pub fn execute_program(
     let mut insn_ptr: usize = 0;
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
-        if stack_frame_idx < MAX_CALL_DEPTH {
-            if let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
+        if stack_frame_idx < MAX_CALL_DEPTH
+            && let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
                 stacks[stack_frame_idx].set_stack_usage(usage);
             }
-        }
         insn_ptr += 1;
         let _dst = insn.dst as usize;
         let _src = insn.src as usize;

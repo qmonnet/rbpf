@@ -215,11 +215,10 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
                     Err(msg) => return Err(format!("Failed to encode {name}: {msg}")),
                 }
                 // Special case for lddw.
-                if let LoadImm = inst_type {
-                    if let Integer(imm) = instruction.operands[1] {
+                if let LoadImm = inst_type
+                    && let Integer(imm) = instruction.operands[1] {
                         result.push(insn(0, 0, 0, 0, imm >> 32).unwrap());
                     }
-                }
             }
             None => return Err(format!("Invalid instruction {name:?}")),
         }
