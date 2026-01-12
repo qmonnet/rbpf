@@ -109,20 +109,27 @@ fn test_vm_block_port() {
     // Cargo.toml). See comments above.
     //
     // ---
+    // extern crate elf;
+    // use elf::endian::AnyEndian;
+    // use elf::ElfBytes;
+    // use std::path::PathBuf;
+    //
     // let filename = "my_ebpf_object_file.o";
     //
     // let path = PathBuf::from(filename);
-    // let file = match elf::File::open_path(&path) {
-    //     Ok(f) => f,
-    //     Err(e) => panic!("Error: {:?}", e),
+    // let file_data = std::fs::read(path).expect("Could not read file");
+    // let slice = file_data.as_slice();
+    // let file = ElfBytes::<AnyEndian>::minimal_parse(slice).expect("Fail to parse ELF file");
+    //
+    // let classifier_section_header = match file.section_header_by_name(".classifier") {
+    //     Ok(Some(header)) => header,
+    //     Ok(None) => panic!("No .classifier section found"),
+    //     Err(e) => panic!("Error while searching for .classifier section: {}", e),
     // };
     //
-    // let text_scn = match file.get_section(".classifier") {
-    //     Some(s) => s,
-    //     None => panic!("Failed to look up .classifier section"),
-    // };
-    //
-    // let prog = &text_scn.data;
+    // let prog = file
+    //     .section_data(&classifier_section_header)
+    //     .expect("Failed to get .classifier section data").0;
     // ---
 
     #[rustfmt::skip]

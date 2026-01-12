@@ -44,7 +44,7 @@ hashbrown = { version = "0.15", default-features = false, features = ["default-h
 
 [dev-dependencies]
 libc = { version = "0.2" }
-elf = "0.0.10"
+elf = "0.8.0"
 json = "0.12"
 hex = "0.4.3"
 
