@@ -389,7 +389,7 @@ to your `Cargo.toml` file.
 ```toml
 [dependencies]
 rbpf = "0.4.0"
-elf = "0.0.10"
+elf = "0.8.0"
 ```
 
 It also uses a kind of VM that uses an internal buffer used to simulate the
