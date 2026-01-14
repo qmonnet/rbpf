@@ -154,8 +154,8 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::ST_H_REG   => store = true,
             ebpf::ST_W_REG   => store = true,
             ebpf::ST_DW_REG  => store = true,
-            ebpf::ST_W_XADD  => { unimplemented!(); },
-            ebpf::ST_DW_XADD => { unimplemented!(); },
+            ebpf::ST_W_XADD  => { reject(format!("XADD instructions are not supported (insn #{insn_ptr:?})"))?; },
+            ebpf::ST_DW_XADD => { reject(format!("XADD instructions are not supported (insn #{insn_ptr:?})"))?; },
 
             // BPF_ALU class
             ebpf::ADD32_IMM  => {},
@@ -275,7 +275,7 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
                     _ => { reject(format!("unsupported call type #{src:?} (insn #{insn_ptr:?})"))?; }
                 }
             },
-            ebpf::TAIL_CALL  => { unimplemented!() },
+            ebpf::TAIL_CALL  => { reject(format!("TAIL_CALL is not supported (insn #{insn_ptr:?})"))?; },
             ebpf::EXIT       => {},
 
             _                => {

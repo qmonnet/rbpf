@@ -254,8 +254,8 @@ pub fn execute_program(
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(reg[_src]);
             },
-            ebpf::ST_W_XADD  => unimplemented!(),
-            ebpf::ST_DW_XADD => unimplemented!(),
+            ebpf::ST_W_XADD  => Err(Error::other(format!("Error: XADD instructions are not supported (insn #{})", insn_ptr - 1)))?,
+            ebpf::ST_DW_XADD => Err(Error::other(format!("Error: XADD instructions are not supported (insn #{})", insn_ptr - 1)))?,
 
             // BPF_ALU class
             // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value
@@ -427,7 +427,25 @@ pub fn execute_program(
                         // that read or write to the stack, check_mem_load or check_mem_store will return an error.
                         reg[10] -= stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
                         stack_frame_idx += 1;
-                        insn_ptr += insn.imm as usize;
+                        // Use checked arithmetic to prevent integer overflow
+                        let offset = insn.imm as isize;
+                        if offset < 0 {
+                            let abs_offset = (-offset) as usize;
+                            if abs_offset > insn_ptr {
+                                Err(Error::other(format!(
+                                    "Error: call offset underflow (insn #{})",
+                                    insn_ptr - 1
+                                )))?;
+                            }
+                            insn_ptr -= abs_offset;
+                        } else {
+                            insn_ptr = insn_ptr.checked_add(offset as usize).ok_or_else(|| {
+                                Error::other(format!(
+                                    "Error: call offset overflow (insn #{})",
+                                    insn_ptr - 1
+                                ))
+                            })?;
+                        }
                     }
                     _ => {
                         Err(Error::other(
@@ -439,7 +457,7 @@ pub fn execute_program(
                     }
                 }
             }
-            ebpf::TAIL_CALL  => unimplemented!(),
+            ebpf::TAIL_CALL  => Err(Error::other(format!("Error: TAIL_CALL is not supported (insn #{})", insn_ptr - 1)))?,
             ebpf::EXIT       => {
                 if stack_frame_idx > 0 {
                     stack_frame_idx -= 1;
