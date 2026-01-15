@@ -427,25 +427,7 @@ pub fn execute_program(
                         // that read or write to the stack, check_mem_load or check_mem_store will return an error.
                         reg[10] -= stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
                         stack_frame_idx += 1;
-                        // Use checked arithmetic to prevent integer overflow
-                        let offset = insn.imm as isize;
-                        if offset < 0 {
-                            let abs_offset = (-offset) as usize;
-                            if abs_offset > insn_ptr {
-                                Err(Error::other(format!(
-                                    "Error: call offset underflow (insn #{})",
-                                    insn_ptr - 1
-                                )))?;
-                            }
-                            insn_ptr -= abs_offset;
-                        } else {
-                            insn_ptr = insn_ptr.checked_add(offset as usize).ok_or_else(|| {
-                                Error::other(format!(
-                                    "Error: call offset overflow (insn #{})",
-                                    insn_ptr - 1
-                                ))
-                            })?;
-                        }
+                        insn_ptr += insn.imm as usize;
                     }
                     _ => {
                         Err(Error::other(
