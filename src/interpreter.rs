@@ -83,8 +83,11 @@ pub fn execute_program(
     ];
     if !mbuff.is_empty() {
         reg[1] = mbuff.as_ptr() as u64;
-    } else if !mem.is_empty() {
+        reg[2] = mbuff.len() as u64;
+    }
+    else if !mem.is_empty() {
         reg[1] = mem.as_ptr() as u64;
+        reg[2] = mem.len() as u64;
     }
 
     let check_mem_load = |addr: u64, len: usize, insn_ptr: usize| {
