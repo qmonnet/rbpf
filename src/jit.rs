@@ -433,7 +433,9 @@ impl JitCompiler {
         if dst != RDX {
             self.emit_push(mem, RDX);
         }
-        if imm != 0 {
+
+        // Load the divisor into RCX.
+        if !is_reg {
             self.emit_load_imm(mem, RCX, imm as i64);
         } else {
             self.emit_mov(mem, src, RCX);
