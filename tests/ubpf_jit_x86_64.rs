@@ -877,6 +877,65 @@ fn test_jit_mod_by_zero_reg() {
     }
 }
 
+#[test]
+fn test_jit_div_reg_with_nonzero_imm() {
+    // This test checks the fix for using is_reg instead of imm != 0
+    // when deciding whether to load an immediate or move a register for the divisor.
+    // Hand-crafted bytecode with DIV (register mode) but non-zero immediate field.
+    // The immediate should be ignored for register operations.
+    #[rustfmt::skip]
+    let prog = &[
+        // mov r0, 100
+        0xb7, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00,
+        // mov r1, 5
+        0xb7, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
+        // div r0, r1 (but with non-zero immediate field 0x99999999)
+        // Opcode 0x3f = DIV64 | BPF_X (register mode)
+        0x3f, 0x10, 0x00, 0x00, 0x99, 0x99, 0x99, 0x99,
+        // exit
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    
+    let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe {
+        // Should divide 100 by r1 (5), not by the immediate (0x99999999)
+        assert_eq!(vm.execute_program_jit().unwrap(), 0x14); // 100 / 5 = 20 (0x14)
+    }
+}
+
+#[test]
+fn test_jit_mod_reg_with_nonzero_imm() {
+    // Companion test for modulo operation with non-zero immediate in register mode
+    #[rustfmt::skip]
+    let prog = &[
+        // mov r0, 107
+        0xb7, 0x00, 0x00, 0x00, 0x6b, 0x00, 0x00, 0x00,
+        // mov r1, 5
+        0xb7, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
+        // mod r0, r1 (but with non-zero immediate field 0x88888888)
+        // Opcode 0x9f = MOD64 | BPF_X (register mode)
+        0x9f, 0x10, 0x00, 0x00, 0x88, 0x88, 0x88, 0x88,
+        // exit
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    
+    let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe {
+        // Should modulo 107 by r1 (5), not by the immediate (0x88888888)
+        assert_eq!(vm.execute_program_jit().unwrap(), 0x2); // 107 % 5 = 2
+    }
+}
+
 // TODO SKIP: JIT disabled for this testcase (stack oob check not implemented)
 // #[test]
 // #[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
