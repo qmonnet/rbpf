@@ -2902,3 +2902,38 @@ fn test_vm_tcp_sack_nomatch() {
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program(mem.as_mut_slice()).unwrap(), 0x0);
 }
+
+// Tests for 32-bit arithmetic with sign extension handling
+// These tests verify that negative results are zero-extended, not sign-extended
+#[test]
+fn test_vm_sub32_imm_negative_result() {
+    // 1 - 2 = -1 (0xFFFFFFFF in u32)
+    // Should be zero-extended to 0x00000000FFFFFFFF, not sign-extended to 0xFFFFFFFFFFFFFFFF
+    let prog = assemble(
+        "
+        mov32 r0, 1
+        sub32 r0, 2
+        exit
+        ",
+    )
+    .unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x00000000FFFFFFFF);
+}
+
+#[test]
+fn test_vm_sub32_reg_negative_result() {
+    // 5 - 10 = -5 (0xFFFFFFFB in u32)
+    // Should be zero-extended to 0x00000000FFFFFFFB
+    let prog = assemble(
+        "
+        mov32 r0, 5
+        mov32 r1, 10
+        sub32 r0, r1
+        exit
+        ",
+    )
+    .unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x00000000FFFFFFFB);
+}
