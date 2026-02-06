@@ -895,7 +895,7 @@ fn test_jit_div_reg_with_nonzero_imm() {
         // exit
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
-    
+
     let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
@@ -923,7 +923,7 @@ fn test_jit_mod_reg_with_nonzero_imm() {
         // exit
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
-    
+
     let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
