@@ -52,7 +52,7 @@ file:
 
 ```toml
 [dependencies]
-rbpf = "0.4.0"
+rbpf = "0.4.1"
 ```
 
 You can also use the development version from this GitHub repository. This
@@ -388,7 +388,7 @@ to your `Cargo.toml` file.
 
 ```toml
 [dependencies]
-rbpf = "0.4.0"
+rbpf = "0.4.1"
 elf = "0.8.0"
 ```
 
@@ -581,7 +581,7 @@ enabled-by-default features.
 
 ```toml
 [dependencies]
-rbpf = { version = "0.4.0", default-features = false }
+rbpf = { version = "0.4.1", default-features = false }
 ```
 
 Note that when using this crate in `no_std` environments, the `jit` module
