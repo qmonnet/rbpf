@@ -3,10 +3,10 @@
 use cranelift_codegen::{
     entity::EntityRef,
     ir::{
-        condcodes::IntCC,
-        types::{I16, I32, I64, I8},
         AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, MemFlags, Signature,
         SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
+        condcodes::IntCC,
+        types::{I8, I16, I32, I64},
     },
     isa::OwnedTargetIsa,
     settings::{self, Configurable},
@@ -16,8 +16,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
 use crate::ebpf::{
-    self, Insn, BPF_ALU_OP_MASK, BPF_IND, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32,
-    BPF_JNE, BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE,
+    self, BPF_ALU_OP_MASK, BPF_IND, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32,
+    BPF_JNE, BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, Insn, STACK_SIZE,
 };
 use crate::lib::*;
 

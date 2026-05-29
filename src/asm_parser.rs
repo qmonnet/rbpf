@@ -6,12 +6,12 @@
 
 //! This module parses eBPF assembly language source code.
 
-use combine::parser::char::{alpha_num, char, digit, hex_digit, spaces, string};
-use combine::stream::position::{self};
 #[cfg(feature = "std")]
 use combine::EasyParser;
+use combine::parser::char::{alpha_num, char, digit, hex_digit, spaces, string};
+use combine::stream::position::{self};
 use combine::{
-    attempt, between, eof, many, many1, one_of, optional, sep_by, ParseError, Parser, Stream,
+    ParseError, Parser, Stream, attempt, between, eof, many, many1, one_of, optional, sep_by,
 };
 
 use crate::lib::*;
@@ -121,7 +121,7 @@ pub fn parse(input: &str) -> Result<Vec<Instruction>, String> {
 #[cfg(test)]
 mod tests {
 
-    use super::{ident, instruction, integer, operand, parse, register, Instruction, Operand};
+    use super::{Instruction, Operand, ident, instruction, integer, operand, parse, register};
     use crate::lib::*;
     use combine::Parser;
 

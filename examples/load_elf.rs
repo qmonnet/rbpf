@@ -2,8 +2,8 @@
 // Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
 
 extern crate elf;
-use elf::endian::AnyEndian;
 use elf::ElfBytes;
+use elf::endian::AnyEndian;
 use std::path::PathBuf;
 
 extern crate rbpf;
@@ -63,7 +63,8 @@ fn main() {
 
     let prog = file
         .section_data(&classifier_section_header)
-        .expect("Failed to get .classifier section data").0;
+        .expect("Failed to get .classifier section data")
+        .0;
 
     #[rustfmt::skip]
     let packet1 = &mut [
