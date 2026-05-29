@@ -16,6 +16,9 @@ use core::mem;
 use core::ops::{Index, IndexMut};
 use core::ptr;
 
+#[cfg(target_arch = "riscv64")]
+mod jit_riscv64;
+
 type MachineCode = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
 const PAGE_SIZE: usize = 4096;
@@ -1049,9 +1052,18 @@ impl<'a> JitMemory<'a> {
             offset: 0,
         };
 
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
-        jit.resolve_jumps(&mut mem)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
 
         Ok(mem)
     }
@@ -1083,9 +1095,18 @@ impl<'a> JitMemory<'a> {
             offset: 0,
         };
 
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
-        jit.resolve_jumps(&mut mem)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
 
         Ok(mem)
     }
