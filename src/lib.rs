@@ -46,7 +46,7 @@ pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
 #[cfg(not(windows))]
-mod jit;
+pub mod jit;
 #[cfg(not(feature = "std"))]
 mod no_std_error;
 mod stack;
@@ -515,10 +515,12 @@ impl<'a> EbpfVmMbuff<'a> {
         {
             let exec_memory = match self.custom_exec_memory.take() {
                 Some(memory) => memory,
-                None => return Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
-                ))?,
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                    ))?;
+                }
             };
             self.jit = Some(jit::JitMemory::new(
                 prog,
@@ -1091,8 +1093,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
-            Err(Error::other(format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
-            l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
+            Err(Error::other(format!(
+                "Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
+                l, self.mbuff.data_offset, self.mbuff.data_end_offset
+            )))?;
         }
         LittleEndian::write_u64(
             &mut self.mbuff.buffer[(self.mbuff.data_offset)..],
@@ -1144,10 +1148,12 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         {
             let exec_memory = match self.parent.custom_exec_memory.take() {
                 Some(memory) => memory,
-                None => return Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
-                ))?,
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                    ))?;
+                }
             };
             self.parent.jit = Some(jit::JitMemory::new(
                 prog,
@@ -1323,8 +1329,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
-            Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
-            l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
+            Err(Error::new(
+                ErrorKind::Other,
+                format!(
+                    "Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
+                    l, self.mbuff.data_offset, self.mbuff.data_end_offset
+                ),
+            ))?;
         }
         LittleEndian::write_u64(
             &mut self.mbuff.buffer[(self.mbuff.data_offset)..],
@@ -1667,10 +1678,12 @@ impl<'a> EbpfVmRaw<'a> {
         {
             let exec_memory = match self.parent.custom_exec_memory.take() {
                 Some(memory) => memory,
-                None => return Err(Error::new(
-                    ErrorKind::Other,
-                    "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
-                ))?,
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "Error: No custom executable memory set, call set_jit_exec_memory() to set one",
+                    ))?;
+                }
             };
             self.parent.jit = Some(jit::JitMemory::new(
                 prog,
