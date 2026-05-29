@@ -7,9 +7,9 @@
 
 #![allow(clippy::single_match)]
 
-use crate::{ebpf, format, vec, Error, HashMap, Vec};
 #[cfg(not(feature = "std"))]
 use crate::ErrorKind;
+use crate::{Error, HashMap, Vec, ebpf, format, vec};
 use core::fmt::Error as FormatterError;
 use core::fmt::Formatter;
 use core::mem;

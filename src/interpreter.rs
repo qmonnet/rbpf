@@ -39,10 +39,16 @@ fn check_mem(
 
     Err(Error::other(format!(
         "Error: out of bounds memory {} (insn #{:?}), addr {:#x}, size {:?}\nmbuff: {:#x}/{:#x}, mem: {:#x}/{:#x}, stack: {:#x}/{:#x}",
-        access_type, insn_ptr, addr, len,
-        mbuff.as_ptr() as u64, mbuff.len(),
-        mem.as_ptr() as u64, mem.len(),
-        stack.as_ptr() as u64, stack.len()
+        access_type,
+        insn_ptr,
+        addr,
+        len,
+        mbuff.as_ptr() as u64,
+        mbuff.len(),
+        mem.as_ptr() as u64,
+        mem.len(),
+        stack.as_ptr() as u64,
+        stack.len()
     )))
 }
 
@@ -117,9 +123,10 @@ pub fn execute_program(
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
         if stack_frame_idx < MAX_CALL_DEPTH
-            && let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
-                stacks[stack_frame_idx].set_stack_usage(usage);
-            }
+            && let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr)
+        {
+            stacks[stack_frame_idx].set_stack_usage(usage);
+        }
         insn_ptr += 1;
         let _dst = insn.dst as usize;
         let _src = insn.src as usize;

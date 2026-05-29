@@ -15,7 +15,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // Custom helper that returns the current Unix timestamp in seconds.
 // This demonstrates how users can create and register their own helpers with rbpf.
 #[allow(unused_variables)]
-fn helper_get_time_sec(unused1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+fn helper_get_time_sec(
+    unused1: u64,
+    unused2: u64,
+    unused3: u64,
+    unused4: u64,
+    unused5: u64,
+) -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -139,4 +145,3 @@ fn print_date(timestamp: u64) {
     println!("Current date and time (UTC): {year:04}-{month:02}-{day:02} {hours:02}:{minutes:02}:{seconds:02}");
     println!("Unix timestamp: {timestamp}");
 }
-
