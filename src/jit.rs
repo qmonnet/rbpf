@@ -19,9 +19,10 @@ use core::ptr;
 type MachineCode = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
 const PAGE_SIZE: usize = 4096;
-// TODO: check how long the page must be to be sure to support an eBPF program of maximum possible
-// length
-const NUM_PAGES: usize = 1;
+
+fn round_up_to_page(size: usize) -> usize {
+    (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
+}
 
 // Special values for target_pc in struct Jump
 const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
@@ -79,10 +80,12 @@ fn map_register(r: u8) -> u8 {
 macro_rules! emit_bytes {
     ( $mem:ident, $data:tt, $t:ty ) => {{
         let size = mem::size_of::<$t>() as usize;
-        assert!($mem.offset + size <= $mem.contents.len());
-        unsafe {
-            let ptr = $mem.contents.as_ptr().add($mem.offset) as *mut $t;
-            ptr.write_unaligned($data);
+        if $mem.write_enabled {
+            assert!($mem.offset + size <= $mem.contents.len());
+            unsafe {
+                let ptr = $mem.contents.as_mut_ptr().add($mem.offset) as *mut $t;
+                ptr.write_unaligned($data);
+            }
         }
         $mem.offset += size;
     }};
@@ -1009,11 +1012,14 @@ impl JitCompiler {
             };
 
             // Assumes jump offset is at end of instruction
+            if !mem.write_enabled {
+                continue;
+            }
             unsafe {
                 let offset_loc = jump.offset_loc as i32 + core::mem::size_of::<i32>() as i32;
                 let rel = &(target_loc as i32 - offset_loc) as *const i32;
 
-                let offset_ptr = mem.contents.as_ptr().add(jump.offset_loc) as *mut u8;
+                let offset_ptr = mem.contents.as_mut_ptr().add(jump.offset_loc);
                 ptr::copy_nonoverlapping(rel.cast::<u8>(), offset_ptr, core::mem::size_of::<i32>());
             }
         }
@@ -1023,12 +1029,26 @@ impl JitCompiler {
 
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
+    write_enabled: bool,
     #[cfg(feature = "std")]
     layout: std::alloc::Layout,
     offset: usize,
 }
 
 impl<'a> JitMemory<'a> {
+    fn counter() -> JitMemory<'a> {
+        let contents: &'a mut [u8] = unsafe {
+            core::slice::from_raw_parts_mut(core::ptr::NonNull::<u8>::dangling().as_ptr(), 0)
+        };
+        JitMemory {
+            contents,
+            write_enabled: false,
+            #[cfg(feature = "std")]
+            layout: unsafe { std::alloc::Layout::from_size_align_unchecked(0, 1) },
+            offset: 0,
+        }
+    }
+
     #[cfg(feature = "std")]
     pub fn new(
         prog: &[u8],
@@ -1038,10 +1058,14 @@ impl<'a> JitMemory<'a> {
     ) -> Result<JitMemory<'a>, Error> {
         let layout;
 
-        // Allocate the appropriately sized memory.
+        // Pass 1: size-only, no writes.
+        let mut counter = JitMemory::counter();
+        let mut jit = JitCompiler::new();
+        jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        let size = round_up_to_page(counter.offset.max(PAGE_SIZE));
+
         let contents = unsafe {
             // Create a layout with the proper size and alignment.
-            let size = NUM_PAGES * PAGE_SIZE;
             layout = std::alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE);
 
             // Allocate the region of memory.
@@ -1056,13 +1080,16 @@ impl<'a> JitMemory<'a> {
             // Convert to a slice.
             std::slice::from_raw_parts_mut(ptr, size)
         };
+        let contents: &'a mut [u8] = unsafe { mem::transmute(contents) };
 
         let mut mem = JitMemory {
             contents,
+            write_enabled: true,
             layout,
             offset: 0,
         };
 
+        // Pass 2: real emission + reloc resolution.
         let mut jit = JitCompiler::new();
         jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
         jit.resolve_jumps(&mut mem)?;
@@ -1078,8 +1105,14 @@ impl<'a> JitMemory<'a> {
         use_mbuff: bool,
         update_data_ptr: bool,
     ) -> Result<JitMemory<'a>, Error> {
+        // Pass 1: compute required size.
+        let mut counter = JitMemory::counter();
+        let mut jit = JitCompiler::new();
+        jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        let size = round_up_to_page(counter.offset.max(PAGE_SIZE));
+
         let contents = executable_memory;
-        if contents.len() < NUM_PAGES * PAGE_SIZE {
+        if contents.len() < size {
             return Err(Error::new(
                 ErrorKind::Other,
                 "Executable memory is too small",
@@ -1094,9 +1127,11 @@ impl<'a> JitMemory<'a> {
 
         let mut mem = JitMemory {
             contents,
+            write_enabled: true,
             offset: 0,
         };
 
+        // Pass 2: real emission + reloc resolution.
         let mut jit = JitCompiler::new();
         jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
         jit.resolve_jumps(&mut mem)?;
@@ -1127,7 +1162,9 @@ impl IndexMut<usize> for JitMemory<'_> {
 impl Drop for JitMemory<'_> {
     fn drop(&mut self) {
         unsafe {
-            std::alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
+            if self.layout.size() > 0 {
+                std::alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
+            }
         }
     }
 }
