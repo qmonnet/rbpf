@@ -10,6 +10,9 @@ use crate::ebpf::MAX_CALL_DEPTH;
 use crate::lib::*;
 use crate::stack::{StackFrame, StackUsage};
 use core::ops::Range;
+#[cfg(target_has_atomic = "64")]
+use core::sync::atomic::AtomicU64;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 #[allow(clippy::too_many_arguments)]
 fn check_mem(
@@ -254,8 +257,55 @@ pub fn execute_program(
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(reg[_src]);
             },
-            ebpf::ST_W_XADD  => Err(Error::other(format!("Error: XADD instructions are not supported (insn #{})", insn_ptr - 1)))?,
-            ebpf::ST_DW_XADD => Err(Error::other(format!("Error: XADD instructions are not supported (insn #{})", insn_ptr - 1)))?,
+            ebpf::ST_W_XADD  => unsafe {
+                // Semantics: *(u32 *)(dst + off) += (u32)src
+                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
+                check_mem_store(x as u64, 4, insn_ptr)?;
+                let add = reg[_src] as u32;
+
+                let addr = x as usize;
+                if addr.is_multiple_of(core::mem::align_of::<u32>()) {
+                    // Safety: AtomicU32 has the same size/alignment as u32, and we enforce natural
+                    // alignment. The pointed memory is treated as atomic for the duration of the VM
+                    // execution.
+                    let a = x as *const AtomicU32;
+                    let _prev = (*a).fetch_add(add, Ordering::Relaxed);
+                } else {
+                    Err(Error::other(format!(
+                        "Error: unaligned atomic XADD (ST_W_XADD) (insn #{}), addr {:#x}, required alignment {}",
+                        insn_ptr - 1,
+                        x as u64,
+                        core::mem::align_of::<u32>()
+                    )))?;
+                }
+            },
+            #[cfg(target_has_atomic = "64")]
+            ebpf::ST_DW_XADD => unsafe {
+                // Semantics: *(u64 *)(dst + off) += src
+                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
+                check_mem_store(x as u64, 8, insn_ptr)?;
+                let add = reg[_src];
+
+                let addr = x as usize;
+                if addr.is_multiple_of(core::mem::align_of::<u64>()) {
+                    // Safety: AtomicU64 has the same size/alignment as u64 on targets that provide
+                    // 64-bit atomics, and we enforce natural alignment.
+                    let a = x as *const AtomicU64;
+                    let _prev = (*a).fetch_add(add, Ordering::Relaxed);
+                } else {
+                    Err(Error::other(format!(
+                        "Error: unaligned atomic XADD (ST_DW_XADD) (insn #{}), addr {:#x}, required alignment {}",
+                        insn_ptr - 1,
+                        x as u64,
+                        core::mem::align_of::<u64>()
+                    )))?;
+                }
+            },
+            #[cfg(not(target_has_atomic = "64"))]
+            ebpf::ST_DW_XADD => Err(Error::other(format!(
+                "Error: atomic XADD (ST_DW_XADD) requires 64-bit atomics on this target (insn #{})",
+                insn_ptr - 1
+            )))?,
 
             // BPF_ALU class
             // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value

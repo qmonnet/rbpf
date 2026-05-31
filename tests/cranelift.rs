@@ -2285,3 +2285,44 @@ fn test_cranelift_ldinddw() {
         0xccbbaa9988776655
     );
 }
+
+#[test]
+fn test_cranelift_xadd_w() {
+    use rbpf::ebpf::{self, Insn};
+
+    let insns = [
+        Insn { opc: ebpf::MOV32_IMM, dst: 2, src: 0, off: 0, imm: 5 },
+        Insn { opc: ebpf::ST_W_XADD, dst: 1, src: 2, off: 0, imm: 0 },
+        Insn { opc: ebpf::LD_W_REG, dst: 0, src: 1, off: 0, imm: 0 },
+        Insn { opc: ebpf::EXIT, dst: 0, src: 0, off: 0, imm: 0 },
+    ];
+    let prog: Vec<u8> = insns.iter().flat_map(|i| i.to_array()).collect();
+
+    let mut mem = [0u8; 8];
+    mem[..4].copy_from_slice(&10u32.to_le_bytes());
+
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(&mut mem).unwrap(), 15);
+}
+
+#[cfg(target_has_atomic = "64")]
+#[test]
+fn test_cranelift_xadd_dw() {
+    use rbpf::ebpf::{self, Insn};
+
+    let insns = [
+        Insn { opc: ebpf::MOV64_IMM, dst: 2, src: 0, off: 0, imm: 7 },
+        Insn { opc: ebpf::ST_DW_XADD, dst: 1, src: 2, off: 0, imm: 0 },
+        Insn { opc: ebpf::LD_DW_REG, dst: 0, src: 1, off: 0, imm: 0 },
+        Insn { opc: ebpf::EXIT, dst: 0, src: 0, off: 0, imm: 0 },
+    ];
+    let prog: Vec<u8> = insns.iter().flat_map(|i| i.to_array()).collect();
+
+    let mut mem = [0u8; 16];
+    mem[..8].copy_from_slice(&10u64.to_le_bytes());
+
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(&mut mem).unwrap(), 17);
+}
