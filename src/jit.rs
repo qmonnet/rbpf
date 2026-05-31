@@ -639,8 +639,22 @@ impl JitCompiler {
                     self.emit_store(mem, OperandSize::S32, src, dst, insn.off as i32),
                 ebpf::ST_DW_REG  =>
                     self.emit_store(mem, OperandSize::S64, src, dst, insn.off as i32),
-                ebpf::ST_W_XADD  => unimplemented!(),
-                ebpf::ST_DW_XADD => unimplemented!(),
+                ebpf::ST_W_XADD  => {
+                    // Semantics: *(u32 *)(dst + off) += (u32)src
+                    // JIT assumes effective address is naturally aligned.
+                    self.emit1(mem, 0xf0); // lock prefix
+                    self.emit_basic_rex(mem, 0, src, dst);
+                    self.emit1(mem, 0x01); // add r/m32, r32
+                    self.emit_modrm_and_displacement(mem, src, dst, insn.off as i32);
+                }
+                ebpf::ST_DW_XADD => {
+                    // Semantics: *(u64 *)(dst + off) += src
+                    // JIT assumes effective address is naturally aligned.
+                    self.emit1(mem, 0xf0); // lock prefix
+                    self.emit_basic_rex(mem, 1, src, dst);
+                    self.emit1(mem, 0x01); // add r/m64, r64
+                    self.emit_modrm_and_displacement(mem, src, dst, insn.off as i32);
+                }
 
                 // BPF_ALU class
                 ebpf::ADD32_IMM  => self.emit_alu32_imm32(mem, 0x81, 0, dst, insn.imm),

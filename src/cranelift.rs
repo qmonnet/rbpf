@@ -5,8 +5,8 @@ use cranelift_codegen::{
     ir::{
         condcodes::IntCC,
         types::{I16, I32, I64, I8},
-        AbiParam, Block, Endianness, FuncRef, Function, InstBuilder, MemFlags, Signature,
-        SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
+        AbiParam, AtomicRmwOp, Block, Endianness, FuncRef, Function, InstBuilder, MemFlags,
+        Signature, SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
     },
     isa::OwnedTargetIsa,
     settings::{self, Configurable},
@@ -382,8 +382,16 @@ impl CraneliftCompiler {
                     self.reg_store(bcx, ty, base, insn.off, narrow);
                 }
 
-                ebpf::ST_W_XADD => unimplemented!(),
-                ebpf::ST_DW_XADD => unimplemented!(),
+                ebpf::ST_W_XADD => {
+                    let base = self.insn_dst(bcx, &insn);
+                    let val = self.insn_src32(bcx, &insn);
+                    self.reg_atomic_add(bcx, I32, base, insn.off, val);
+                }
+                ebpf::ST_DW_XADD => {
+                    let base = self.insn_dst(bcx, &insn);
+                    let val = self.insn_src(bcx, &insn);
+                    self.reg_atomic_add(bcx, I64, base, insn.off, val);
+                }
 
                 // BPF_ALU class
                 // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value
@@ -999,6 +1007,25 @@ impl CraneliftCompiler {
         flags.set_endianness(Endianness::Little);
 
         bcx.ins().store(flags, val, base, offset as i32);
+    }
+
+    /// Legacy eBPF XADD: `*(ty *)(base + off) += val` (non-fetch).
+    fn reg_atomic_add(
+        &mut self,
+        bcx: &mut FunctionBuilder,
+        ty: Type,
+        base: Value,
+        offset: i16,
+        val: Value,
+    ) {
+        self.insert_bounds_check(bcx, ty, base, offset);
+        let mut flags = MemFlags::new();
+        flags.set_endianness(Endianness::Little);
+        let off = bcx.ins().iconst(self.isa.pointer_type(), offset as i64);
+        let addr = bcx.ins().iadd(base, off);
+        let _old = bcx
+            .ins()
+            .atomic_rmw(ty, flags, AtomicRmwOp::Add, addr, val);
     }
 
     /// Inserts a bounds check for a memory access

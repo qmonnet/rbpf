@@ -154,8 +154,23 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::ST_H_REG   => store = true,
             ebpf::ST_W_REG   => store = true,
             ebpf::ST_DW_REG  => store = true,
-            ebpf::ST_W_XADD  => { reject(format!("XADD instructions are not supported (insn #{insn_ptr:?})"))?; },
-            ebpf::ST_DW_XADD => { reject(format!("XADD instructions are not supported (insn #{insn_ptr:?})"))?; },
+            ebpf::ST_W_XADD  => {
+                // Same opcode as BPF atomic stores; legacy XADD uses imm == 0.
+                if insn.imm != 0 {
+                    reject(format!(
+                        "atomic operations other than legacy XADD are not supported (insn #{insn_ptr:?})"
+                    ))?;
+                }
+                store = true;
+            },
+            ebpf::ST_DW_XADD => {
+                if insn.imm != 0 {
+                    reject(format!(
+                        "atomic operations other than legacy XADD are not supported (insn #{insn_ptr:?})"
+                    ))?;
+                }
+                store = true;
+            },
 
             // BPF_ALU class
             ebpf::ADD32_IMM  => {},
