@@ -46,7 +46,7 @@ pub mod helpers;
 pub mod insn_builder;
 mod interpreter;
 #[cfg(not(windows))]
-mod jit;
+pub mod jit;
 #[cfg(not(feature = "std"))]
 mod no_std_error;
 mod stack;
