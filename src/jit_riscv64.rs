@@ -1267,6 +1267,7 @@ pub fn create_jit_memory<'a>(
 
     let mut mem = JitMemory {
         contents,
+        write_enabled: true,
         #[cfg(feature = "std")]
         layout: std::alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE),
         offset: 0,
