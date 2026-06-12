@@ -1013,3 +1013,163 @@ impl JitCompiler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod tests {
+    use super::super::JitMemory;
+    use super::*;
+    use crate::HashMap;
+
+    fn make_jit_memory(buf: &mut [u8]) -> JitMemory<'_> {
+        #[cfg(feature = "std")]
+        {
+            let len = buf.len();
+            JitMemory {
+                contents: buf,
+                write_enabled: true,
+                offset: 0,
+                layout: unsafe { std::alloc::Layout::from_size_align_unchecked(len, 4096) },
+            }
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            JitMemory {
+                contents: buf,
+                write_enabled: true,
+                offset: 0,
+            }
+        }
+    }
+
+    fn compile(prog: &[u8]) -> Vec<u8> {
+        let mem_size = 4096;
+        let mut mem_buf: Vec<u8> = vec![0; mem_size];
+        let mut mem = make_jit_memory(&mut mem_buf);
+        let mut compiler = JitCompiler::new();
+        compiler
+            .jit_compile(&mut mem, prog, false, false, &HashMap::new())
+            .unwrap();
+        compiler.resolve_jumps(&mut mem).unwrap();
+        let offset = mem.offset;
+        // Prevent JitMemory::drop on std from trying to dealloc our Vec buffer
+        core::mem::forget(mem);
+        mem_buf.truncate(offset);
+        mem_buf
+    }
+
+    fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[test]
+    fn test_alu_add32() {
+        let prog: &[u8] = &[
+            0xb4, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00,
+            0x00, 0x00, 0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        assert!(contains_subsequence(
+            &code,
+            &[0x81, 0xc0, 0x02, 0x00, 0x00, 0x00]
+        ));
+        assert!(contains_subsequence(
+            &code,
+            &[0xc7, 0xc0, 0x01, 0x00, 0x00, 0x00]
+        ));
+    }
+
+    #[test]
+    fn test_alu_sub64() {
+        let prog: &[u8] = &[
+            0xb7, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x03, 0x00,
+            0x00, 0x00, 0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        assert!(contains_subsequence(
+            &code,
+            &[0x48, 0x81, 0xe8, 0x03, 0x00, 0x00, 0x00]
+        ));
+        assert!(contains_subsequence(
+            &code,
+            &[0x48, 0xc7, 0xc0, 0x0a, 0x00, 0x00, 0x00]
+        ));
+    }
+
+    #[test]
+    fn test_bpf_end_be16() {
+        let prog: &[u8] = &[
+            0xb7, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, 0xdc, 0x00, 0x00, 0x00, 0x10, 0x00,
+            0x00, 0x00, 0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        assert!(contains_subsequence(&code, &[0x66]));
+        assert!(contains_subsequence(&code, &[0x66, 0xc1, 0xc0, 0x08]));
+        assert!(contains_subsequence(
+            &code,
+            &[0x81, 0xe0, 0xff, 0xff, 0x00, 0x00]
+        ));
+    }
+
+    #[test]
+    fn test_jmp_ja() {
+        let prog: &[u8] = &[
+            0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb7, 0x00, 0x00, 0x00, 0x01, 0x00,
+            0x00, 0x00, 0xb7, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x95, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        assert!(contains_subsequence(&code, &[0xe9]));
+        let e9_pos = code.windows(1).position(|w| w[0] == 0xe9).unwrap();
+        let offset = i32::from_le_bytes([
+            code[e9_pos + 1],
+            code[e9_pos + 2],
+            code[e9_pos + 3],
+            code[e9_pos + 4],
+        ]);
+        assert!(
+            offset > 0,
+            "JA jump offset should be positive, got {offset}"
+        );
+    }
+
+    #[test]
+    fn test_ldx_stx() {
+        let prog: &[u8] = &[
+            0x7b, 0x0a, 0xf8, 0xff, 0x00, 0x00, 0x00, 0x00, 0x79, 0xa1, 0xf8, 0xff, 0x00, 0x00,
+            0x00, 0x00, 0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        assert!(contains_subsequence(&code, &[0x48, 0x89, 0x45, 0xf8]));
+        assert!(contains_subsequence(&code, &[0x48, 0x8b, 0x7d, 0xf8]));
+    }
+
+    #[test]
+    fn test_prologue_epilogue() {
+        let prog: &[u8] = &[0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let code = compile(prog);
+        assert!(!code.is_empty());
+        // Prologue pushes
+        assert!(contains_subsequence(&code, &[0x55]));
+        assert!(contains_subsequence(&code, &[0x53]));
+        assert!(contains_subsequence(&code, &[0x41, 0x55]));
+        assert!(contains_subsequence(&code, &[0x41, 0x56]));
+        assert!(contains_subsequence(&code, &[0x41, 0x57]));
+        // Epilogue pops
+        assert!(contains_subsequence(&code, &[0x41, 0x5f]));
+        assert!(contains_subsequence(&code, &[0x41, 0x5e]));
+        assert!(contains_subsequence(&code, &[0x41, 0x5d]));
+        assert!(contains_subsequence(&code, &[0x5b]));
+        assert!(contains_subsequence(&code, &[0x5d]));
+        let ret_count = code.iter().filter(|&&b| b == 0xc3).count();
+        assert!(ret_count >= 2);
+        let push_rbp = code.windows(1).position(|w| w[0] == 0x55).unwrap();
+        let pop_r15 = code.windows(2).position(|w| w == [0x41, 0x5f]).unwrap();
+        assert!(push_rbp < pop_r15);
+    }
+}
