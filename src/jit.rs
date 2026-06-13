@@ -7,14 +7,17 @@
 
 #![allow(clippy::single_match)]
 
-use crate::{ebpf, format, vec, Error, HashMap, Vec};
 #[cfg(not(feature = "std"))]
 use crate::ErrorKind;
+use crate::{Error, HashMap, Vec, ebpf, format, vec};
 use core::fmt::Error as FormatterError;
 use core::fmt::Formatter;
 use core::mem;
 use core::ops::{Index, IndexMut};
 use core::ptr;
+
+#[cfg(target_arch = "riscv64")]
+mod jit_riscv64;
 
 type MachineCode = unsafe fn(*mut u8, usize, *mut u8, usize, usize, usize) -> u64;
 
@@ -1060,8 +1063,16 @@ impl<'a> JitMemory<'a> {
 
         // Pass 1: size-only, no writes.
         let mut counter = JitMemory::counter();
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        }
         let size = round_up_to_page(counter.offset.max(PAGE_SIZE));
 
         let contents = unsafe {
@@ -1089,10 +1100,18 @@ impl<'a> JitMemory<'a> {
             offset: 0,
         };
 
-        // Pass 2: real emission + reloc resolution.
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
-        jit.resolve_jumps(&mut mem)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
 
         Ok(mem)
     }
@@ -1107,8 +1126,16 @@ impl<'a> JitMemory<'a> {
     ) -> Result<JitMemory<'a>, Error> {
         // Pass 1: compute required size.
         let mut counter = JitMemory::counter();
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
+        }
         let size = round_up_to_page(counter.offset.max(PAGE_SIZE));
 
         let contents = executable_memory;
@@ -1131,10 +1158,18 @@ impl<'a> JitMemory<'a> {
             offset: 0,
         };
 
-        // Pass 2: real emission + reloc resolution.
-        let mut jit = JitCompiler::new();
-        jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
-        jit.resolve_jumps(&mut mem)?;
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut jit = JitCompiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
+        #[cfg(target_arch = "riscv64")]
+        {
+            let mut jit = jit_riscv64::RiscV64Compiler::new();
+            jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
+            jit.resolve_jumps(&mut mem)?;
+        }
 
         Ok(mem)
     }
