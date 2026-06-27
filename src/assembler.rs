@@ -8,7 +8,7 @@ use self::InstructionType::{
     LoadInd, LoadReg, NoOperand, StoreImm, StoreReg,
 };
 use crate::asm_parser::Operand::{Integer, Memory, Nil, Register};
-use crate::asm_parser::{parse, Instruction, Operand};
+use crate::asm_parser::{Instruction, Operand, parse};
 use crate::ebpf;
 use crate::ebpf::Insn;
 use crate::lib::*;
@@ -216,9 +216,10 @@ fn assemble_internal(parsed: &[Instruction]) -> Result<Vec<Insn>, String> {
                 }
                 // Special case for lddw.
                 if let LoadImm = inst_type
-                    && let Integer(imm) = instruction.operands[1] {
-                        result.push(insn(0, 0, 0, 0, imm >> 32).unwrap());
-                    }
+                    && let Integer(imm) = instruction.operands[1]
+                {
+                    result.push(insn(0, 0, 0, 0, imm >> 32).unwrap());
+                }
             }
             None => return Err(format!("Invalid instruction {name:?}")),
         }

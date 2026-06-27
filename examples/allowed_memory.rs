@@ -2,10 +2,10 @@
 // Copyright 2024 Akenes SA <wouter.dullaert@exoscale.ch>
 
 extern crate elf;
-use elf::endian::AnyEndian;
 use elf::ElfBytes;
+use elf::endian::AnyEndian;
 use std::path::PathBuf;
-use std::{ptr::addr_of};
+use std::ptr::addr_of;
 
 extern crate rbpf;
 
@@ -46,9 +46,10 @@ fn get_prog_data(filename: &str) -> Vec<u8> {
         Err(e) => panic!("Error while searching for classifier section: {}", e),
     };
 
-    file
-        .section_data(&classifier_section_header)
-        .expect("Failed to get classifier section data").0.to_vec()
+    file.section_data(&classifier_section_header)
+        .expect("Failed to get classifier section data")
+        .0
+        .to_vec()
 }
 
 fn main() {

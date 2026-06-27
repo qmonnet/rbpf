@@ -5,8 +5,8 @@
 extern crate json;
 
 extern crate elf;
-use elf::endian::AnyEndian;
 use elf::ElfBytes;
+use elf::endian::AnyEndian;
 use std::path::PathBuf;
 
 extern crate rbpf;
@@ -72,7 +72,8 @@ fn main() {
 
     let prog = file
         .section_data(&classifier_section_header)
-        .expect("Failed to get .classifier section data").0;
+        .expect("Failed to get .classifier section data")
+        .0;
 
     println!("{}", to_json(prog));
 }

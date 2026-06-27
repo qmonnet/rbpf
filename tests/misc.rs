@@ -86,7 +86,7 @@ use rbpf::lib::Error;
 // Cargo.toml file (see comments above), so here we use just the hardcoded bytecode instructions
 // instead.
 
-#[cfg(all(not(windows),not(feature="std")))]
+#[cfg(all(not(windows), not(feature = "std")))]
 fn alloc_exec_memory() -> Box<[u8]> {
     let size = 4096;
     let layout = std::alloc::Layout::from_size_align(size, 4096).unwrap();

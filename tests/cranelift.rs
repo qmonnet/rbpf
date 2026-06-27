@@ -1335,7 +1335,9 @@ test_cranelift!(
     ldxdw r0, [r1+2]
     exit
     ",
-    [0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0xcc, 0xdd],
+    [
+        0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0xcc, 0xdd
+    ],
     0x8877665544332211
 );
 
@@ -1799,7 +1801,9 @@ test_cranelift!(
     ldxdw r0, [r1+2]
     exit
     ",
-    [0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd],
+    [
+        0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd
+    ],
     0x44332211
 );
 
@@ -1961,7 +1965,9 @@ test_cranelift!(
     ldxdw r0, [r1+2]
     exit
     ",
-    [0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd],
+    [
+        0xaa, 0xbb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xcc, 0xdd
+    ],
     0x8877665544332211
 );
 
@@ -2291,10 +2297,34 @@ fn test_cranelift_xadd_w() {
     use rbpf::ebpf::{self, Insn};
 
     let insns = [
-        Insn { opc: ebpf::MOV32_IMM, dst: 2, src: 0, off: 0, imm: 5 },
-        Insn { opc: ebpf::ST_W_XADD, dst: 1, src: 2, off: 0, imm: 0 },
-        Insn { opc: ebpf::LD_W_REG, dst: 0, src: 1, off: 0, imm: 0 },
-        Insn { opc: ebpf::EXIT, dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 5,
+        },
+        Insn {
+            opc: ebpf::ST_W_XADD,
+            dst: 1,
+            src: 2,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::LD_W_REG,
+            dst: 0,
+            src: 1,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog: Vec<u8> = insns.iter().flat_map(|i| i.to_array()).collect();
 
@@ -2312,10 +2342,34 @@ fn test_cranelift_xadd_dw() {
     use rbpf::ebpf::{self, Insn};
 
     let insns = [
-        Insn { opc: ebpf::MOV64_IMM, dst: 2, src: 0, off: 0, imm: 7 },
-        Insn { opc: ebpf::ST_DW_XADD, dst: 1, src: 2, off: 0, imm: 0 },
-        Insn { opc: ebpf::LD_DW_REG, dst: 0, src: 1, off: 0, imm: 0 },
-        Insn { opc: ebpf::EXIT, dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV64_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 7,
+        },
+        Insn {
+            opc: ebpf::ST_DW_XADD,
+            dst: 1,
+            src: 2,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::LD_DW_REG,
+            dst: 0,
+            src: 1,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog: Vec<u8> = insns.iter().flat_map(|i| i.to_array()).collect();
 

@@ -23,10 +23,34 @@ fn alloc_exec_memory() -> Box<[u8]> {
 fn test_jit_dry_run_resolves_jumps() {
     // Forward jump: dry-run sizing must walk resolve_jumps with write_enabled=false.
     let insns = [
-        Insn { opc: ebpf::MOV32_IMM, dst: 0, src: 0, off: 0, imm: 1 },
-        Insn { opc: ebpf::JA,         dst: 0, src: 0, off: 1, imm: 0 },
-        Insn { opc: ebpf::MOV32_IMM, dst: 0, src: 0, off: 0, imm: 99 },
-        Insn { opc: ebpf::EXIT,      dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 1,
+        },
+        Insn {
+            opc: ebpf::JA,
+            dst: 0,
+            src: 0,
+            off: 1,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 99,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 

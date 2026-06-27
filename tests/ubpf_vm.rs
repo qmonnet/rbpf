@@ -968,7 +968,7 @@ fn test_vm_jset_imm() {
 
 #[test]
 fn test_vm_jmp_unsigned_extend() {
-    use rbpf::ebpf::{Insn, BE, EXIT, JEQ_IMM, LD_W_REG, MOV32_IMM};
+    use rbpf::ebpf::{BE, EXIT, Insn, JEQ_IMM, LD_W_REG, MOV32_IMM};
 
     // the insn `jeq r2, 0x80000000, +2` will be rejected
     assert!(assemble("jeq r2, 0x80000000, +2").is_err());

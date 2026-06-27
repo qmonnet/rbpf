@@ -23,10 +23,34 @@ fn test_interpreter_xadd_w() {
     // r1 points to the provided memory buffer in EbpfVmRaw.
     // *(u32 *)(r1 + 0) += 5
     let insns = [
-        Insn { opc: ebpf::MOV32_IMM, dst: 2, src: 0, off: 0, imm: 5 },
-        Insn { opc: ebpf::ST_W_XADD, dst: 1, src: 2, off: 0, imm: 0 },
-        Insn { opc: ebpf::LD_W_REG,  dst: 0, src: 1, off: 0, imm: 0 },
-        Insn { opc: ebpf::EXIT,      dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 5,
+        },
+        Insn {
+            opc: ebpf::ST_W_XADD,
+            dst: 1,
+            src: 2,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::LD_W_REG,
+            dst: 0,
+            src: 1,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
@@ -41,9 +65,27 @@ fn test_interpreter_xadd_w() {
 fn test_interpreter_xadd_w_unaligned() {
     // *(u32 *)(r1 + 1) is not naturally aligned.
     let insns = [
-        Insn { opc: ebpf::MOV32_IMM, dst: 2, src: 0, off: 0, imm: 5 },
-        Insn { opc: ebpf::ST_W_XADD, dst: 1, src: 2, off: 1, imm: 0 },
-        Insn { opc: ebpf::EXIT,      dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 5,
+        },
+        Insn {
+            opc: ebpf::ST_W_XADD,
+            dst: 1,
+            src: 2,
+            off: 1,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
@@ -56,16 +98,39 @@ fn test_interpreter_xadd_w_unaligned() {
     assert!(result.is_err());
     assert_eq!(mem, initial);
     #[cfg(feature = "std")]
-    assert!(result.unwrap_err().to_string().contains("unaligned atomic XADD"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("unaligned atomic XADD")
+    );
 }
 
 #[cfg(target_has_atomic = "64")]
 #[test]
 fn test_interpreter_xadd_dw_unaligned() {
     let insns = [
-        Insn { opc: ebpf::MOV64_IMM,  dst: 2, src: 0, off: 0, imm: 7 },
-        Insn { opc: ebpf::ST_DW_XADD, dst: 1, src: 2, off: 1, imm: 0 },
-        Insn { opc: ebpf::EXIT,       dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV64_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 7,
+        },
+        Insn {
+            opc: ebpf::ST_DW_XADD,
+            dst: 1,
+            src: 2,
+            off: 1,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
@@ -78,7 +143,12 @@ fn test_interpreter_xadd_dw_unaligned() {
     assert!(result.is_err());
     assert_eq!(mem, initial);
     #[cfg(feature = "std")]
-    assert!(result.unwrap_err().to_string().contains("unaligned atomic XADD"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("unaligned atomic XADD")
+    );
 }
 
 #[cfg(target_has_atomic = "64")]
@@ -86,10 +156,34 @@ fn test_interpreter_xadd_dw_unaligned() {
 fn test_interpreter_xadd_dw() {
     // *(u64 *)(r1 + 0) += 7
     let insns = [
-        Insn { opc: ebpf::MOV64_IMM,  dst: 2, src: 0, off: 0, imm: 7 },
-        Insn { opc: ebpf::ST_DW_XADD, dst: 1, src: 2, off: 0, imm: 0 },
-        Insn { opc: ebpf::LD_DW_REG,  dst: 0, src: 1, off: 0, imm: 0 },
-        Insn { opc: ebpf::EXIT,       dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV64_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 7,
+        },
+        Insn {
+            opc: ebpf::ST_DW_XADD,
+            dst: 1,
+            src: 2,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::LD_DW_REG,
+            dst: 0,
+            src: 1,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
@@ -105,12 +199,48 @@ fn test_interpreter_xadd_dw() {
 fn test_jit_xadd_w_dw() {
     // Run both instructions through JIT as well (x86_64 only).
     let insns = [
-        Insn { opc: ebpf::MOV32_IMM,  dst: 2, src: 0, off: 0, imm: 5 },
-        Insn { opc: ebpf::ST_W_XADD,  dst: 1, src: 2, off: 0, imm: 0 },
-        Insn { opc: ebpf::MOV64_IMM,  dst: 2, src: 0, off: 0, imm: 7 },
-        Insn { opc: ebpf::ST_DW_XADD, dst: 1, src: 2, off: 8, imm: 0 },
-        Insn { opc: ebpf::LD_DW_REG,  dst: 0, src: 1, off: 8, imm: 0 },
-        Insn { opc: ebpf::EXIT,       dst: 0, src: 0, off: 0, imm: 0 },
+        Insn {
+            opc: ebpf::MOV32_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 5,
+        },
+        Insn {
+            opc: ebpf::ST_W_XADD,
+            dst: 1,
+            src: 2,
+            off: 0,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::MOV64_IMM,
+            dst: 2,
+            src: 0,
+            off: 0,
+            imm: 7,
+        },
+        Insn {
+            opc: ebpf::ST_DW_XADD,
+            dst: 1,
+            src: 2,
+            off: 8,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::LD_DW_REG,
+            dst: 0,
+            src: 1,
+            off: 8,
+            imm: 0,
+        },
+        Insn {
+            opc: ebpf::EXIT,
+            dst: 0,
+            src: 0,
+            off: 0,
+            imm: 0,
+        },
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
