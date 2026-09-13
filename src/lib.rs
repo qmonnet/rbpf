@@ -871,10 +871,10 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ) -> Result<(), Error> {
         let get_buff_len = |x: usize, y: usize| if x >= y { x + 8 } else { y + 8 };
         let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
+        self.parent.set_program(prog)?;
         self.mbuff.buffer = buffer;
         self.mbuff.data_offset = data_offset;
         self.mbuff.data_end_offset = data_end_offset;
-        self.parent.set_program(prog)?;
         Ok(())
     }
 

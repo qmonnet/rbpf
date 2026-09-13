@@ -696,6 +696,41 @@ fn test_verifier_fail() {
 }
 
 #[test]
+fn test_vm_fixed_mbuff_failed_set_program() {
+    let prog = assemble(
+        "ldxdw r0, [r1+16]
+         ldxdw r2, [r1+8]
+         sub64 r0, r2
+         exit",
+    )
+    .unwrap();
+    let replacement = assemble("exit").unwrap();
+
+    for custom_verifier in [false, true] {
+        let mut before = [1, 2, 3];
+        let mut after = [1, 2, 3];
+        let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(&prog), 8, 16).unwrap();
+        assert_eq!(vm.execute_program(&mut before).unwrap(), 3);
+
+        let rejected = if custom_verifier {
+            vm.set_verifier(|prog| {
+                if prog.len() == rbpf::ebpf::INSN_SIZE {
+                    Err(Error::other("Rejected replacement program"))
+                } else {
+                    Ok(())
+                }
+            })
+            .unwrap();
+            replacement.as_slice()
+        } else {
+            &[]
+        };
+        assert!(vm.set_program(rejected, 0, 24).is_err());
+        assert_eq!(vm.execute_program(&mut after).unwrap(), 3);
+    }
+}
+
+#[test]
 fn test_vm_bpf_to_bpf_call() {
     let test_code = assemble(
         "
