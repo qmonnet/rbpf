@@ -287,6 +287,15 @@ impl JitCompiler {
         }
     }
 
+    // Match the interpreter's initial state for the value registers. r1 is
+    // restored from the ABI packet pointer after this pass; r10 is initialized
+    // from the JIT stack pointer below.
+    fn initialize_bpf_value_registers(&self, mem: &mut JitMemory) {
+        for reg in 0..10 {
+            self.emit_load_imm(mem, map_register(reg), 0);
+        }
+    }
+
     // Store register src to [dst + offset]
     #[rustfmt::skip]
     fn emit_store(&self, mem: &mut JitMemory, size: OperandSize, src: u8, dst: u8, offset: i32) {
@@ -510,18 +519,18 @@ impl JitCompiler {
         // Save mem pointer for use with LD_ABS_* and LD_IND_* instructions
         self.emit_mov(mem, RDX, R10);
 
+        // r1 is mapped to RDI, so preserve the ABI mbuff pointer while the
+        // complete BPF value-register set is initialized below.
+        if use_mbuff {
+            self.emit_mov(mem, RDI, R11);
+        }
+
         match (use_mbuff, update_data_ptr) {
             (false, _) => {
-                // We do not use any mbuff. Move mem pointer into register 1.
-                if map_register(1) != RDX {
-                    self.emit_mov(mem, RDX, map_register(1));
-                }
+                // The mem pointer is restored into r1 after initialization.
             }
             (true, false) => {
-                // We use a mbuff already pointing to mem and mem_end: move it to register 1.
-                if map_register(1) != RDI {
-                    self.emit_mov(mem, RDI, map_register(1));
-                }
+                // The mbuff pointer is restored into r1 after initialization.
             }
             (true, true) => {
                 // We have a fixed (simulated) mbuff: update mem and mem_end offset values in it.
@@ -536,11 +545,18 @@ impl JitCompiler {
                 self.emit_alu64(mem, 0x01, RDI, R9); // add mbuff to mem_end_offset
                 self.emit_store(mem, OperandSize::S64, R8, R9, 0); // store mem_end
 
-                // Move rdi into register 1
-                if map_register(1) != RDI {
-                    self.emit_mov(mem, RDI, map_register(1));
-                }
             }
+        }
+
+        // The interpreter starts r0-r9 at zero. Do the same in the JIT before
+        // restoring the ABI-defined r1 pointer. This prevents host-register
+        // residue from becoming the value of an unread BPF register.
+        self.initialize_bpf_value_registers(mem);
+
+        if use_mbuff {
+            self.emit_mov(mem, R11, map_register(1));
+        } else {
+            self.emit_mov(mem, R10, map_register(1));
         }
 
         // Copy stack pointer to R10
