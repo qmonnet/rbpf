@@ -43,6 +43,57 @@ test_cranelift!(
     0x3
 );
 
+#[test]
+fn test_cranelift_raw_r2_starts_at_zero_for_all_input_lengths() {
+    let prog = assemble("mov r0, r2\nexit\n").unwrap();
+
+    for len in [0, 1, 5, 64] {
+        let mut mem = vec![0u8; len];
+        let interpreter = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+        let mut cranelift = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+        cranelift.cranelift_compile().unwrap();
+
+        assert_eq!(
+            interpreter.execute_program(&mut mem).unwrap(),
+            0,
+            "interpreter len={len}"
+        );
+        assert_eq!(
+            cranelift.execute_program_cranelift(&mut mem).unwrap(),
+            0,
+            "Cranelift len={len}"
+        );
+    }
+}
+
+#[test]
+fn test_cranelift_mbuff_r1_pointer_is_preserved() {
+    let prog = assemble("ldxdw r1, [r1+8]\nldxb r0, [r1]\nexit\n").unwrap();
+    let interpreter_mem = [0x5a];
+    let mut cranelift_mem = [0x5a];
+    let mut interpreter_mbuff = [0u8; 16];
+    let mut cranelift_mbuff = [0u8; 16];
+    interpreter_mbuff[8..16].copy_from_slice(&(interpreter_mem.as_ptr() as u64).to_le_bytes());
+    cranelift_mbuff[8..16].copy_from_slice(&(cranelift_mem.as_ptr() as u64).to_le_bytes());
+
+    let interpreter = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
+    let mut cranelift = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
+    cranelift.cranelift_compile().unwrap();
+
+    assert_eq!(
+        interpreter
+            .execute_program(&interpreter_mem, &interpreter_mbuff)
+            .unwrap(),
+        0x5a
+    );
+    assert_eq!(
+        cranelift
+            .execute_program_cranelift(&mut cranelift_mem, &mut cranelift_mbuff)
+            .unwrap(),
+        0x5a
+    );
+}
+
 test_cranelift!(
     test_cranelift_alu64_arith,
     "
