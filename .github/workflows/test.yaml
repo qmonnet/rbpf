@@ -105,7 +105,7 @@ jobs:
           --plugin_options "--cranelift"
 
       - name: Install development tools
-        uses: taiki-e/install-action@v1.14.2
+        uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov
 
