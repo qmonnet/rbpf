@@ -232,10 +232,12 @@ impl CraneliftCompiler {
         let mem_or_mbuf = bcx.ins().select(mbuf_exists, mbuf_start, mem_start);
         bcx.def_var(self.registers[1], mem_or_mbuf);
 
-        // R2 should contain the length of the memory or mbuf
-        // At least ebpf-conformance tests expect this
-        let mem_or_mbuf_len = bcx.ins().select(mbuf_exists, mbuf_len, mem_len);
-        bcx.def_var(self.registers[2], mem_or_mbuf_len);
+        // Initialize the value registers.
+        let zero = bcx.ins().iconst(I64, 0);
+        bcx.def_var(self.registers[0], zero);
+        for register in &self.registers[2..=9] {
+            bcx.def_var(*register, zero);
+        }
 
         // Insert the *actual* initial block
         let program_entry = bcx.create_block();

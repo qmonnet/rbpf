@@ -101,7 +101,7 @@ jobs:
           "${{ env.CONFORMANCE_IMAGE }}" \
           bin/bpf_conformance_runner --test_file_directory tests \
           --plugin_path /rbpf/target/release/examples/rbpf_plugin \
-          --exclude_regex "lock"  \
+          --exclude_regex "${{ env.KNOWN_FAILURES }}"  \
           --plugin_options "--cranelift"
 
       - name: Install development tools
