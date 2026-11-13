@@ -232,11 +232,10 @@ impl CraneliftCompiler {
         let mem_or_mbuf = bcx.ins().select(mbuf_exists, mbuf_start, mem_start);
         bcx.def_var(self.registers[1], mem_or_mbuf);
 
-        // Initialize the value registers to match the interpreter.
+        // Initialize the value registers.
         let zero = bcx.ins().iconst(I64, 0);
         bcx.def_var(self.registers[0], zero);
-        bcx.def_var(self.registers[2], zero);
-        for register in &self.registers[3..10] {
+        for register in &self.registers[2..=9] {
             bcx.def_var(*register, zero);
         }
 
