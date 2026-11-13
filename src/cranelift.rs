@@ -232,10 +232,13 @@ impl CraneliftCompiler {
         let mem_or_mbuf = bcx.ins().select(mbuf_exists, mbuf_start, mem_start);
         bcx.def_var(self.registers[1], mem_or_mbuf);
 
-        // Match the interpreter's initial register state. Programs can obtain
-        // memory lengths from their context instead of relying on r2.
+        // Initialize the value registers to match the interpreter.
         let zero = bcx.ins().iconst(I64, 0);
+        bcx.def_var(self.registers[0], zero);
         bcx.def_var(self.registers[2], zero);
+        for register in &self.registers[3..10] {
+            bcx.def_var(*register, zero);
+        }
 
         // Insert the *actual* initial block
         let program_entry = bcx.create_block();
