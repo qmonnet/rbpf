@@ -1068,8 +1068,6 @@ fn test_vm_fixed_mbuff_store_to_mem_and_mbuff() {
     let mut mem = [0u8; 4];
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 8, 16).unwrap();
     assert_eq!(vm.execute_program(&mut mem).unwrap(), 0x2a);
-    // `execute_program()` borrows `mem` for the lifetime of the VM.
-    drop(vm);
     assert_eq!(mem, [0, 0x2b, 0, 0]);
 }
 

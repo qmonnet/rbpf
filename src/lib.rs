@@ -591,7 +591,7 @@ impl<'a> EbpfVmMbuff<'a> {
     pub unsafe fn execute_program_jit(
         &self,
         mem: &mut [u8],
-        mbuff: &'a mut [u8],
+        mbuff: &mut [u8],
     ) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -697,7 +697,7 @@ impl<'a> EbpfVmMbuff<'a> {
     pub fn execute_program_cranelift(
         &self,
         mem: &mut [u8],
-        mbuff: &'a mut [u8],
+        mbuff: &mut [u8],
     ) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
@@ -1089,7 +1089,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0xdd);
     /// ```
-    pub fn execute_program(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program(&mut self, mem: &mut [u8]) -> Result<u64, Error> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
         if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
@@ -1211,7 +1211,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     // This struct redefines the `execute_program_jit()` function, in order to pass the offsets
     // associated with the fixed mbuff.
     #[cfg(not(windows))]
-    pub unsafe fn execute_program_jit(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub unsafe fn execute_program_jit(&mut self, mem: &mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -1312,7 +1312,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     /// assert_eq!(res, 0xdd);
     /// ```
     #[cfg(feature = "cranelift")]
-    pub fn execute_program_cranelift(&mut self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program_cranelift(&mut self, mem: &mut [u8]) -> Result<u64, Error> {
         // If packet data is empty, do not send the address of an empty slice; send a null pointer
         //  as first argument instead, as this is uBPF's behavior (empty packet should not happen
         //  in the kernel; anyway the verifier would prevent the use of uninitialized registers).
@@ -1629,7 +1629,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// let res = vm.execute_program(mem).unwrap();
     /// assert_eq!(res, 0x22cc);
     /// ```
-    pub fn execute_program(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
+    pub fn execute_program(&self, mem: &mut [u8]) -> Result<u64, Error> {
         self.parent.execute_program(mem, &mut [])
     }
 
@@ -1727,9 +1727,8 @@ impl<'a> EbpfVmRaw<'a> {
     /// }
     /// ```
     #[cfg(not(windows))]
-    pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
-        let mut mbuff = vec![];
-        unsafe { self.parent.execute_program_jit(mem, &mut mbuff) }
+    pub unsafe fn execute_program_jit(&self, mem: &mut [u8]) -> Result<u64, Error> {
+        unsafe { self.parent.execute_program_jit(mem, &mut []) }
     }
 
     /// Compile the loaded program using the Cranelift JIT.
@@ -1795,9 +1794,8 @@ impl<'a> EbpfVmRaw<'a> {
     /// assert_eq!(res, 0x22cc);
     /// ```
     #[cfg(feature = "cranelift")]
-    pub fn execute_program_cranelift(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
-        let mut mbuff = vec![];
-        self.parent.execute_program_cranelift(mem, &mut mbuff)
+    pub fn execute_program_cranelift(&self, mem: &mut [u8]) -> Result<u64, Error> {
+        self.parent.execute_program_cranelift(mem, &mut [])
     }
 }
 
