@@ -18,6 +18,11 @@ fn alloc_exec_memory() -> Box<[u8]> {
     }
 }
 
+/// Memory buffer aligned for 64-bit atomic operations. Plain byte arrays have no alignment
+/// guarantee, and atomic operations on unaligned addresses are rejected by the interpreter.
+#[repr(C, align(8))]
+struct Aligned<const N: usize>([u8; N]);
+
 #[test]
 fn test_interpreter_xadd_w() {
     // r1 points to the provided memory buffer in EbpfVmRaw.
@@ -30,11 +35,11 @@ fn test_interpreter_xadd_w() {
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
-    let mut mem = [0u8; 8];
-    mem[..4].copy_from_slice(&10u32.to_le_bytes());
+    let mut mem = Aligned([0u8; 8]);
+    mem.0[..4].copy_from_slice(&10u32.to_le_bytes());
 
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_program(&mut mem).unwrap(), 15);
+    assert_eq!(vm.execute_program(&mut mem.0).unwrap(), 15);
 }
 
 #[test]
@@ -47,14 +52,14 @@ fn test_interpreter_xadd_w_unaligned() {
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
-    let mut mem = [0u8; 8];
-    mem[1..5].copy_from_slice(&42u32.to_le_bytes());
-    let initial = mem;
+    let mut mem = Aligned([0u8; 8]);
+    mem.0[1..5].copy_from_slice(&42u32.to_le_bytes());
+    let initial = mem.0;
 
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    let result = vm.execute_program(&mut mem);
+    let result = vm.execute_program(&mut mem.0);
     assert!(result.is_err());
-    assert_eq!(mem, initial);
+    assert_eq!(mem.0, initial);
     #[cfg(feature = "std")]
     assert!(result.unwrap_err().to_string().contains("unaligned atomic XADD"));
 }
@@ -69,14 +74,14 @@ fn test_interpreter_xadd_dw_unaligned() {
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
-    let mut mem = [0u8; 16];
-    mem[1..9].copy_from_slice(&42u64.to_le_bytes());
-    let initial = mem;
+    let mut mem = Aligned([0u8; 16]);
+    mem.0[1..9].copy_from_slice(&42u64.to_le_bytes());
+    let initial = mem.0;
 
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    let result = vm.execute_program(&mut mem);
+    let result = vm.execute_program(&mut mem.0);
     assert!(result.is_err());
-    assert_eq!(mem, initial);
+    assert_eq!(mem.0, initial);
     #[cfg(feature = "std")]
     assert!(result.unwrap_err().to_string().contains("unaligned atomic XADD"));
 }
@@ -93,11 +98,11 @@ fn test_interpreter_xadd_dw() {
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
-    let mut mem = [0u8; 16];
-    mem[..8].copy_from_slice(&10u64.to_le_bytes());
+    let mut mem = Aligned([0u8; 16]);
+    mem.0[..8].copy_from_slice(&10u64.to_le_bytes());
 
     let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_program(&mut mem).unwrap(), 17);
+    assert_eq!(vm.execute_program(&mut mem.0).unwrap(), 17);
 }
 
 #[cfg(all(target_has_atomic = "64", target_arch = "x86_64", not(windows)))]
@@ -114,9 +119,9 @@ fn test_jit_xadd_w_dw() {
     ];
     let prog = insns.iter().flat_map(|i| i.to_array()).collect::<Vec<u8>>();
 
-    let mut mem = [0u8; 32];
-    mem[..4].copy_from_slice(&10u32.to_le_bytes());
-    mem[8..16].copy_from_slice(&10u64.to_le_bytes());
+    let mut mem = Aligned([0u8; 32]);
+    mem.0[..4].copy_from_slice(&10u32.to_le_bytes());
+    mem.0[8..16].copy_from_slice(&10u64.to_le_bytes());
 
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
     #[cfg(all(not(windows), not(feature = "std")))]
@@ -125,7 +130,7 @@ fn test_jit_xadd_w_dw() {
     vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(&mut mem).unwrap(), 17);
+        assert_eq!(vm.execute_program_jit(&mut mem.0).unwrap(), 17);
     }
-    assert_eq!(u32::from_le_bytes(mem[..4].try_into().unwrap()), 15);
+    assert_eq!(u32::from_le_bytes(mem.0[..4].try_into().unwrap()), 15);
 }
