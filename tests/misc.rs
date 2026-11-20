@@ -902,20 +902,20 @@ fn allowed_memory_program(target_ptr: u64, access: [u8; 8]) -> Vec<u8> {
 
 fn assert_rejected_by_all_interpreters(program: &[u8], target_ptr: u64) {
     let mut raw = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
-    raw.register_allowed_memory(target_ptr..target_ptr + 1);
+    unsafe { raw.register_allowed_memory(target_ptr..target_ptr + 1) };
     assert!(raw.execute_program(&mut [0u8; 8]).is_err());
 
     let mut nodata = rbpf::EbpfVmNoData::new(Some(program)).unwrap();
-    nodata.register_allowed_memory(target_ptr..target_ptr + 1);
+    unsafe { nodata.register_allowed_memory(target_ptr..target_ptr + 1) };
     assert!(nodata.execute_program().is_err());
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(program)).unwrap();
-    mbuff.register_allowed_memory(target_ptr..target_ptr + 1);
+    unsafe { mbuff.register_allowed_memory(target_ptr..target_ptr + 1) };
     assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_err());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(program), 0, 8).unwrap();
-    fixed.register_allowed_memory(target_ptr..target_ptr + 1);
+    unsafe { fixed.register_allowed_memory(target_ptr..target_ptr + 1) };
     assert!(fixed.execute_program(&mut fixed_memory).is_err());
 }
 
@@ -956,22 +956,25 @@ fn test_allowed_memory_accepts_access_ending_at_registered_end() {
     let range = target_ptr..target_ptr + 8;
 
     let mut raw = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
-    raw.register_allowed_memory(range.clone());
+    unsafe { raw.register_allowed_memory(range.clone()) };
     assert!(raw.execute_program(&mut [0u8; 8]).is_ok());
-    assert_eq!(&target[..8], &[0x44, 0x33, 0x22, 0x11, 0, 0, 0, 0]);
 
     let mut nodata = rbpf::EbpfVmNoData::new(Some(&program)).unwrap();
-    nodata.register_allowed_memory(range.clone());
+    unsafe { nodata.register_allowed_memory(range.clone()) };
     assert!(nodata.execute_program().is_ok());
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
-    mbuff.register_allowed_memory(range.clone());
+    unsafe { mbuff.register_allowed_memory(range.clone()) };
     assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_ok());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
-    fixed.register_allowed_memory(range);
+    unsafe { fixed.register_allowed_memory(range) };
     assert!(fixed.execute_program(&mut fixed_memory).is_ok());
+
+    // Only check the target once no more programs run: accessing it through a reference would
+    // invalidate the pointer registered with the VMs.
+    assert_eq!(&target[..8], &[0x44, 0x33, 0x22, 0x11, 0, 0, 0, 0]);
 }
 
 #[test]
@@ -983,8 +986,8 @@ fn test_allowed_memory_does_not_concatenate_ranges() {
         allowed_memory_insn(rbpf::ebpf::ST_DW_IMM, 1, 0, 0x1122_3344),
     );
     let mut vm = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
-    vm.register_allowed_memory(target_ptr..target_ptr + 1);
-    vm.register_allowed_memory(target_ptr + 2..target_ptr + 8);
+    unsafe { vm.register_allowed_memory(target_ptr..target_ptr + 1) };
+    unsafe { vm.register_allowed_memory(target_ptr + 2..target_ptr + 8) };
 
     assert!(vm.execute_program(&mut [0u8; 8]).is_err());
     assert_eq!(target, [0xaau8; 16]);
@@ -1000,20 +1003,20 @@ fn test_allowed_memory_rejects_address_end_overflow() {
 
     let range = (u64::MAX - 8)..u64::MAX;
     let mut raw = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
-    raw.register_allowed_memory(range.clone());
+    unsafe { raw.register_allowed_memory(range.clone()) };
     assert!(raw.execute_program(&mut [0u8; 8]).is_err());
 
     let mut nodata = rbpf::EbpfVmNoData::new(Some(&program)).unwrap();
-    nodata.register_allowed_memory(range.clone());
+    unsafe { nodata.register_allowed_memory(range.clone()) };
     assert!(nodata.execute_program().is_err());
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
-    mbuff.register_allowed_memory(range.clone());
+    unsafe { mbuff.register_allowed_memory(range.clone()) };
     assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_err());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
-    fixed.register_allowed_memory(range);
+    unsafe { fixed.register_allowed_memory(range) };
     assert!(fixed.execute_program(&mut fixed_memory).is_err());
 }
 
@@ -1079,4 +1082,20 @@ fn test_vm_stack_store() {
     ];
     let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 0x2a);
+}
+
+#[test]
+fn test_allowed_memory_store_to_mutable_memory() {
+    let mut target = 0u64;
+    let target_ptr = &raw mut target as u64;
+    let program = allowed_memory_program(
+        target_ptr,
+        allowed_memory_insn(rbpf::ebpf::ST_B_IMM, 1, 0, 0x2a),
+    );
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&program)).unwrap();
+    // SAFETY: `target` outlives `vm`, it is not accessed until the program has run, and the
+    // provenance of its address is exposed by the cast above.
+    unsafe { vm.register_allowed_memory(target_ptr..target_ptr + 8) };
+    vm.execute_program().unwrap();
+    assert_eq!(target, 0x2a);
 }

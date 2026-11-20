@@ -404,15 +404,30 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// Each invocation of this method will append to the set of allowed addresses.
     ///
+    /// # Safety
+    ///
+    /// rbpf cannot check the validity of the registered range: programs executed by the VM are
+    /// allowed to read from, and write to, any address in the range, for as long as the range
+    /// is registered. From the registration of the range to the last execution of a program by
+    /// the VM, the caller must guarantee that the memory covered by the range:
+    ///
+    /// - is allocated, and valid for reads and writes, for the whole range;
+    /// - was obtained from a pointer valid for writes (for example, not from an immutable
+    ///   `static` or from a shared reference), whose provenance has been exposed, for example
+    ///   with an `as` cast to an integer (as in the example below) or with
+    ///   `expose_provenance()`;
+    /// - is not accessed other than through that pointer or pointers derived from it. In
+    ///   particular, accessing it through a reference, even between two executions of the
+    ///   program, may invalidate the pointer and make subsequent accesses by the program
+    ///   undefined behaviour.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use std::ptr::addr_of;
-    ///
     /// struct MapValue {
     ///     data: u8
     /// }
-    /// static VALUE: MapValue = MapValue { data: 1 };
+    /// let mut value = MapValue { data: 1 };
     ///
     /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
@@ -421,10 +436,11 @@ impl<'a> EbpfVmMbuff<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
-    /// let start = addr_of!(VALUE) as u64;
-    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
+    /// let start = &raw mut value as u64;
+    /// // SAFETY: `value` outlives `vm`, and is not accessed while its range is registered.
+    /// unsafe { vm.register_allowed_memory(start..start + size_of::<MapValue>() as u64) };
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+    pub unsafe fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
         self.allowed_memory.insert(addrs_range);
     }
 
@@ -1015,15 +1031,18 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// Each invocation of this method will append to the set of allowed addresses.
     ///
+    /// # Safety
+    ///
+    /// The program is allowed to read from, and write to, any address in the range. See
+    /// [`EbpfVmMbuff::register_allowed_memory`] for the guarantees the caller must uphold.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use std::ptr::addr_of;
-    ///
     /// struct MapValue {
     ///     data: u8
     /// }
-    /// static VALUE: MapValue = MapValue { data: 1 };
+    /// let mut value = MapValue { data: 1 };
     ///
     /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
@@ -1032,11 +1051,12 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x40, 0x50).unwrap();
-    /// let start = addr_of!(VALUE) as u64;
-    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
+    /// let start = &raw mut value as u64;
+    /// // SAFETY: `value` outlives `vm`, and is not accessed while its range is registered.
+    /// unsafe { vm.register_allowed_memory(start..start + size_of::<MapValue>() as u64) };
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
-        self.parent.register_allowed_memory(addrs_range)
+    pub unsafe fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        unsafe { self.parent.register_allowed_memory(addrs_range) }
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -1560,15 +1580,18 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// Each invocation of this method will append to the set of allowed addresses.
     ///
+    /// # Safety
+    ///
+    /// The program is allowed to read from, and write to, any address in the range. See
+    /// [`EbpfVmMbuff::register_allowed_memory`] for the guarantees the caller must uphold.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use std::ptr::addr_of;
-    ///
     /// struct MapValue {
     ///     data: u8
     /// }
-    /// static VALUE: MapValue = MapValue { data: 1 };
+    /// let mut value = MapValue { data: 1 };
     ///
     /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
@@ -1577,11 +1600,12 @@ impl<'a> EbpfVmRaw<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    /// let start = addr_of!(VALUE) as u64;
-    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
+    /// let start = &raw mut value as u64;
+    /// // SAFETY: `value` outlives `vm`, and is not accessed while its range is registered.
+    /// unsafe { vm.register_allowed_memory(start..start + size_of::<MapValue>() as u64) };
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
-        self.parent.register_allowed_memory(addrs_range)
+    pub unsafe fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        unsafe { self.parent.register_allowed_memory(addrs_range) }
     }
 
     /// Execute the program loaded, with the given packet data.
@@ -2013,15 +2037,18 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// Each invocation of this method will append to the set of allowed addresses.
     ///
+    /// # Safety
+    ///
+    /// The program is allowed to read from, and write to, any address in the range. See
+    /// [`EbpfVmMbuff::register_allowed_memory`] for the guarantees the caller must uphold.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use std::ptr::addr_of;
-    ///
     /// struct MapValue {
     ///     data: u8
     /// }
-    /// static VALUE: MapValue = MapValue { data: 1 };
+    /// let mut value = MapValue { data: 1 };
     ///
     /// let prog = &[
     ///     0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
@@ -2030,11 +2057,12 @@ impl<'a> EbpfVmNoData<'a> {
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    /// let start = addr_of!(VALUE) as u64;
-    /// vm.register_allowed_memory(start..start+size_of::<MapValue>() as u64);
+    /// let start = &raw mut value as u64;
+    /// // SAFETY: `value` outlives `vm`, and is not accessed while its range is registered.
+    /// unsafe { vm.register_allowed_memory(start..start + size_of::<MapValue>() as u64) };
     /// ```
-    pub fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
-        self.parent.register_allowed_memory(addrs_range)
+    pub unsafe fn register_allowed_memory(&mut self, addrs_range: Range<u64>) {
+        unsafe { self.parent.register_allowed_memory(addrs_range) }
     }
 
     /// JIT-compile the loaded program. No argument required for this.

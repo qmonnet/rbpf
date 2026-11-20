@@ -5,7 +5,6 @@ extern crate elf;
 use elf::endian::AnyEndian;
 use elf::ElfBytes;
 use std::path::PathBuf;
-use std::{ptr::addr_of};
 
 extern crate rbpf;
 
@@ -24,12 +23,14 @@ pub struct Value {
     pub result: i32,
 }
 
-static MAP_VALUE: Value = Value { result: 1 };
+// The program may write to the map value, so it must live in mutable memory. We only access it
+// through raw pointers, never through references.
+static mut MAP_VALUE: Value = Value { result: 1 };
 
 fn bpf_lookup_elem(_map: u64, key_addr: u64, _flags: u64, _u4: u64, _u5: u64) -> u64 {
     let key: Key = unsafe { *(key_addr as *const Key) };
     if key.protocol == 1 {
-        return addr_of!(MAP_VALUE) as u64;
+        return &raw mut MAP_VALUE as u64;
     }
     0
 }
@@ -58,8 +59,10 @@ fn main() {
     vm.register_helper(BPF_MAP_LOOKUP_ELEM_IDX, bpf_lookup_elem)
         .unwrap();
 
-    let start = addr_of!(MAP_VALUE) as u64;
-    vm.register_allowed_memory(start..start + size_of::<Value>() as u64);
+    let start = &raw mut MAP_VALUE as u64;
+    // SAFETY: MAP_VALUE is a mutable static, valid for the whole duration of the program, that we
+    // only access through raw pointers, and the provenance of its address is exposed by the cast.
+    unsafe { vm.register_allowed_memory(start..start + size_of::<Value>() as u64) };
 
     let res = vm.execute_program().unwrap();
     assert_eq!(res, 1);
