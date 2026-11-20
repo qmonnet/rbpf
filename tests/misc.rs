@@ -860,3 +860,148 @@ fn test_stack_overflow() {
         .unwrap();
     vm.execute_program().unwrap();
 }
+
+fn allowed_memory_insn(opc: u8, reg: u8, off: i16, imm: i32) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    bytes[0] = opc;
+    bytes[1] = reg;
+    bytes[2..4].copy_from_slice(&off.to_le_bytes());
+    bytes[4..8].copy_from_slice(&imm.to_le_bytes());
+    bytes
+}
+
+fn allowed_memory_program(target_ptr: u64, access: [u8; 8]) -> Vec<u8> {
+    let mut program = Vec::new();
+    program.extend_from_slice(&allowed_memory_insn(
+        rbpf::ebpf::LD_DW_IMM,
+        1,
+        0,
+        target_ptr as u32 as i32,
+    ));
+    program.extend_from_slice(&allowed_memory_insn(
+        0,
+        0,
+        0,
+        (target_ptr >> 32) as u32 as i32,
+    ));
+    program.extend_from_slice(&access);
+    program.extend_from_slice(&allowed_memory_insn(rbpf::ebpf::EXIT, 0, 0, 0));
+    program
+}
+
+fn assert_rejected_by_all_interpreters(program: &[u8], target_ptr: u64) {
+    let mut raw = rbpf::EbpfVmRaw::new(Some(program)).unwrap();
+    raw.register_allowed_memory(target_ptr..target_ptr + 1);
+    assert!(raw.execute_program(&mut [0u8; 8]).is_err());
+
+    let mut nodata = rbpf::EbpfVmNoData::new(Some(program)).unwrap();
+    nodata.register_allowed_memory(target_ptr..target_ptr + 1);
+    assert!(nodata.execute_program().is_err());
+
+    let mut mbuff = rbpf::EbpfVmMbuff::new(Some(program)).unwrap();
+    mbuff.register_allowed_memory(target_ptr..target_ptr + 1);
+    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_err());
+
+    let mut fixed_memory = [0u8; 8];
+    let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(program), 0, 8).unwrap();
+    fixed.register_allowed_memory(target_ptr..target_ptr + 1);
+    assert!(fixed.execute_program(&mut fixed_memory).is_err());
+}
+
+#[test]
+fn test_allowed_memory_rejects_access_past_registered_end() {
+    let mut target = [0xaau8; 16];
+    let target_ptr = target.as_mut_ptr() as u64;
+    let program = allowed_memory_program(
+        target_ptr,
+        allowed_memory_insn(rbpf::ebpf::ST_DW_IMM, 1, 0, 0x1122_3344),
+    );
+
+    assert_rejected_by_all_interpreters(&program, target_ptr);
+    assert_eq!(target, [0xaau8; 16]);
+}
+
+#[test]
+fn test_allowed_memory_read_rejects_access_past_registered_end() {
+    let mut target = [0xaau8; 16];
+    let target_ptr = target.as_mut_ptr() as u64;
+    let program = allowed_memory_program(
+        target_ptr,
+        allowed_memory_insn(rbpf::ebpf::LD_DW_REG, 0x10, 0, 0),
+    );
+
+    assert_rejected_by_all_interpreters(&program, target_ptr);
+    assert_eq!(target, [0xaau8; 16]);
+}
+
+#[test]
+fn test_allowed_memory_accepts_access_ending_at_registered_end() {
+    let mut target = [0xaau8; 16];
+    let target_ptr = target.as_mut_ptr() as u64;
+    let program = allowed_memory_program(
+        target_ptr,
+        allowed_memory_insn(rbpf::ebpf::ST_DW_IMM, 1, 0, 0x1122_3344),
+    );
+    let range = target_ptr..target_ptr + 8;
+
+    let mut raw = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
+    raw.register_allowed_memory(range.clone());
+    assert!(raw.execute_program(&mut [0u8; 8]).is_ok());
+    assert_eq!(&target[..8], &[0x44, 0x33, 0x22, 0x11, 0, 0, 0, 0]);
+
+    let mut nodata = rbpf::EbpfVmNoData::new(Some(&program)).unwrap();
+    nodata.register_allowed_memory(range.clone());
+    assert!(nodata.execute_program().is_ok());
+
+    let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
+    mbuff.register_allowed_memory(range.clone());
+    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_ok());
+
+    let mut fixed_memory = [0u8; 8];
+    let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
+    fixed.register_allowed_memory(range);
+    assert!(fixed.execute_program(&mut fixed_memory).is_ok());
+}
+
+#[test]
+fn test_allowed_memory_does_not_concatenate_ranges() {
+    let mut target = [0xaau8; 16];
+    let target_ptr = target.as_mut_ptr() as u64;
+    let program = allowed_memory_program(
+        target_ptr,
+        allowed_memory_insn(rbpf::ebpf::ST_DW_IMM, 1, 0, 0x1122_3344),
+    );
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
+    vm.register_allowed_memory(target_ptr..target_ptr + 1);
+    vm.register_allowed_memory(target_ptr + 2..target_ptr + 8);
+
+    assert!(vm.execute_program(&mut [0u8; 8]).is_err());
+    assert_eq!(target, [0xaau8; 16]);
+}
+
+#[test]
+fn test_allowed_memory_rejects_address_end_overflow() {
+    let address = u64::MAX - 3;
+    let program = allowed_memory_program(
+        address,
+        allowed_memory_insn(rbpf::ebpf::LD_DW_REG, 0x10, 0, 0),
+    );
+
+    let range = (u64::MAX - 8)..u64::MAX;
+    let mut raw = rbpf::EbpfVmRaw::new(Some(&program)).unwrap();
+    raw.register_allowed_memory(range.clone());
+    assert!(raw.execute_program(&mut [0u8; 8]).is_err());
+
+    let mut nodata = rbpf::EbpfVmNoData::new(Some(&program)).unwrap();
+    nodata.register_allowed_memory(range.clone());
+    assert!(nodata.execute_program().is_err());
+
+    let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
+    mbuff.register_allowed_memory(range.clone());
+    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_err());
+
+    let mut fixed_memory = [0u8; 8];
+    let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
+    fixed.register_allowed_memory(range);
+    assert!(fixed.execute_program(&mut fixed_memory).is_err());
+}

@@ -35,7 +35,13 @@ fn check_mem(
         if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
             return Ok(());
         }
-        if allowed_memory.iter().any(|range| range.contains(&addr)) {
+        // Explicitly registered regions must contain the complete access, not
+        // merely its first byte. Checking only `range.contains(&addr)` would
+        // allow a wide load/store to cross the caller's authorized boundary.
+        if allowed_memory
+            .iter()
+            .any(|range| range.contains(&addr) && addr_end <= range.end)
+        {
             return Ok(());
         }
     }
