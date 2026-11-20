@@ -288,18 +288,14 @@ fn test_vm_mbuff() {
         0x69, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxh r0, [r1+2]
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
     ];
-    let mem = &[0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
+    let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
-    let mbuff = [0u8; 32];
-    unsafe {
-        let data = mbuff.as_ptr().offset(8) as *mut u64;
-        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        data.write_unaligned(mem.as_ptr() as u64);
-        data_end.write_unaligned(mem.as_ptr() as u64 + mem.len() as u64);
-    }
+    let mut mbuff = [0u8; 32];
+    mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
 
     let vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem, &mbuff).unwrap(), 0x2211);
+    assert_eq!(vm.execute_program(mem, &mut mbuff).unwrap(), 0x2211);
 }
 
 // Program and memory come from uBPF test ldxh.
@@ -322,18 +318,14 @@ fn test_vm_mbuff_with_rust_api() {
         .exit()
         .push();
 
-    let mem = &[0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
+    let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
-    let mbuff = [0u8; 32];
-    unsafe {
-        let data = mbuff.as_ptr().offset(8) as *mut u64;
-        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data = mem.as_ptr() as u64;
-        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    }
+    let mut mbuff = [0u8; 32];
+    mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
 
     let vm = rbpf::EbpfVmMbuff::new(Some(program.into_bytes())).unwrap();
-    assert_eq!(vm.execute_program(mem, &mbuff).unwrap(), 0x2211);
+    assert_eq!(vm.execute_program(mem, &mut mbuff).unwrap(), 0x2211);
 }
 
 // Program and memory come from uBPF test ldxh.
@@ -349,12 +341,8 @@ fn test_jit_mbuff() {
     let mem = &mut [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd];
 
     let mut mbuff = [0u8; 32];
-    unsafe {
-        let data = mbuff.as_ptr().offset(8) as *mut u64;
-        let data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data = mem.as_ptr() as u64;
-        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    }
+    mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
 
     unsafe {
         let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
@@ -923,7 +911,7 @@ fn assert_rejected_by_all_interpreters(program: &[u8], target_ptr: u64) {
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(program)).unwrap();
     mbuff.register_allowed_memory(target_ptr..target_ptr + 1);
-    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_err());
+    assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_err());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(program), 0, 8).unwrap();
@@ -978,7 +966,7 @@ fn test_allowed_memory_accepts_access_ending_at_registered_end() {
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
     mbuff.register_allowed_memory(range.clone());
-    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_ok());
+    assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_ok());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
@@ -1021,10 +1009,74 @@ fn test_allowed_memory_rejects_address_end_overflow() {
 
     let mut mbuff = rbpf::EbpfVmMbuff::new(Some(&program)).unwrap();
     mbuff.register_allowed_memory(range.clone());
-    assert!(mbuff.execute_program(&[0u8; 8], &[]).is_err());
+    assert!(mbuff.execute_program(&mut [0u8; 8], &mut []).is_err());
 
     let mut fixed_memory = [0u8; 8];
     let mut fixed = rbpf::EbpfVmFixedMbuff::new(Some(&program), 0, 8).unwrap();
     fixed.register_allowed_memory(range);
     assert!(fixed.execute_program(&mut fixed_memory).is_err());
+}
+
+// The interpreter must only write to memory through pointers derived from mutable references.
+// These tests are mostly useful when run under Miri, which detects writes through pointers
+// derived from shared references.
+
+const STORE_R1_PROG: &[u8] = &[
+    0x72, 0x01, 0x00, 0x00, 0x2a, 0x00, 0x00, 0x00, // stb [r1+0], 0x2a
+    0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov r0, 0
+    0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+];
+
+#[test]
+fn test_vm_mbuff_store_to_mem() {
+    let mut mem = [0u8; 4];
+    let vm = rbpf::EbpfVmMbuff::new(Some(STORE_R1_PROG)).unwrap();
+    vm.execute_program(&mut mem, &mut []).unwrap();
+    assert_eq!(mem, [0x2a, 0, 0, 0]);
+}
+
+#[test]
+fn test_vm_mbuff_store_to_mbuff() {
+    let mut mem = [0u8; 4];
+    let mut mbuff = [0u8; 4];
+    let vm = rbpf::EbpfVmMbuff::new(Some(STORE_R1_PROG)).unwrap();
+    vm.execute_program(&mut mem, &mut mbuff).unwrap();
+    assert_eq!(mem, [0, 0, 0, 0]);
+    assert_eq!(mbuff, [0x2a, 0, 0, 0]);
+}
+
+#[test]
+fn test_vm_raw_store_to_mem() {
+    let mut mem = [0u8; 4];
+    let vm = rbpf::EbpfVmRaw::new(Some(STORE_R1_PROG)).unwrap();
+    vm.execute_program(&mut mem).unwrap();
+    assert_eq!(mem, [0x2a, 0, 0, 0]);
+}
+
+#[test]
+fn test_vm_fixed_mbuff_store_to_mem_and_mbuff() {
+    let prog = &[
+        0x72, 0x01, 0x00, 0x00, 0x2a, 0x00, 0x00, 0x00, // stb [r1+0], 0x2a (in mbuff)
+        0x79, 0x12, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxdw r2, [r1+8] (data pointer)
+        0x72, 0x02, 0x01, 0x00, 0x2b, 0x00, 0x00, 0x00, // stb [r2+1], 0x2b (in mem)
+        0x71, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // ldxb r0, [r1+0]
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let mut mem = [0u8; 4];
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 8, 16).unwrap();
+    assert_eq!(vm.execute_program(&mut mem).unwrap(), 0x2a);
+    // `execute_program()` borrows `mem` for the lifetime of the VM.
+    drop(vm);
+    assert_eq!(mem, [0, 0x2b, 0, 0]);
+}
+
+#[test]
+fn test_vm_stack_store() {
+    let prog = &[
+        0x72, 0x0a, 0xf8, 0xff, 0x2a, 0x00, 0x00, 0x00, // stb [r10-8], 0x2a
+        0x71, 0xa0, 0xf8, 0xff, 0x00, 0x00, 0x00, 0x00, // ldxb r0, [r10-8]
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x2a);
 }

@@ -158,12 +158,8 @@ struct MetaBuff {
 /// // Just for the example we create our metadata buffer from scratch, and we store the pointers
 /// // to packet data start and end in it.
 /// let mut mbuff = [0u8; 32];
-/// unsafe {
-///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-///     *data     = mem.as_ptr() as u64;
-///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-/// }
+/// mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+/// mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
 ///
 /// // Instantiate a VM.
 /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
@@ -454,12 +450,8 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Just for the example we create our metadata buffer from scratch, and we store the
     /// // pointers to packet data start and end in it.
     /// let mut mbuff = [0u8; 32];
-    /// unsafe {
-    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-    ///     *data     = mem.as_ptr() as u64;
-    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    /// }
+    /// mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    /// mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
@@ -468,7 +460,7 @@ impl<'a> EbpfVmMbuff<'a> {
     /// let res = vm.execute_program(mem, &mut mbuff).unwrap();
     /// assert_eq!(res, 0x2211);
     /// ```
-    pub fn execute_program(&self, mem: &[u8], mbuff: &[u8]) -> Result<u64, Error> {
+    pub fn execute_program(&self, mem: &mut [u8], mbuff: &mut [u8]) -> Result<u64, Error> {
         let stack_usage = self.stack_usage.as_ref();
         interpreter::execute_program(
             self.prog,
@@ -563,12 +555,8 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Just for the example we create our metadata buffer from scratch, and we store the
     /// // pointers to packet data start and end in it.
     /// let mut mbuff = [0u8; 32];
-    /// unsafe {
-    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-    ///     *data     = mem.as_ptr() as u64;
-    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    /// }
+    /// mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    /// mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
@@ -595,7 +583,7 @@ impl<'a> EbpfVmMbuff<'a> {
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => core::ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8,
+            _ => mem.as_mut_ptr(),
         };
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
@@ -603,7 +591,7 @@ impl<'a> EbpfVmMbuff<'a> {
         unsafe {
             match &self.jit {
                 Some(jit) => Ok(jit.get_prog()(
-                    mbuff.as_ptr() as *mut u8,
+                    mbuff.as_mut_ptr(),
                     mbuff.len(),
                     mem_ptr,
                     mem.len(),
@@ -677,12 +665,8 @@ impl<'a> EbpfVmMbuff<'a> {
     /// // Just for the example we create our metadata buffer from scratch, and we store the
     /// // pointers to packet data start and end in it.
     /// let mut mbuff = [0u8; 32];
-    /// unsafe {
-    ///     let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-    ///     let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-    ///     *data     = mem.as_ptr() as u64;
-    ///     *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    /// }
+    /// mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    /// mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
     ///
     /// // Instantiate a VM.
     /// let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
@@ -705,16 +689,14 @@ impl<'a> EbpfVmMbuff<'a> {
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8,
+            _ => mem.as_mut_ptr(),
         };
 
         // The last two arguments are not used in this function. They would be used if there was a
         // need to indicate to the JIT at which offset in the mbuff mem_ptr and mem_ptr + mem.len()
         // should be stored; this is what happens with struct EbpfVmFixedMbuff.
         match &self.cranelift_prog {
-            Some(prog) => {
-                Ok(prog.execute(mem_ptr, mem.len(), mbuff.as_ptr() as *mut u8, mbuff.len()))
-            }
+            Some(prog) => Ok(prog.execute(mem_ptr, mem.len(), mbuff.as_mut_ptr(), mbuff.len())),
             None => Err(Error::new(
                 ErrorKind::Other,
                 "Error: program has not been compiled with cranelift",
@@ -1102,7 +1084,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             &mut self.mbuff.buffer[(self.mbuff.data_end_offset)..],
             mem.as_ptr() as u64 + mem.len() as u64,
         );
-        self.parent.execute_program(mem, &self.mbuff.buffer)
+        self.parent.execute_program(mem, &mut self.mbuff.buffer)
     }
 
     /// JIT-compile the loaded program. No argument required for this.
@@ -1216,13 +1198,13 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8,
+            _ => mem.as_mut_ptr(),
         };
 
         unsafe {
             match &self.parent.jit {
                 Some(jit) => Ok(jit.get_prog()(
-                    self.mbuff.buffer.as_ptr() as *mut u8,
+                    self.mbuff.buffer.as_mut_ptr(),
                     self.mbuff.buffer.len(),
                     mem_ptr,
                     mem.len(),
@@ -1317,7 +1299,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         //  See `mul_loop` test.
         let mem_ptr = match mem.len() {
             0 => ptr::null_mut(),
-            _ => mem.as_ptr() as *mut u8,
+            _ => mem.as_mut_ptr(),
         };
 
         let l = self.mbuff.buffer.len();
@@ -1339,7 +1321,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             Some(prog) => Ok(prog.execute(
                 mem_ptr,
                 mem.len(),
-                self.mbuff.buffer.as_ptr() as *mut u8,
+                self.mbuff.buffer.as_mut_ptr(),
                 self.mbuff.buffer.len(),
             )),
             None => Err(Error::new(
@@ -1624,7 +1606,7 @@ impl<'a> EbpfVmRaw<'a> {
     /// assert_eq!(res, 0x22cc);
     /// ```
     pub fn execute_program(&self, mem: &'a mut [u8]) -> Result<u64, Error> {
-        self.parent.execute_program(mem, &[])
+        self.parent.execute_program(mem, &mut [])
     }
 
     /// JIT-compile the loaded program. No argument required for this.

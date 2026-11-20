@@ -2367,7 +2367,7 @@ fn test_cranelift_raw_value_registers_start_at_zero() {
 #[test]
 fn test_cranelift_mbuff_r1_pointer_is_preserved() {
     let prog = assemble("ldxdw r1, [r1+8]\nldxb r0, [r1]\nexit\n").unwrap();
-    let interpreter_mem = [0x5a];
+    let mut interpreter_mem = [0x5a];
     let mut cranelift_mem = [0x5a];
     let mut interpreter_mbuff = [0u8; 16];
     let mut cranelift_mbuff = [0u8; 16];
@@ -2380,7 +2380,7 @@ fn test_cranelift_mbuff_r1_pointer_is_preserved() {
 
     assert_eq!(
         interpreter
-            .execute_program(&interpreter_mem, &interpreter_mbuff)
+            .execute_program(&mut interpreter_mem, &mut interpreter_mbuff)
             .unwrap(),
         0x5a
     );

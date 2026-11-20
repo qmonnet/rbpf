@@ -353,12 +353,8 @@ fn main() {
     // Just for the example we create our metadata buffer from scratch, and
     // we store the pointers to packet data start and end in it.
     let mut mbuff = &mut [0u8; 32];
-    unsafe {
-        let mut data     = mbuff.as_ptr().offset(8)  as *mut u64;
-        let mut data_end = mbuff.as_ptr().offset(24) as *mut u64;
-        *data     = mem.as_ptr() as u64;
-        *data_end = mem.as_ptr() as u64 + mem.len() as u64;
-    }
+    mbuff[8..16].copy_from_slice(&(mem.as_ptr() as u64).to_ne_bytes());
+    mbuff[24..32].copy_from_slice(&(mem.as_ptr() as u64 + mem.len() as u64).to_ne_bytes());
 
     // This eBPF VM is for program that use a metadata buffer.
     let mut vm = rbpf::EbpfVmMbuff::new(Some(prog)).unwrap();
