@@ -14,25 +14,52 @@ use core::ops::Range;
 use core::sync::atomic::AtomicU64;
 use core::sync::atomic::{AtomicU32, Ordering};
 
+/// Address range of a memory area the program is allowed to access.
+///
+/// We only keep the addresses of the areas (rather than references to the slices) once the
+/// interpreter has derived its raw pointers from them, so as not to create new references to the
+/// buffers while the program may write to them through these pointers.
+#[derive(Clone, Copy)]
+struct MemRegion {
+    start: u64,
+    len: u64,
+}
+
+impl MemRegion {
+    /// Build a region from a mutable slice. The pointer is obtained with `as_mut_ptr()`, and its
+    /// provenance is exposed by the cast to an integer, so that the interpreter can later write
+    /// through pointers obtained from the register values.
+    fn from_mut_slice(slice: &mut [u8]) -> Self {
+        MemRegion {
+            start: slice.as_mut_ptr() as u64,
+            len: slice.len() as u64,
+        }
+    }
+
+    fn contains(&self, addr: u64, addr_end: u64) -> bool {
+        self.start <= addr && addr_end <= self.start + self.len
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn check_mem(
     addr: u64,
     len: usize,
     access_type: &str,
     insn_ptr: usize,
-    mbuff: &[u8],
-    mem: &[u8],
-    stack: &[u8],
+    mbuff: MemRegion,
+    mem: MemRegion,
+    stack: MemRegion,
     allowed_memory: &HashSet<Range<u64>>,
 ) -> Result<(), Error> {
     if let Some(addr_end) = addr.checked_add(len as u64) {
-        if mbuff.as_ptr() as u64 <= addr && addr_end <= mbuff.as_ptr() as u64 + mbuff.len() as u64 {
+        if mbuff.contains(addr, addr_end) {
             return Ok(());
         }
-        if mem.as_ptr() as u64 <= addr && addr_end <= mem.as_ptr() as u64 + mem.len() as u64 {
+        if mem.contains(addr, addr_end) {
             return Ok(());
         }
-        if stack.as_ptr() as u64 <= addr && addr_end <= stack.as_ptr() as u64 + stack.len() as u64 {
+        if stack.contains(addr, addr_end) {
             return Ok(());
         }
         // Explicitly registered regions must contain the complete access, not
@@ -48,18 +75,24 @@ fn check_mem(
 
     Err(Error::other(format!(
         "Error: out of bounds memory {} (insn #{:?}), addr {:#x}, size {:?}\nmbuff: {:#x}/{:#x}, mem: {:#x}/{:#x}, stack: {:#x}/{:#x}",
-        access_type, insn_ptr, addr, len,
-        mbuff.as_ptr() as u64, mbuff.len(),
-        mem.as_ptr() as u64, mem.len(),
-        stack.as_ptr() as u64, stack.len()
+        access_type,
+        insn_ptr,
+        addr,
+        len,
+        mbuff.start,
+        mbuff.len,
+        mem.start,
+        mem.len,
+        stack.start,
+        stack.len
     )))
 }
 
 pub fn execute_program(
     prog_: Option<&[u8]>,
     stack_usage: Option<&StackUsage>,
-    mem: &[u8],
-    mbuff: &[u8],
+    mem: &mut [u8],
+    mbuff: &mut [u8],
     helpers: &HashMap<u32, ebpf::Helper>,
     allowed_memory: &HashSet<Range<u64>>,
 ) -> Result<u64, Error> {
@@ -72,9 +105,16 @@ pub fn execute_program(
             "Error: No program set, call prog_set() to load one",
         ))?,
     };
-    let stack = vec![0u8; ebpf::STACK_SIZE];
+    let mut stack_buf = vec![0u8; ebpf::STACK_SIZE];
     let mut stacks = [StackFrame::new(); MAX_CALL_DEPTH];
     let mut stack_frame_idx = 0;
+
+    // The program may write to the packet data, to the metadata buffer, and to the stack. Derive
+    // the addresses passed to the program from mutable pointers, and do not access the buffers
+    // through the slices past this point (we only keep their address ranges).
+    let mbuff = MemRegion::from_mut_slice(mbuff);
+    let mem = MemRegion::from_mut_slice(mem);
+    let stack = MemRegion::from_mut_slice(&mut stack_buf);
 
     // R1 points to beginning of memory area, R10 to stack
     let mut reg: [u64; 11] = [
@@ -88,12 +128,12 @@ pub fn execute_program(
         0,
         0,
         0,
-        stack.as_ptr() as u64 + stack.len() as u64,
+        stack.start + stack.len,
     ];
-    if !mbuff.is_empty() {
-        reg[1] = mbuff.as_ptr() as u64;
-    } else if !mem.is_empty() {
-        reg[1] = mem.as_ptr() as u64;
+    if mbuff.len != 0 {
+        reg[1] = mbuff.start;
+    } else if mem.len != 0 {
+        reg[1] = mem.start;
     }
 
     let check_mem_load = |addr: u64, len: usize, insn_ptr: usize| {
@@ -104,7 +144,7 @@ pub fn execute_program(
             insn_ptr,
             mbuff,
             mem,
-            &stack,
+            stack,
             allowed_memory,
         )
     };
@@ -116,7 +156,7 @@ pub fn execute_program(
             insn_ptr,
             mbuff,
             mem,
-            &stack,
+            stack,
             allowed_memory,
         )
     };
@@ -152,42 +192,42 @@ pub fn execute_program(
             // Since this pointer is constant, and since we already know it (mem), do not
             // bother re-fetching it, just use mem already.
             ebpf::LD_ABS_B   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
+                let x = (mem.start + (insn.imm as u32) as u64) as *const u8;
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_H   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
+                let x = (mem.start + (insn.imm as u32) as u64) as *const u16;
                 check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_W   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
+                let x = (mem.start + (insn.imm as u32) as u64) as *const u32;
                 check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_DW  => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u64;
+                let x = (mem.start + (insn.imm as u32) as u64) as *const u64;
                 check_mem_load(x as u64, 8, insn_ptr)?;
                 x.read_unaligned()
             },
             ebpf::LD_IND_B   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
+                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u8;
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_H   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
+                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u16;
                 check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_W   => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
+                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u32;
                 check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_DW  => reg[0] = unsafe {
-                let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u64;
+                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u64;
                 check_mem_load(x as u64, 8, insn_ptr)?;
                 x.read_unaligned()
             },
@@ -222,50 +262,50 @@ pub fn execute_program(
 
             // BPF_ST class
             ebpf::ST_B_IMM   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u8;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize);
                 check_mem_store(x as u64, 1, insn_ptr)?;
                 x.write_unaligned(insn.imm as u8);
             },
             ebpf::ST_H_IMM   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u16;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u16;
                 check_mem_store(x as u64, 2, insn_ptr)?;
                 x.write_unaligned(insn.imm as u16);
             },
             ebpf::ST_W_IMM   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
                 check_mem_store(x as u64, 4, insn_ptr)?;
                 x.write_unaligned(insn.imm as u32);
             },
             ebpf::ST_DW_IMM  => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(insn.imm as u64);
             },
 
             // BPF_STX class
             ebpf::ST_B_REG   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u8;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize);
                 check_mem_store(x as u64, 1, insn_ptr)?;
                 x.write_unaligned(reg[_src] as u8);
             },
             ebpf::ST_H_REG   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u16;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u16;
                 check_mem_store(x as u64, 2, insn_ptr)?;
                 x.write_unaligned(reg[_src] as u16);
             },
             ebpf::ST_W_REG   => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
                 check_mem_store(x as u64, 4, insn_ptr)?;
                 x.write_unaligned(reg[_src] as u32);
             },
             ebpf::ST_DW_REG  => unsafe {
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 x.write_unaligned(reg[_src]);
             },
             ebpf::ST_W_XADD  => unsafe {
                 // Semantics: *(u32 *)(dst + off) += (u32)src
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u32;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
                 check_mem_store(x as u64, 4, insn_ptr)?;
                 let add = reg[_src] as u32;
 
@@ -288,7 +328,7 @@ pub fn execute_program(
             #[cfg(target_has_atomic = "64")]
             ebpf::ST_DW_XADD => unsafe {
                 // Semantics: *(u64 *)(dst + off) += src
-                let x = (reg[_dst] as *const u8).wrapping_offset(insn.off as isize) as *mut u64;
+                let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
                 check_mem_store(x as u64, 8, insn_ptr)?;
                 let add = reg[_src];
 
