@@ -228,12 +228,12 @@ whose provenance was exposed (for example, with an `as` cast to an integer).
 ```rust,ignore
 // for struct EbpfVmMbuff
 pub fn execute_program(&self,
-                 mem: &'a mut [u8],
-                 mbuff: &'a mut [u8]) -> Result<(u64), Error>
+                 mem: &mut [u8],
+                 mbuff: &mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
 pub fn execute_program(&self,
-                 mem: &'a mut [u8]) -> Result<(u64), Error>
+                 mem: &mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
 pub fn execute_program(&self) -> Result<(u64), Error>
@@ -254,11 +254,11 @@ is called. The generated assembly function is internally stored in the VM.
 
 ```rust,ignore
 // for struct EbpfVmMbuff
-pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8],
-                            mbuff: &'a mut [u8]) -> Result<(u64), Error>
+pub unsafe fn execute_program_jit(&self, mem: &mut [u8],
+                            mbuff: &mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmFixedMbuff and struct EbpfVmRaw
-pub unsafe fn execute_program_jit(&self, mem: &'a mut [u8]) -> Result<(u64), Error>
+pub unsafe fn execute_program_jit(&self, mem: &mut [u8]) -> Result<(u64), Error>
 
 // for struct EbpfVmNoData
 pub unsafe fn execute_program_jit(&self) -> Result<(u64), Error>
