@@ -53,6 +53,38 @@ jobs:
         run: |
           cargo +${{ matrix.toolchain }} clippy ${{ matrix.features }}
 
+  miri:
+    name: Check interpreter with Miri
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Integer-to-pointer casts (eBPF registers hold addresses as integers)
+        # require permissive provenance.
+        miriflags:
+          - -Zmiri-permissive-provenance
+          - -Zmiri-permissive-provenance -Zmiri-tree-borrows
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install toolchain (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          # Miri builds its own sysroot, which requires the standard library sources.
+          components: miri, rust-src
+
+      - name: Run interpreter tests with Miri (${{ matrix.miriflags }})
+        env:
+          MIRIFLAGS: ${{ matrix.miriflags }}
+        run: |
+          # JIT-compiled programs cannot run under Miri, skip JIT and Cranelift tests.
+          cargo +nightly miri test \
+              --test ubpf_vm --test misc --test xadd \
+              -- --skip jit --skip cranelift
+
   conformance_and_coverage:
     name: Check eBPF conformance and code coverage
     runs-on: ubuntu-latest
