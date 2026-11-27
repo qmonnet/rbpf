@@ -182,7 +182,7 @@ pub fn execute_program(
         let _src = insn.src as usize;
 
         let mut do_jump = || {
-            insn_ptr = (insn_ptr as i16 + insn.off) as usize;
+            insn_ptr = (insn_ptr as isize + insn.off as isize) as usize;
         };
 
         macro_rules! unsigned_u64 {
