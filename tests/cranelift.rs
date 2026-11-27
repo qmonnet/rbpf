@@ -2192,7 +2192,10 @@ fn test_cranelift_ldabsdw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
+    // The default verifier rejects 64-bit legacy packet loads, but the backends support them.
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(None, 0x00, 0x08).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog, 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
     assert_eq!(
@@ -2267,7 +2270,10 @@ fn test_cranelift_ldinddw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
+    // The default verifier rejects 64-bit legacy packet loads, but the backends support them.
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(None, 0x00, 0x08).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog, 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
     assert_eq!(

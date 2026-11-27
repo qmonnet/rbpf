@@ -442,7 +442,10 @@ fn test_vm_jit_ldabsdw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    // The default verifier rejects 64-bit legacy packet loads, but the backends support them.
+    let mut vm = rbpf::EbpfVmRaw::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x33445566778899aa);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
@@ -577,7 +580,10 @@ fn test_vm_jit_ldinddw() {
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
-    let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
+    // The default verifier rejects 64-bit legacy packet loads, but the backends support them.
+    let mut vm = rbpf::EbpfVmRaw::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog).unwrap();
     assert_eq!(vm.execute_program(mem).unwrap(), 0x5566778899aabbcc);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
