@@ -306,7 +306,8 @@ impl CraneliftCompiler {
                         loaded
                     };
 
-                    self.set_dst(bcx, &insn, ext);
+                    // The result always goes to R0, whatever the value of the dst field.
+                    bcx.def_var(self.registers[0], ext);
                 }
                 ebpf::LD_DW_IMM => {
                     insn_ptr += 1;
