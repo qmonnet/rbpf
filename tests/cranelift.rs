@@ -2405,6 +2405,28 @@ test_cranelift!(
     0x0
 );
 
+// The result of LD_ABS and LD_IND always goes to R0. The default verifier rejects a non-zero dst
+// field, but the backends must agree when users bypass it.
+#[test]
+fn test_cranelift_ldabs_result_in_r0() {
+    let prog = &[
+        0xb7, 0x03, 0x00, 0x00, 0x77, 0x00, 0x00, 0x00, // mov r3, 0x77
+        0x30, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // ldabsb 3, dst=3 (result goes to r0)
+        0x0f, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // add r0, r3
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    #[rustfmt::skip]
+    let mem = &mut [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    ];
+    let mut vm = rbpf::EbpfVmRaw::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x33 + 0x77);
+}
+
 // LD_IND only reads from the packet data: an offset reaching another memory region accessible to
 // the program (here, the metadata buffer) is out of bounds.
 #[test]
