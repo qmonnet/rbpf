@@ -1595,6 +1595,17 @@ test_cranelift!(
     0x1122
 );
 
+// le16 truncates the register to 16 bits, even when no byte swap is needed.
+test_cranelift!(
+    test_cranelift_le16_truncates,
+    "
+    lddw r0, 0x1122334455667788
+    le16 r0
+    exit
+    ",
+    0x7788
+);
+
 test_cranelift!(
     test_cranelift_le32,
     "
@@ -1604,6 +1615,17 @@ test_cranelift!(
     ",
     [0x44, 0x33, 0x22, 0x11],
     0x11223344
+);
+
+// le32 truncates the register to 32 bits, even when no byte swap is needed.
+test_cranelift!(
+    test_cranelift_le32_truncates,
+    "
+    lddw r0, 0x1122334455667788
+    le32 r0
+    exit
+    ",
+    0x55667788
 );
 
 test_cranelift!(

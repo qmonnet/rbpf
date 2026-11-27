@@ -1600,6 +1600,49 @@ fn test_vm_mov32_reg_zero_extends() {
     );
 }
 
+// le16 and le32 truncate the register to 16 or 32 bits, even when no byte swap is needed.
+#[test]
+fn test_vm_le_truncates() {
+    check_vm_jit(
+        "
+        lddw r0, 0x1122334455667788
+        le16 r0
+        exit
+        ",
+        0x7788,
+    );
+    check_vm_jit(
+        "
+        lddw r0, 0x1122334455667788
+        le32 r0
+        exit
+        ",
+        0x55667788,
+    );
+}
+
+// With a custom verifier, the JIT may meet LE/BE instructions with an invalid size: it must return
+// an error rather than panic.
+#[cfg(not(windows))]
+#[test]
+fn test_vm_jit_endian_invalid_size() {
+    for opc in [ebpf::LE, ebpf::BE] {
+        let prog = &[insn(opc, 0, 0, 0, 8), insn(ebpf::EXIT, 0, 0, 0, 0)].concat();
+        let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+        vm.set_verifier(|_| Ok(())).unwrap();
+        vm.set_program(prog).unwrap();
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        let err = format!("{:?}", vm.jit_compile().unwrap_err());
+        assert!(
+            err.contains("[JIT] Error: unsupported argument for LE/BE (insn #0)"),
+            "{err}"
+        );
+    }
+}
+
 // Build a raw instruction, for programs too long to write by hand.
 fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> [u8; 8] {
     ebpf::Insn {
