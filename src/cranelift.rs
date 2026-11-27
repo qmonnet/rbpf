@@ -298,12 +298,7 @@ impl CraneliftCompiler {
                     } else {
                         bcx.ins().iconst(I32, insn.imm as u32 as i64)
                     };
-                    let offset = bcx.ins().sextend(self.isa.pointer_type(), offset);
-                    let ptr = bcx.use_var(self.mem_start);
-                    let addr = bcx.ins().iadd(ptr, offset);
-
-                    // The offset here has already been added to the pointer, so we pass 0
-                    let loaded = self.reg_load(bcx, ty, addr, 0);
+                    let loaded = self.ld_abs_ind_load(bcx, ty, offset);
 
                     let ext = if ty != I64 {
                         bcx.ins().uextend(I64, loaded)
@@ -1026,6 +1021,35 @@ impl CraneliftCompiler {
         let _old = bcx
             .ins()
             .atomic_rmw(ty, flags, AtomicRmwOp::Add, addr, val);
+    }
+
+    /// Load for LD_ABS_* and LD_IND_*, from a signed 32-bit offset into the packet data.
+    ///
+    /// These instructions only read from the packet data, so we check the access against this
+    /// buffer only, and not against the other memory regions accessible to the program.
+    fn ld_abs_ind_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, offset: Value) -> Value {
+        let mem_start = bcx.use_var(self.mem_start);
+        let mem_end = bcx.use_var(self.mem_end);
+        let mem_len = bcx.ins().isub(mem_end, mem_start);
+
+        // The offset must be non-negative, and the access must end within the buffer. Once we
+        // know the offset is non-negative, extending it to 64 bits and adding the access size
+        // cannot overflow.
+        let offset_valid = bcx
+            .ins()
+            .icmp_imm(IntCC::SignedGreaterThanOrEqual, offset, 0);
+        let offset = bcx.ins().uextend(I64, offset);
+        let end = bcx.ins().iadd_imm(offset, ty.bytes() as i64);
+        let end_valid = bcx
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, end, mem_len);
+        let valid = bcx.ins().band(offset_valid, end_valid);
+        bcx.ins().trapz(valid, TrapCode::HEAP_OUT_OF_BOUNDS);
+
+        let addr = bcx.ins().iadd(mem_start, offset);
+        let mut flags = MemFlags::new();
+        flags.set_endianness(Endianness::Little);
+        bcx.ins().load(ty, flags, addr, 0)
     }
 
     /// Inserts a bounds check for a memory access
