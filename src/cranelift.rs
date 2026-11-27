@@ -1027,7 +1027,8 @@ impl CraneliftCompiler {
     ///
     /// These instructions only read from the packet data, so we check the access against this
     /// buffer only, and not against the other memory regions accessible to the program. As in the
-    /// Linux kernel, if the access is out of bounds, the program terminates and returns 0.
+    /// Linux kernel, if the access is out of bounds, the program terminates and returns 0, and the
+    /// data is read in network byte order (big-endian) and converted to host order.
     fn ld_abs_ind_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, offset: Value) -> Value {
         let mem_start = bcx.use_var(self.mem_start);
         let mem_end = bcx.use_var(self.mem_end);
@@ -1057,9 +1058,15 @@ impl CraneliftCompiler {
 
         bcx.switch_to_block(load_block);
         let addr = bcx.ins().iadd(mem_start, offset);
+        // Not all backends support big-endian loads: load as little-endian, and swap the bytes.
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
-        bcx.ins().load(ty, flags, addr, 0)
+        let loaded = bcx.ins().load(ty, flags, addr, 0);
+        if ty == I8 {
+            loaded
+        } else {
+            bcx.ins().bswap(loaded)
+        }
     }
 
     /// Inserts a bounds check for a memory access

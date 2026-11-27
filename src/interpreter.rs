@@ -201,7 +201,8 @@ pub fn execute_program(
             // bother re-fetching it, just use mem already.
             // As in the Linux kernel, the offset into the packet data is a signed 32-bit value:
             // `imm` for LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*. Also as in
-            // the kernel, if the access is out of bounds, the program terminates and returns 0.
+            // the kernel, if the access is out of bounds, the program terminates and returns 0, and
+            // the data is read in network byte order (big-endian) and converted to host order.
             ebpf::LD_ABS_B   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr(insn.imm, 1) else { return Ok(0) };
                 let x = x as *const u8;
@@ -210,17 +211,17 @@ pub fn execute_program(
             ebpf::LD_ABS_H   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr(insn.imm, 2) else { return Ok(0) };
                 let x = x as *const u16;
-                x.read_unaligned() as u64
+                u16::from_be(x.read_unaligned()) as u64
             },
             ebpf::LD_ABS_W   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr(insn.imm, 4) else { return Ok(0) };
                 let x = x as *const u32;
-                x.read_unaligned() as u64
+                u32::from_be(x.read_unaligned()) as u64
             },
             ebpf::LD_ABS_DW  => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr(insn.imm, 8) else { return Ok(0) };
                 let x = x as *const u64;
-                x.read_unaligned()
+                u64::from_be(x.read_unaligned())
             },
             ebpf::LD_IND_B   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 1) else { return Ok(0) };
@@ -230,17 +231,17 @@ pub fn execute_program(
             ebpf::LD_IND_H   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 2) else { return Ok(0) };
                 let x = x as *const u16;
-                x.read_unaligned() as u64
+                u16::from_be(x.read_unaligned()) as u64
             },
             ebpf::LD_IND_W   => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 4) else { return Ok(0) };
                 let x = x as *const u32;
-                x.read_unaligned() as u64
+                u32::from_be(x.read_unaligned()) as u64
             },
             ebpf::LD_IND_DW  => reg[0] = unsafe {
                 let Some(x) = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 8) else { return Ok(0) };
                 let x = x as *const u64;
-                x.read_unaligned()
+                u64::from_be(x.read_unaligned())
             },
 
             ebpf::LD_DW_IMM  => {

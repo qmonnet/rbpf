@@ -2161,7 +2161,7 @@ fn test_cranelift_ldabsh() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x4433);
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x3344);
 }
 
 #[test]
@@ -2178,7 +2178,7 @@ fn test_cranelift_ldabsw() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x66554433);
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x33445566);
 }
 
 #[test]
@@ -2197,7 +2197,7 @@ fn test_cranelift_ldabsdw() {
     vm.cranelift_compile().unwrap();
     assert_eq!(
         vm.execute_program_cranelift(mem).unwrap(),
-        0xaa99887766554433
+        0x33445566778899aa
     );
 }
 
@@ -2234,7 +2234,7 @@ fn test_cranelift_ldindh() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x9988);
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x8899);
 }
 
 #[test]
@@ -2252,7 +2252,7 @@ fn test_cranelift_ldindw() {
     let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(prog), 0x00, 0x08).unwrap();
 
     vm.cranelift_compile().unwrap();
-    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x88776655);
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), 0x55667788);
 }
 
 #[test]
@@ -2272,7 +2272,7 @@ fn test_cranelift_ldinddw() {
     vm.cranelift_compile().unwrap();
     assert_eq!(
         vm.execute_program_cranelift(mem).unwrap(),
-        0xccbbaa9988776655
+        0x5566778899aabbcc
     );
 }
 

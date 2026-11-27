@@ -495,7 +495,8 @@ impl JitCompiler {
     //
     // As in the Linux kernel, the offset into the packet data is a signed 32-bit value: `imm` for
     // LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*. If the access is not within
-    // the packet data, the program terminates and returns 0.
+    // the packet data, the program terminates and returns 0. The data is read in network byte order
+    // (big-endian) and converted to host order.
     fn emit_ld_abs_ind(&mut self, mem: &mut JitMemory, size: OperandSize, src: Option<u8>, imm: i32) {
         // Compute the offset in R11. 32-bit operations zero the upper half of the register.
         match src {
@@ -519,6 +520,22 @@ impl JitCompiler {
 
         self.emit_alu64(mem, 0x01, R10, R11); // add r11, r10 (mem)
         self.emit_load(mem, size, R11, RAX, 0); // ld R0, [R11]
+
+        // Convert from network byte order. 16-bit loads are zero-extended into EAX, and rotating
+        // AX keeps the upper bits at zero.
+        match size {
+            OperandSize::S8 => {}
+            OperandSize::S16 => {
+                self.emit1(mem, 0x66); // 16-bit override
+                self.emit_alu32_imm8(mem, 0xc1, 0, RAX, 8); // rol ax, 8
+            }
+            OperandSize::S32 | OperandSize::S64 => {
+                let w = match size { OperandSize::S64 => 1, _ => 0 };
+                self.emit_basic_rex(mem, w, 0, RAX);
+                self.emit1(mem, 0x0f);
+                self.emit1(mem, 0xc8 | (RAX & 0b111)); // bswap eax / rax
+            }
+        }
     }
 
     fn emit_local_call(&mut self, mem: &mut JitMemory, target_pc: isize) {
