@@ -45,7 +45,7 @@ hashbrown = { version = "0.17", default-features = false, features = ["default-h
 [dev-dependencies]
 libc = { version = "0.2" }
 elf = "0.8.0"
-json = "0.12"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 hex = "0.4.3"
 
 [features]
