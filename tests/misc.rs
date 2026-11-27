@@ -630,7 +630,7 @@ fn check_ld_abs_ind(src: &str, expected: u64) {
 }
 
 // The LD_IND offset is the 32-bit truncation of src + imm: a source register set to -1 must not
-// overflow when computing the address (this used to panic in debug builds).
+// overflow when computing the address.
 #[test]
 fn test_vm_ldind_src_minus_one() {
     check_ld_abs_ind(
@@ -666,14 +666,12 @@ fn test_vm_ldind_offset_truncated_to_32_bits() {
     );
 }
 
-
-// Run a program using legacy packet loads with no packet data, with both the interpreter and the
-// JIT, and check the result.
-fn check_ld_abs_ind_nomem(src: &str, expected: u64) {
+// Run a program with no data, with both the interpreter and the JIT, and check the result.
+fn check_vm_jit(src: &str, expected: u64) {
     let prog = assemble(src).unwrap();
     #[cfg_attr(any(windows, miri), allow(unused_mut))]
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_program().unwrap(), expected);
+    assert_eq!(vm.execute_program().unwrap(), expected, "{src}");
 
     // JIT-compiled programs cannot run under Miri.
     #[cfg(all(not(windows), not(miri)))]
@@ -684,7 +682,7 @@ fn check_ld_abs_ind_nomem(src: &str, expected: u64) {
         vm.set_jit_exec_memory(&mut exec_mem).unwrap();
         vm.jit_compile().unwrap();
         unsafe {
-            assert_eq!(vm.execute_program_jit().unwrap(), expected);
+            assert_eq!(vm.execute_program_jit().unwrap(), expected, "{src}");
         }
     }
 }
@@ -717,7 +715,7 @@ fn test_vm_ldabsb_negative_offset() {
 
 #[test]
 fn test_vm_ldabsb_nomem() {
-    check_ld_abs_ind_nomem(
+    check_vm_jit(
         "
         ldabsb 3
         mov r0, 1
@@ -784,7 +782,7 @@ fn test_vm_ldindb_negative_offset() {
 
 #[test]
 fn test_vm_ldindb_nomem() {
-    check_ld_abs_ind_nomem(
+    check_vm_jit(
         "
         mov r1, 3
         ldindb r1, 3
@@ -979,6 +977,22 @@ fn test_vm_bpf_to_bpf_call() {
     let vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
     let vm_res = vm.execute_program().unwrap();
     assert_eq!(vm_res, 0x10);
+}
+
+// A local call with a negative offset must not overflow when computing its target (this used to
+// panic in debug builds).
+#[test]
+fn test_vm_bpf_to_bpf_call_backward() {
+    check_vm_jit(
+        "
+        ja +2
+        mov64 r0, 5
+        exit
+        callx -3
+        exit
+        ",
+        5,
+    );
 }
 
 #[cfg(not(windows))]
@@ -1308,6 +1322,19 @@ fn test_allowed_memory_store_to_mutable_memory() {
     unsafe { vm.register_allowed_memory(target_ptr..target_ptr + 8) };
     vm.execute_program().unwrap();
     assert_eq!(target, 0x2a);
+}
+
+// Negating i64::MIN must not overflow.
+#[test]
+fn test_vm_neg64_min() {
+    check_vm_jit(
+        "
+        lddw r0, 0x8000000000000000
+        neg r0
+        exit
+        ",
+        0x8000000000000000,
+    );
 }
 
 // Build a raw instruction, for programs too long to write by hand.
