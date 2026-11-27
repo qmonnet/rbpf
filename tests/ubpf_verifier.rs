@@ -33,6 +33,54 @@ fn test_verifier_err_endian_size() {
     vm.execute_program().unwrap();
 }
 
+// As in the Linux kernel, the verifier rejects legacy packet loads using reserved fields: 64-bit
+// size, non-zero dst or offset fields, or a source register for LD_ABS.
+#[test]
+fn test_verifier_err_ld_abs_ind_reserved_fields() {
+    for insn in [
+        [0x38, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00], // ldabsdw 3 (unsupported size)
+        [0x58, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00], // ldinddw r1, 3 (unsupported size)
+        [0x30, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00], // ldabsb 3, dst=3 (reserved field)
+        [0x50, 0x13, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00], // ldindb r1, 3, dst=3 (reserved field)
+        [0x30, 0x00, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00], // ldabsb 3, off=1 (reserved field)
+        [0x50, 0x10, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00], // ldindb r1, 3, off=1 (reserved field)
+        [0x30, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00], // ldabsb 3, src=1 (reserved field)
+    ] {
+        let prog = [
+            [0xb7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // mov r1, 0
+            insn, // instruction under test
+            [0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // exit
+        ]
+        .concat();
+        let err = match rbpf::EbpfVmNoData::new(Some(&prog)) {
+            Ok(_) => panic!("{insn:02x?}: program accepted"),
+            Err(e) => format!("{e:?}"),
+        };
+        assert!(
+            err.contains("[Verifier] Error: BPF_LD_[ABS|IND] uses reserved fields (insn #1)"),
+            "{insn:02x?}: {err}"
+        );
+    }
+}
+
+// Legacy packet loads not using reserved fields are accepted.
+#[test]
+fn test_verifier_ld_abs_ind() {
+    let prog = assemble(
+        "
+        mov r1, 0
+        ldabsb 3
+        ldabsh 3
+        ldabsw 3
+        ldindb r1, 3
+        ldindh r1, 3
+        ldindw r1, 3
+        exit",
+    )
+    .unwrap();
+    rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+}
+
 // Note: uBPF has test-err-incomplete-lddw2, which is the same
 #[test]
 #[should_panic(expected = "[Verifier] Error: incomplete LD_DW instruction (insn #0)")]

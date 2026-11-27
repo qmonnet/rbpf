@@ -61,6 +61,20 @@ fn check_imm_endian(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
     }
 }
 
+// As in the Linux kernel, reject legacy packet loads (LD_ABS_* and LD_IND_*) using reserved fields:
+// the result always goes to R0, the offset field is unused, LD_ABS_* has no source register, and
+// the 64-bit size is not supported.
+fn check_ld_abs_ind(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
+    let is_abs = insn.opc & 0xe0 == ebpf::BPF_ABS;
+    let is_dw = insn.opc & 0x18 == ebpf::BPF_DW;
+    if insn.dst != 0 || insn.off != 0 || is_dw || (is_abs && insn.src != 0) {
+        reject(format!(
+            "BPF_LD_[ABS|IND] uses reserved fields (insn #{insn_ptr:?})"
+        ))?;
+    }
+    Ok(())
+}
+
 fn check_load_dw(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     // We know we can reach next insn since we enforce an EXIT insn at the end of program, while
     // this function should be called only for LD_DW insn, that cannot be last in program.
@@ -122,14 +136,14 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
         let _ = match insn.opc {
 
             // BPF_LD class
-            ebpf::LD_ABS_B   => {},
-            ebpf::LD_ABS_H   => {},
-            ebpf::LD_ABS_W   => {},
-            ebpf::LD_ABS_DW  => {},
-            ebpf::LD_IND_B   => {},
-            ebpf::LD_IND_H   => {},
-            ebpf::LD_IND_W   => {},
-            ebpf::LD_IND_DW  => {},
+            ebpf::LD_ABS_B   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_ABS_H   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_ABS_W   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_ABS_DW  => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_IND_B   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_IND_H   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_IND_W   => check_ld_abs_ind(&insn, insn_ptr)?,
+            ebpf::LD_IND_DW  => check_ld_abs_ind(&insn, insn_ptr)?,
 
             ebpf::LD_DW_IMM  => {
                 store = true;

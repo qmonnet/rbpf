@@ -169,6 +169,8 @@ pub const LD_ABS_H   : u8 = BPF_LD    | BPF_ABS | BPF_H;
 /// BPF opcode: `ldabsw src, dst, imm`.
 pub const LD_ABS_W   : u8 = BPF_LD    | BPF_ABS | BPF_W;
 /// BPF opcode: `ldabsdw src, dst, imm`.
+///
+/// Not supported by the Linux kernel, and rejected by the default verifier.
 pub const LD_ABS_DW  : u8 = BPF_LD    | BPF_ABS | BPF_DW;
 /// BPF opcode: `ldindb src, dst, imm`.
 pub const LD_IND_B   : u8 = BPF_LD    | BPF_IND | BPF_B;
@@ -177,6 +179,8 @@ pub const LD_IND_H   : u8 = BPF_LD    | BPF_IND | BPF_H;
 /// BPF opcode: `ldindw src, dst, imm`.
 pub const LD_IND_W   : u8 = BPF_LD    | BPF_IND | BPF_W;
 /// BPF opcode: `ldinddw src, dst, imm`.
+///
+/// Not supported by the Linux kernel, and rejected by the default verifier.
 pub const LD_IND_DW  : u8 = BPF_LD    | BPF_IND | BPF_DW;
 
 /// BPF opcode: `lddw dst, imm` /// `dst = imm`.
