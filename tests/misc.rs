@@ -1635,3 +1635,29 @@ fn test_vm_jump_from_high_insn_index_wrong_target() {
     let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     assert_eq!(vm.execute_program().unwrap(), 1);
 }
+
+// On division by zero, the JIT jumps to the next instruction: this must work for instructions
+// located at index 65535 or above. The program is too large for the executable memory we
+// allocate for no_std tests.
+#[cfg(all(not(windows), feature = "std"))]
+#[test]
+fn test_vm_jit_div_by_zero_high_insn_index() {
+    let mut prog = vec![];
+    for i in 0..65539usize {
+        prog.extend(match i {
+            1 => insn(ebpf::JEQ_IMM, 2, 0, 1, 1),        // jeq r2, 1, +1
+            2 => insn(ebpf::JA, 0, 0, 1, 0),             // ja +1
+            3 => insn(ebpf::EXIT, 0, 0, 0, 0),           // exit
+            65534 => insn(ebpf::MOV64_IMM, 2, 0, 0, 1),  // mov64 r2, 1
+            65535 => insn(ebpf::MOV64_IMM, 1, 0, 0, 0),  // mov64 r1, 0
+            65536 => insn(ebpf::DIV64_REG, 0, 1, 0, 0),  // div64 r0, r1 (r0 = 0)
+            65537 => insn(ebpf::ADD64_IMM, 0, 0, 0, 42), // add64 r0, 42
+            65538 => insn(ebpf::EXIT, 0, 0, 0, 0),       // exit
+            _ => insn(ebpf::MOV64_IMM, 0, 0, 0, 1),      // mov64 r0, 1
+        });
+    }
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 42);
+    vm.jit_compile().unwrap();
+    assert_eq!(unsafe { vm.execute_program_jit().unwrap() }, 42);
+}
