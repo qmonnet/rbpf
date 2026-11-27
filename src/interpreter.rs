@@ -153,17 +153,17 @@ pub fn execute_program(
             // bother re-fetching it, just use mem already.
             ebpf::LD_ABS_B   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u8;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_H   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u16;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_W   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + (insn.imm as u32) as u64) as *const u32;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_DW  => reg[0] = unsafe {
@@ -173,17 +173,17 @@ pub fn execute_program(
             },
             ebpf::LD_IND_B   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u8;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_H   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u16;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_W   => reg[0] = unsafe {
                 let x = (mem.as_ptr() as u64 + reg[_src] + (insn.imm as u32) as u64) as *const u32;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_DW  => reg[0] = unsafe {
