@@ -16,6 +16,7 @@
 extern crate rbpf;
 
 use rbpf::assembler::assemble;
+use rbpf::ebpf;
 #[cfg(feature = "std")]
 use rbpf::helpers;
 use rbpf::lib::Error;
@@ -1307,4 +1308,53 @@ fn test_allowed_memory_store_to_mutable_memory() {
     unsafe { vm.register_allowed_memory(target_ptr..target_ptr + 8) };
     vm.execute_program().unwrap();
     assert_eq!(target, 0x2a);
+}
+
+// Build a raw instruction, for programs too long to write by hand.
+fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> [u8; 8] {
+    ebpf::Insn {
+        opc,
+        dst,
+        src,
+        off,
+        imm,
+    }
+    .to_array()
+}
+
+// Jump instructions located at index 32767 (2^15 - 1) or above must reach their target. The program
+// is over 32767 instructions long, and ends with a jump over an instruction setting R0 to 2.
+#[test]
+fn test_vm_jump_from_high_insn_index() {
+    let mut prog = vec![];
+    for _ in 0..40000 {
+        prog.extend(insn(ebpf::MOV64_IMM, 0, 0, 0, 1)); // mov64 r0, 1
+    }
+    prog.extend(insn(ebpf::JA, 0, 0, 1, 0)); // ja +1
+    prog.extend(insn(ebpf::MOV64_IMM, 0, 0, 0, 2)); // mov64 r0, 2 (skipped)
+    prog.extend(insn(ebpf::EXIT, 0, 0, 0, 0)); // exit
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 1);
+}
+
+// Same as above, with a layout such that truncating the jump target to 16 bits would land on a
+// valid instruction (#4466) leading to a different return value.
+#[test]
+fn test_vm_jump_from_high_insn_index_wrong_target() {
+    let mut prog = vec![];
+    for i in 0..70003usize {
+        prog.extend(match i {
+            4466 => insn(ebpf::JEQ_IMM, 2, 0, 1, 1),     // jeq r2, 1, +1
+            4467 => insn(ebpf::JA, 0, 0, 2, 0),          // ja +2
+            4468 => insn(ebpf::MOV64_IMM, 0, 0, 0, 7),   // mov64 r0, 7
+            4469 => insn(ebpf::EXIT, 0, 0, 0, 0),        // exit
+            69999 => insn(ebpf::MOV64_IMM, 2, 0, 0, 1),  // mov64 r2, 1
+            70000 => insn(ebpf::JA, 0, 0, 1, 0),         // ja +1
+            70001 => insn(ebpf::MOV64_IMM, 0, 0, 0, 99), // mov64 r0, 99 (skipped)
+            70002 => insn(ebpf::EXIT, 0, 0, 0, 0),       // exit
+            _ => insn(ebpf::MOV64_IMM, 0, 0, 0, 1),      // mov64 r0, 1
+        });
+    }
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 1);
 }
