@@ -1056,6 +1056,22 @@ fn test_verifier_err_no_exit_call() {
 }
 
 #[test]
+#[should_panic(expected = "[Verifier] Error: call to middle of LD_DW at #3 (insn #0)")]
+fn test_verifier_err_call_lddw() {
+    let prog = assemble(
+        "
+        callx 2
+        exit
+        lddw r0, 0x1122334455667788
+        exit
+        ",
+    )
+    .unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
 #[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
 fn test_verifier_err_other_type_call() {
     let prog = &[
@@ -1095,6 +1111,20 @@ fn test_vm_fall_off_end() {
     let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
     vm.set_verifier(|_| Ok(())).unwrap();
     vm.set_program(&prog).unwrap();
+    vm.execute_program().unwrap();
+}
+// With a custom verifier, the interpreter may meet unknown opcodes: it must return an error rather
+// than panic.
+#[test]
+#[should_panic(expected = "Error: unknown eBPF opcode 0x6 (insn #0)")]
+fn test_vm_unknown_opcode() {
+    let prog = &[
+        0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // unsupported opcode 0x06
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog).unwrap();
     vm.execute_program().unwrap();
 }
 #[cfg(not(windows))]
