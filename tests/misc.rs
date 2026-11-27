@@ -1005,6 +1005,18 @@ fn test_vm_fixed_mbuff_failed_set_program() {
     }
 }
 
+// Offsets for the fixed metadata buffer so large that the buffer size overflows are rejected.
+#[test]
+fn test_vm_fixed_mbuff_offset_overflow() {
+    let prog = assemble("mov r0, 0\nexit").unwrap();
+    assert!(rbpf::EbpfVmFixedMbuff::new(Some(&prog), usize::MAX, 0).is_err());
+    assert!(rbpf::EbpfVmFixedMbuff::new(Some(&prog), 0, usize::MAX - 4).is_err());
+
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(&prog), 0x40, 0x50).unwrap();
+    assert!(vm.set_program(&prog, usize::MAX, 0).is_err());
+    assert!(vm.set_program(&prog, 0, usize::MAX - 4).is_err());
+}
+
 // Loading a new program discards the code compiled for the previous one.
 #[test]
 fn test_vm_set_program_discards_compiled_code() {

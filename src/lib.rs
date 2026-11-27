@@ -828,8 +828,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         data_end_offset: usize,
     ) -> Result<EbpfVmFixedMbuff<'a>, Error> {
         let parent = EbpfVmMbuff::new(prog)?;
-        let get_buff_len = |x: usize, y: usize| if x >= y { x + 8 } else { y + 8 };
-        let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
+        let buff_len = data_offset
+            .max(data_end_offset)
+            .checked_add(8)
+            .ok_or_else(|| Error::other("Error: data_offset or data_end_offset too large"))?;
+        let buffer = vec![0u8; buff_len];
         let mbuff = MetaBuff {
             data_offset,
             data_end_offset,
@@ -876,8 +879,11 @@ impl<'a> EbpfVmFixedMbuff<'a> {
         data_offset: usize,
         data_end_offset: usize,
     ) -> Result<(), Error> {
-        let get_buff_len = |x: usize, y: usize| if x >= y { x + 8 } else { y + 8 };
-        let buffer = vec![0u8; get_buff_len(data_offset, data_end_offset)];
+        let buff_len = data_offset
+            .max(data_end_offset)
+            .checked_add(8)
+            .ok_or_else(|| Error::other("Error: data_offset or data_end_offset too large"))?;
+        let buffer = vec![0u8; buff_len];
         self.parent.set_program(prog)?;
         self.mbuff.buffer = buffer;
         self.mbuff.data_offset = data_offset;
@@ -1101,7 +1107,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
     pub fn execute_program(&mut self, mem: &mut [u8]) -> Result<u64, Error> {
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
-        if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
+        if self.mbuff.data_offset.saturating_add(8) > l || self.mbuff.data_end_offset.saturating_add(8) > l {
             Err(Error::other(format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
         }
@@ -1333,7 +1339,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
 
         let l = self.mbuff.buffer.len();
         // Can this ever happen? Probably not, should be ensured at mbuff creation.
-        if self.mbuff.data_offset + 8 > l || self.mbuff.data_end_offset + 8 > l {
+        if self.mbuff.data_offset.saturating_add(8) > l || self.mbuff.data_end_offset.saturating_add(8) > l {
             Err(Error::new(ErrorKind::Other, format!("Error: buffer too small ({:?}), cannot use data_offset {:?} and data_end_offset {:?}",
             l, self.mbuff.data_offset, self.mbuff.data_end_offset)))?;
         }
