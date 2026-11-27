@@ -667,6 +667,48 @@ fn test_vm_err_ldindb_nomem() {
     // Memory check not implemented for JIT yet.
 }
 
+#[cfg(not(windows))]
+#[repr(align(16))]
+struct Align16([u8; 16]);
+
+// Return the offset to the previous 16-byte boundary of a local variable required to be 16-byte
+// aligned. This is non-zero if the helper is called with a misaligned stack.
+#[cfg(not(windows))]
+#[inline(never)]
+fn helper_stack_misalignment(_: u64, _: u64, _: u64, _: u64, _: u64) -> u64 {
+    let local = Align16([0; 16]);
+    core::hint::black_box(&local.0) as *const [u8; 16] as u64 & 0xf
+}
+
+// The System V ABI requires the stack to be 16-byte aligned when calling a function. Check that
+// the JIT respects it when calling helpers, from the main program and from a local function.
+#[cfg(not(windows))]
+#[test]
+fn test_jit_helper_call_stack_alignment() {
+    for src in [
+        "
+        call 1
+        exit",
+        "
+        callx 1
+        exit
+        call 1
+        exit",
+    ] {
+        let prog = assemble(src).unwrap();
+        let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+        vm.register_helper(1, helper_stack_misalignment).unwrap();
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        vm.jit_compile().unwrap();
+        unsafe {
+            assert_eq!(vm.execute_program_jit().unwrap(), 0, "program: {src}");
+        }
+    }
+}
+
 // Run a program using legacy packet loads on a 16-byte buffer, with both the interpreter and the
 // JIT, and check the result.
 fn check_ld_abs_ind(src: &str, expected: u64) {

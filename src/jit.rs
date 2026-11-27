@@ -24,6 +24,13 @@ fn round_up_to_page(size: usize) -> usize {
     (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
 }
 
+// Native stack space allocated by the prologue. The eBPF stack takes STACK_SIZE bytes; we add 8
+// bytes of padding so that the stack is 16-byte aligned when the program calls a helper function,
+// as required by the System V ABI. With the return address of the host's call and the five
+// registers pushed by the prologue, plus the return address of the call to the program body, the
+// stack pointer would otherwise be 8 bytes off at helper calls.
+const NATIVE_STACK_ALLOC: i32 = ebpf::STACK_SIZE as i32 + 8;
+
 // Special values for target_pc in struct Jump
 const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
 const TARGET_PC_EXIT: isize = TARGET_OFFSET + 1;
@@ -496,9 +503,13 @@ impl JitCompiler {
         self.emit_push(mem, map_register(7));
         self.emit_push(mem, map_register(8));
         self.emit_push(mem, map_register(9));
+        // Keep the stack 16-byte aligned for helper calls in the callee: together with the four
+        // registers above, this compensates for the return address pushed by the call.
+        self.emit_alu64_imm32(mem, 0x81, 5, RSP, 8); // sub rsp, 8
         // 0xe8 is the opcode for a CALL
         self.emit1(mem, 0xe8);
         self.emit_jump_offset(mem, target_pc);
+        self.emit_alu64_imm32(mem, 0x81, 0, RSP, 8); // add rsp, 8
         self.emit_pop(mem, map_register(9));
         self.emit_pop(mem, map_register(8));
         self.emit_pop(mem, map_register(7));
@@ -573,7 +584,7 @@ impl JitCompiler {
         self.emit_mov(mem, RSP, map_register(10));
 
         // Allocate stack space
-        self.emit_alu64_imm32(mem, 0x81, 5, RSP, ebpf::STACK_SIZE as i32);
+        self.emit_alu64_imm32(mem, 0x81, 5, RSP, NATIVE_STACK_ALLOC);
 
         // Use a call to set up a place where we can land after eBPF program's
         // final EXIT call. This will make JIT of BPF EXIT call easier in the
@@ -1013,7 +1024,7 @@ impl JitCompiler {
         }
 
         // Deallocate stack space
-        self.emit_alu64_imm32(mem, 0x81, 0, RSP, ebpf::STACK_SIZE as i32);
+        self.emit_alu64_imm32(mem, 0x81, 0, RSP, NATIVE_STACK_ALLOC);
 
         self.emit_pop(mem, R15);
         self.emit_pop(mem, R14);
