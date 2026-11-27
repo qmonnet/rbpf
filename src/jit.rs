@@ -398,7 +398,7 @@ impl JitCompiler {
     fn emit_muldivmod(
         &mut self,
         mem: &mut JitMemory,
-        pc: u16,
+        pc: usize,
         opc: u8,
         src: u8,
         dst: u8,
@@ -426,8 +426,6 @@ impl JitCompiler {
             return;
         }
         if (div || modrm) && is_reg {
-            self.emit_load_imm(mem, RCX, pc as i64);
-
             // test src,src
             if is64 {
                 self.emit_alu64(mem, 0x85, src, src);
@@ -748,7 +746,7 @@ impl JitCompiler {
                 | ebpf::DIV32_REG
                 | ebpf::MOD32_IMM
                 | ebpf::MOD32_REG =>
-                    self.emit_muldivmod(mem, insn_ptr as u16, insn.opc, src, dst, insn.imm),
+                    self.emit_muldivmod(mem, insn_ptr, insn.opc, src, dst, insn.imm),
                 ebpf::OR32_IMM   => self.emit_alu32_imm32(mem, 0x81, 1, dst, insn.imm),
                 ebpf::OR32_REG   => self.emit_alu32(mem, 0x09, src, dst),
                 ebpf::AND32_IMM  => self.emit_alu32_imm32(mem, 0x81, 4, dst, insn.imm),
@@ -802,7 +800,7 @@ impl JitCompiler {
                 ebpf::MUL64_IMM | ebpf::MUL64_REG |
                     ebpf::DIV64_IMM | ebpf::DIV64_REG |
                     ebpf::MOD64_IMM | ebpf::MOD64_REG =>
-                    self.emit_muldivmod(mem, insn_ptr as u16, insn.opc, src, dst, insn.imm),
+                    self.emit_muldivmod(mem, insn_ptr, insn.opc, src, dst, insn.imm),
                 ebpf::OR64_IMM   => self.emit_alu64_imm32(mem, 0x81, 1, dst, insn.imm),
                 ebpf::OR64_REG   => self.emit_alu64(mem, 0x09, src, dst),
                 ebpf::AND64_IMM  => self.emit_alu64_imm32(mem, 0x81, 4, dst, insn.imm),
