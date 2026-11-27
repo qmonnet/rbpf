@@ -2276,6 +2276,52 @@ fn test_cranelift_ldinddw() {
     );
 }
 
+// Packet data for the tests of legacy packet loads.
+#[rustfmt::skip]
+fn ld_abs_ind_mem() -> [u8; 16] {
+    [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    ]
+}
+
+// The LD_IND offset is the 32-bit truncation of src + imm: a source register set to -1 must not
+// overflow when computing the address.
+test_cranelift!(
+    test_cranelift_ldind_src_minus_one,
+    "
+    mov r1, -1
+    ldindb r1, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x00
+);
+
+// The LD_IND immediate is a signed offset.
+test_cranelift!(
+    test_cranelift_ldind_negative_imm,
+    "
+    mov r1, 8
+    ldindb r1, -4
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x44
+);
+
+// Only the lower 32 bits of src + imm are used as the LD_IND offset.
+test_cranelift!(
+    test_cranelift_ldind_offset_truncated_to_32_bits,
+    "
+    lddw r1, 0x100000004
+    ldindb r1, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x55
+);
+
 #[test]
 fn test_cranelift_xadd_w() {
     use rbpf::ebpf::{self, Insn};

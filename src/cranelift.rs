@@ -288,21 +288,19 @@ impl CraneliftCompiler {
                         _ => unreachable!(),
                     };
 
-                    // Both instructions add the imm part of the instruction to the pointer
-                    let ptr = bcx.use_var(self.mem_start);
-                    let offset = bcx
-                        .ins()
-                        .iconst(self.isa.pointer_type(), insn.imm as u32 as i64);
-                    let addr = bcx.ins().iadd(ptr, offset);
-
-                    // IND instructions additionally add the value of the source register
+                    // As in the Linux kernel, the offset into the packet data is a signed 32-bit
+                    // value: `imm` for ABS instructions, and the 32-bit truncation of `src + imm`
+                    // for IND instructions.
                     let is_ind = (insn.opc & BPF_IND) != 0;
-                    let addr = if is_ind {
-                        let src_reg = self.insn_src(bcx, &insn);
-                        bcx.ins().iadd(addr, src_reg)
+                    let offset = if is_ind {
+                        let src_reg = self.insn_src32(bcx, &insn);
+                        bcx.ins().iadd_imm(src_reg, insn.imm as i64)
                     } else {
-                        addr
+                        bcx.ins().iconst(I32, insn.imm as u32 as i64)
                     };
+                    let offset = bcx.ins().sextend(self.isa.pointer_type(), offset);
+                    let ptr = bcx.use_var(self.mem_start);
+                    let addr = bcx.ins().iadd(ptr, offset);
 
                     // The offset here has already been added to the pointer, so we pass 0
                     let loaded = self.reg_load(bcx, ty, addr, 0);
