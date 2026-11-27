@@ -620,7 +620,7 @@ impl JitCompiler {
                 self.emit_store(mem, OperandSize::S64, RDX, R8, 0); // set mem at mbuff + mem_offset
 
                 // Store mem_end at mbuff + mem_end_offset. Trash R9.
-                self.emit_load(mem, OperandSize::S64, RDX, R8, 0); // load mem into R8
+                self.emit_mov(mem, RDX, R8); // copy mem into R8
                 self.emit_alu64(mem, 0x01, RCX, R8); // add mem_len to mem (= mem_end)
                 self.emit_alu64(mem, 0x01, RDI, R9); // add mbuff to mem_end_offset
                 self.emit_store(mem, OperandSize::S64, R8, R9, 0); // store mem_end

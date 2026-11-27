@@ -346,6 +346,57 @@ fn test_jit_mbuff() {
     }
 }
 
+// With a fixed metadata buffer, the JIT must store the addresses of the start and end of the
+// packet data in the buffer: here the program returns their difference, the packet length.
+#[test]
+#[cfg(not(windows))]
+fn test_jit_fixed_mbuff_data_end() {
+    let prog = assemble(
+        "
+        ldxdw r2, [r1+0x40]
+        ldxdw r3, [r1+0x50]
+        mov r0, r3
+        sub r0, r2
+        exit
+        ",
+    )
+    .unwrap();
+    let mem = &mut [0xaa; 16];
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(&prog), 0x40, 0x50).unwrap();
+    assert_eq!(vm.execute_program(mem).unwrap(), 16);
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe {
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 16);
+    }
+}
+
+// With a fixed metadata buffer and an empty packet, the JIT must not dereference the (null) packet
+// pointer.
+#[test]
+#[cfg(not(windows))]
+fn test_jit_fixed_mbuff_empty_packet() {
+    let prog = assemble(
+        "
+        mov r0, 0
+        exit
+        ",
+    )
+    .unwrap();
+    let mut vm = rbpf::EbpfVmFixedMbuff::new(Some(&prog), 0x40, 0x50).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg(not(feature = "std"))]
+    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+    vm.jit_compile().unwrap();
+    unsafe {
+        assert_eq!(vm.execute_program_jit(&mut []).unwrap(), 0);
+    }
+}
+
 #[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldabsb() {
