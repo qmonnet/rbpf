@@ -44,9 +44,11 @@ fn check_prog_len(prog: &[u8]) -> Result<(), Error> {
     if prog.is_empty() {
         reject("no program set, call set_program() to load one")?;
     }
+    // The last instruction must be one that never falls through: EXIT, or an unconditional jump.
+    // Conditional jumps and calls would let execution run past the end of the program.
     let last_opc = ebpf::get_insn(prog, (prog.len() / ebpf::INSN_SIZE) - 1).opc;
-    if last_opc & ebpf::BPF_CLS_MASK != ebpf::BPF_JMP {
-        reject("program does not end with “EXIT” instruction")?;
+    if last_opc != ebpf::EXIT && last_opc != ebpf::JA {
+        reject("program does not end with EXIT or JA instruction")?;
     }
 
     Ok(())

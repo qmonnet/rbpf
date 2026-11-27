@@ -1026,6 +1026,35 @@ fn test_vm_jit_bpf_to_bpf_call() {
     assert_eq!(vm_res, 0x10);
 }
 
+// A conditional jump may fall through: it cannot be the last instruction.
+#[test]
+#[should_panic(expected = "[Verifier] Error: program does not end with EXIT or JA instruction")]
+fn test_verifier_err_no_exit_conditional_jump() {
+    let prog = assemble(
+        "
+        mov r0, 0
+        mov r1, 0
+        jeq r0, 1, -2",
+    )
+    .unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+// Execution resumes after a call: it cannot be the last instruction.
+#[test]
+#[should_panic(expected = "[Verifier] Error: program does not end with EXIT or JA instruction")]
+fn test_verifier_err_no_exit_call() {
+    let prog = assemble(
+        "
+        mov r0, 0
+        call 1",
+    )
+    .unwrap();
+    let vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
 fn test_verifier_err_other_type_call() {
@@ -1050,6 +1079,24 @@ fn test_vm_other_type_call() {
     vm.execute_program().unwrap();
 }
 
+// With a custom verifier, the interpreter may run past the end of the program: it must return an
+// error rather than panic.
+#[test]
+#[should_panic(expected = "Error: program fell off the end without reaching an EXIT instruction")]
+fn test_vm_fall_off_end() {
+    let prog = assemble(
+        "
+        mov r0, 0
+        mov r1, 0
+        jeq r0, 1, -2
+        ",
+    )
+    .unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(&prog).unwrap();
+    vm.execute_program().unwrap();
+}
 #[cfg(not(windows))]
 #[test]
 #[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]

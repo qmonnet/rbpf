@@ -165,7 +165,7 @@ fn test_verifier_err_jmp_out() {
 }
 
 #[test]
-#[should_panic(expected = "[Verifier] Error: program does not end with “EXIT” instruction")]
+#[should_panic(expected = "[Verifier] Error: program does not end with EXIT or JA instruction")]
 fn test_verifier_err_no_exit() {
     let prog = assemble(
         "

@@ -559,5 +559,7 @@ pub fn execute_program(
         };
     }
 
-    unreachable!()
+    Err(Error::other(
+        "Error: program fell off the end without reaching an EXIT instruction",
+    ))
 }
