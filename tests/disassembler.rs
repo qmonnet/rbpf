@@ -134,6 +134,13 @@ fn test_stxh() {
     disasm!("stxh [r1+0x2], r3");
 }
 
+// Legacy atomic add (XADD), as InstructionType::StoreReg.
+#[test]
+fn test_stxxadd() {
+    disasm!("stxxaddw [r1+0x2], r3");
+    disasm!("stxxadddw [r1+0x2], r3");
+}
+
 // Test all supported AluBinary mnemonics.
 #[test]
 fn test_alu_binary() {
