@@ -248,6 +248,15 @@ impl<'a> EbpfVmMbuff<'a> {
         let stack_usage = self.stack_verifier.stack_validate(prog)?;
         self.prog = Some(prog);
         self.stack_usage = Some(stack_usage);
+        // Discard code compiled for the previous program, if any.
+        #[cfg(not(windows))]
+        {
+            self.jit = None;
+        }
+        #[cfg(feature = "cranelift")]
+        {
+            self.cranelift_prog = None;
+        }
         Ok(())
     }
 

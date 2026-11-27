@@ -1024,9 +1024,9 @@ impl JitCompiler {
                 ebpf::CALL       => {
                     match insn.src {
                         0x0 => {
-                            // For JIT, helpers in use MUST be registered at compile time. They can be
-                            // updated later, but not created after compiling (we need the address of the
-                            // helper function in the JIT-compiled program).
+                            // For JIT, helpers in use MUST be registered at compile time. The address of
+                            // the helper function is embedded in the JIT-compiled program, so helpers
+                            // registered or replaced after compiling have no effect on compiled code.
                             if let Some(helper) = helpers.get(&(insn.imm as u32)) {
                                 // We reserve RCX for shifts
                                 self.emit_mov(mem, R9, RCX);
