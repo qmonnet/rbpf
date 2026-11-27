@@ -137,21 +137,49 @@ pub fn gather_bytes(arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) -> u6
 /// section 3) for `memfrob`. The memory is directly modified, and the helper returns 0 in all
 /// cases. Arguments 3 to 5 are unused.
 ///
+/// # Safety
+///
+/// `ptr` is used as a raw pointer, without any check. The caller must ensure that the `len` bytes
+/// starting at `ptr` are valid for reads and writes.
+///
+/// When this function is registered as a helper, the eBPF program controls both arguments, and
+/// can use them to modify any memory of the host process: the runtime memory checks of the
+/// interpreter do not apply to helpers. Never register it for programs that are not trusted.
+///
 /// # Examples
 ///
 /// ```
 /// use rbpf::helpers;
 ///
-/// let val: u64 = 0x112233;
-/// let val_ptr = &val as *const u64;
+/// let mut val: u64 = 0x112233;
+/// let val_ptr = &mut val as *mut u64;
 ///
-/// helpers::memfrob(val_ptr as u64, 8, 0, 0, 0);
+/// // SAFETY: `val_ptr` points to 8 bytes valid for reads and writes.
+/// unsafe { helpers::memfrob(val_ptr as u64, 8, 0, 0, 0) };
 /// assert_eq!(val, 0x2a2a2a2a2a3b0819);
-/// helpers::memfrob(val_ptr as u64, 8, 0, 0, 0);
+/// // SAFETY: Same as above.
+/// unsafe { helpers::memfrob(val_ptr as u64, 8, 0, 0, 0) };
 /// assert_eq!(val, 0x112233);
 /// ```
+///
+/// Because the function is `unsafe`, it does not coerce to [`crate::ebpf::Helper`]. Registering
+/// it as a helper requires a wrapper, which makes the decision to expose it explicit:
+///
+/// ```
+/// use rbpf::helpers;
+///
+/// let prog = &[
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+/// ];
+/// let mut vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+/// // SAFETY: The program is trusted, and only passes valid pointers to the helper.
+/// vm.register_helper(1, |a, b, c, d, e| unsafe {
+///     helpers::memfrob(a, b, c, d, e)
+/// })
+/// .unwrap();
+/// ```
 #[allow(unused_variables)]
-pub fn memfrob(ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
+pub unsafe fn memfrob(ptr: u64, len: u64, unused3: u64, unused4: u64, unused5: u64) -> u64 {
     for i in 0..len {
         unsafe {
             let p = (ptr + i) as *mut u8;
@@ -202,6 +230,17 @@ pub fn sqrti(arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) 
 
 /// C-like `strcmp`, return 0 if the strings are equal, and a non-null value otherwise.
 ///
+/// # Safety
+///
+/// `arg1` and `arg2` are used as raw pointers, without any check other than for null values. The
+/// caller must ensure that, unless null, each of them points to a NUL-terminated string valid for
+/// reads.
+///
+/// When this function is registered as a helper, the eBPF program controls both arguments, and
+/// can use them to read any memory of the host process, or to crash it: the runtime memory checks
+/// of the interpreter do not apply to helpers. Never register it for programs that are not
+/// trusted. See [`memfrob`] for how to register an `unsafe` function as a helper.
+///
 /// # Examples
 ///
 /// ```
@@ -210,12 +249,15 @@ pub fn sqrti(arg1: u64, unused2: u64, unused3: u64, unused4: u64, unused5: u64) 
 /// let foo = "This is a string.\0".as_ptr() as u64;
 /// let bar = "This is another sting.\0".as_ptr() as u64;
 ///
-/// assert!(helpers::strcmp(foo, foo, 0, 0, 0) == 0);
-/// assert!(helpers::strcmp(foo, bar, 0, 0, 0) != 0);
+/// // SAFETY: Both pointers point to NUL-terminated strings.
+/// unsafe {
+///     assert!(helpers::strcmp(foo, foo, 0, 0, 0) == 0);
+///     assert!(helpers::strcmp(foo, bar, 0, 0, 0) != 0);
+/// }
 /// ```
 #[allow(dead_code)]
 #[allow(unused_variables)]
-pub fn strcmp(arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u64 {
+pub unsafe fn strcmp(arg1: u64, arg2: u64, arg3: u64, unused4: u64, unused5: u64) -> u64 {
     // C-like strcmp, maybe shorter than converting the bytes to string and comparing?
     if arg1 == 0 || arg2 == 0 {
         return u64::MAX;

@@ -460,7 +460,11 @@ fn test_jit_call_memfrob() {
     .unwrap();
     let mem = &mut [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.register_helper(1, helpers::memfrob).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(1, |a, b, c, d, e| unsafe {
+        helpers::memfrob(a, b, c, d, e)
+    })
+    .unwrap();
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -3083,7 +3087,11 @@ fn test_jit_stack2() {
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
-    vm.register_helper(1, helpers::memfrob).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(1, |a, b, c, d, e| unsafe {
+        helpers::memfrob(a, b, c, d, e)
+    })
+    .unwrap();
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -3200,7 +3208,9 @@ fn test_jit_string_stack() {
     )
     .unwrap();
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.register_helper(4, helpers::strcmp).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(4, |a, b, c, d, e| unsafe { helpers::strcmp(a, b, c, d, e) })
+        .unwrap();
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
