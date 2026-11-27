@@ -96,13 +96,21 @@ impl StackVerifier {
         let mut stack_usage = HashMap::new();
         let ty = self.calculate_stack_usage_for_local_func(prog, 0)?;
         stack_usage.insert(0, ty);
-        for idx in 0..prog.len() / ebpf::INSN_SIZE {
+        let mut idx = 0;
+        while idx < prog.len() / ebpf::INSN_SIZE {
             let insn = ebpf::get_insn(prog, idx);
-            if insn.opc == ebpf::CALL {
+            // Only local (eBPF-to-eBPF) calls have a target in the program; for helper calls, imm
+            // is the helper id.
+            if insn.opc == ebpf::CALL && insn.src == 1 {
                 let dst_insn_ptr = idx as isize + 1 + insn.imm as isize;
                 let ty = self.calculate_stack_usage_for_local_func(prog, dst_insn_ptr as usize)?;
                 stack_usage.insert(dst_insn_ptr as usize, ty);
             }
+            // The second slot of LD_DW_IMM holds data, skip it.
+            if insn.opc == ebpf::LD_DW_IMM {
+                idx += 1;
+            }
+            idx += 1;
         }
         Ok(StackUsage(stack_usage))
     }
