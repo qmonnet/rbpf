@@ -460,35 +460,6 @@ fn test_vm_jit_ldabsdw() {
 
 
 
-// Legacy packet loads must only check the bytes they actually read: loads ending exactly at the
-// end of the buffer are valid, even when fewer than 8 bytes remain.
-#[test]
-fn test_vm_ldabs_ldind_at_end_of_mem() {
-    #[rustfmt::skip]
-    let mem = &mut [
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-    ];
-    let cases: &[([u8; 8], u64)] = &[
-        ([0x30, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00], 0xff),       // ldabsb 15
-        ([0x28, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00], 0xeeff),     // ldabsh 14
-        ([0x20, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00], 0xccddeeff), // ldabsw 12
-        ([0x50, 0x10, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00], 0xff),       // ldindb r1, 10
-        ([0x48, 0x10, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00], 0xeeff),     // ldindh r1, 9
-        ([0x40, 0x10, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00], 0xccddeeff), // ldindw r1, 7
-    ];
-    for (insn, expected) in cases {
-        let mut prog = vec![
-            0xb7, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // mov r1, 5
-        ];
-        prog.extend_from_slice(insn);
-        prog.extend_from_slice(&[0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]); // exit
-        let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-        assert_eq!(vm.execute_program(mem).unwrap(), *expected);
-    }
-}
-
-
 #[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindb() {
@@ -651,7 +622,7 @@ fn check_ld_abs_ind(src: &str, expected: u64) {
     ];
     #[cfg_attr(any(windows, miri), allow(unused_mut))]
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), expected);
+    assert_eq!(vm.execute_program(mem).unwrap(), expected, "{src}");
 
     // JIT-compiled programs cannot run under Miri.
     #[cfg(all(not(windows), not(miri)))]
@@ -662,7 +633,7 @@ fn check_ld_abs_ind(src: &str, expected: u64) {
         vm.set_jit_exec_memory(&mut exec_mem).unwrap();
         vm.jit_compile().unwrap();
         unsafe {
-            assert_eq!(vm.execute_program_jit(mem).unwrap(), expected);
+            assert_eq!(vm.execute_program_jit(mem).unwrap(), expected, "{src}");
         }
     }
 }
@@ -764,16 +735,36 @@ fn test_vm_ldabsb_nomem() {
     );
 }
 
-// The load must fit entirely in the packet data, not only its first byte.
+// Legacy packet loads must only check the bytes they actually read: loads ending exactly at the
+// end of the packet data are valid, even when fewer than 8 bytes remain.
 #[test]
-fn test_vm_ldabsh_past_end_of_mem() {
-    check_ld_abs_ind(
-        "
-        ldabsh 15
-        mov r0, 1
-        exit",
-        0,
-    );
+fn test_vm_ldabs_ldind_at_end_of_mem() {
+    for (insn, expected) in [
+        ("ldabsb 15", 0xff),
+        ("ldabsh 14", 0xeeff),
+        ("ldabsw 12", 0xccddeeff),
+        ("ldindb r1, 10", 0xff),
+        ("ldindh r1, 9", 0xeeff),
+        ("ldindw r1, 7", 0xccddeeff),
+    ] {
+        check_ld_abs_ind(&format!("mov r1, 5\n{insn}\nexit"), expected);
+    }
+}
+
+// The load must fit entirely in the packet data, not only its first byte: loads ending one byte
+// past the end of the packet data terminate the program.
+#[test]
+fn test_vm_ldabs_ldind_past_end_of_mem() {
+    for insn in [
+        "ldabsb 16",
+        "ldabsh 15",
+        "ldabsw 13",
+        "ldindb r1, 11",
+        "ldindh r1, 10",
+        "ldindw r1, 8",
+    ] {
+        check_ld_abs_ind(&format!("mov r1, 5\n{insn}\nmov r0, 1\nexit"), 0);
+    }
 }
 
 #[test]

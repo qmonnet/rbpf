@@ -2364,17 +2364,50 @@ test_cranelift!(
     0x0
 );
 
-// The load must fit entirely in the packet data, not only its first byte.
-test_cranelift!(
-    test_cranelift_ldabsh_past_end_of_mem,
-    "
-    ldabsh 15
-    mov r0, 1
-    exit
-    ",
-    ld_abs_ind_mem(),
-    0x0
-);
+// Run a program using legacy packet loads on a 16-byte buffer, and check the result.
+fn check_ld_abs_ind(src: &str, expected: u64) {
+    let prog = assemble(src).unwrap();
+    #[rustfmt::skip]
+    let mem = &mut [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    ];
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem).unwrap(), expected, "{src}");
+}
+
+// Legacy packet loads must only check the bytes they actually read: loads ending exactly at the
+// end of the packet data are valid, even when fewer than 8 bytes remain.
+#[test]
+fn test_cranelift_ldabs_ldind_at_end_of_mem() {
+    for (insn, expected) in [
+        ("ldabsb 15", 0xff),
+        ("ldabsh 14", 0xeeff),
+        ("ldabsw 12", 0xccddeeff),
+        ("ldindb r1, 10", 0xff),
+        ("ldindh r1, 9", 0xeeff),
+        ("ldindw r1, 7", 0xccddeeff),
+    ] {
+        check_ld_abs_ind(&format!("mov r1, 5\n{insn}\nexit"), expected);
+    }
+}
+
+// The load must fit entirely in the packet data, not only its first byte: loads ending one byte
+// past the end of the packet data terminate the program.
+#[test]
+fn test_cranelift_ldabs_ldind_past_end_of_mem() {
+    for insn in [
+        "ldabsb 16",
+        "ldabsh 15",
+        "ldabsw 13",
+        "ldindb r1, 11",
+        "ldindh r1, 10",
+        "ldindw r1, 8",
+    ] {
+        check_ld_abs_ind(&format!("mov r1, 5\n{insn}\nmov r0, 1\nexit"), 0);
+    }
+}
 
 test_cranelift!(
     test_cranelift_ldindb_oob,
