@@ -771,7 +771,19 @@ impl JitCompiler {
                     self.emit_mov(mem, src, RCX);
                     self.emit_alu32(mem, 0xd3, 7, dst);
                 }
-                ebpf::LE         => {}, // No-op
+                ebpf::LE         => {
+                    // No byte swap on little-endian x86_64, but truncate to the operand size.
+                    match insn.imm {
+                        // and dst32, 0xffff
+                        16 => self.emit_alu32_imm32(mem, 0x81, 4, dst, 0xffff),
+                        // mov dst32, dst32 (zero-extends)
+                        32 => self.emit_alu32(mem, 0x89, dst, dst),
+                        64 => {},
+                        _ => Err(Error::other(format!(
+                            "[JIT] Error: unsupported argument for LE/BE (insn #{insn_ptr:?})"
+                        )))?,
+                    }
+                },
                 ebpf::BE         => {
                     match insn.imm {
                         16 => {
@@ -788,7 +800,9 @@ impl JitCompiler {
                             self.emit1(mem, 0x0f);
                             self.emit1(mem, 0xc8 | (dst & 0b111));
                         }
-                        _ => unreachable!() // Should have been caught by verifier
+                        _ => Err(Error::other(format!(
+                            "[JIT] Error: unsupported argument for LE/BE (insn #{insn_ptr:?})"
+                        )))?,
                     }
                 },
 

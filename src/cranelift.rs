@@ -593,8 +593,7 @@ impl CraneliftCompiler {
                 ebpf::BE | ebpf::LE => {
                     let should_swap = match insn.opc {
                         ebpf::BE => self.isa.endianness() == Endianness::Little,
-                        ebpf::LE => self.isa.endianness() == Endianness::Big,
-                        _ => unreachable!(),
+                        _ => self.isa.endianness() == Endianness::Big,
                     };
 
                     let ty: Type = match insn.imm {
@@ -604,7 +603,9 @@ impl CraneliftCompiler {
                         _ => unreachable!(),
                     };
 
-                    if should_swap {
+                    // Even when no byte swap is needed, the value must be truncated to the
+                    // operand size.
+                    if should_swap || ty != I64 {
                         let src = self.insn_dst(bcx, &insn);
                         let src_narrow = if ty != I64 {
                             bcx.ins().ireduce(ty, src)
@@ -612,7 +613,11 @@ impl CraneliftCompiler {
                             src
                         };
 
-                        let res = bcx.ins().bswap(src_narrow);
+                        let res = if should_swap {
+                            bcx.ins().bswap(src_narrow)
+                        } else {
+                            src_narrow
+                        };
                         let res_wide = if ty != I64 {
                             bcx.ins().uextend(I64, res)
                         } else {
