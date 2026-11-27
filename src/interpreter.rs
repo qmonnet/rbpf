@@ -136,6 +136,10 @@ pub fn execute_program(
         reg[1] = mem.start;
     }
 
+    // Address for LD_ABS_* and LD_IND_*, from the signed offset into the packet data. Wrapping
+    // arithmetic: the program controls the offset, and the bounds check rejects bogus addresses.
+    let ld_abs_ind_addr = |offset: i32| mem.start.wrapping_add(offset as i64 as u64);
+
     let check_mem_load = |addr: u64, len: usize, insn_ptr: usize| {
         check_mem(
             addr,
@@ -191,43 +195,45 @@ pub fn execute_program(
             // LD_ABS_* and LD_IND_* are supposed to load pointer to data from metadata buffer.
             // Since this pointer is constant, and since we already know it (mem), do not
             // bother re-fetching it, just use mem already.
+            // As in the Linux kernel, the offset into the packet data is a signed 32-bit value:
+            // `imm` for LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*.
             ebpf::LD_ABS_B   => reg[0] = unsafe {
-                let x = (mem.start + (insn.imm as u32) as u64) as *const u8;
+                let x = ld_abs_ind_addr(insn.imm) as *const u8;
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_H   => reg[0] = unsafe {
-                let x = (mem.start + (insn.imm as u32) as u64) as *const u16;
+                let x = ld_abs_ind_addr(insn.imm) as *const u16;
                 check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_W   => reg[0] = unsafe {
-                let x = (mem.start + (insn.imm as u32) as u64) as *const u32;
+                let x = ld_abs_ind_addr(insn.imm) as *const u32;
                 check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_DW  => reg[0] = unsafe {
-                let x = (mem.start + (insn.imm as u32) as u64) as *const u64;
+                let x = ld_abs_ind_addr(insn.imm) as *const u64;
                 check_mem_load(x as u64, 8, insn_ptr)?;
                 x.read_unaligned()
             },
             ebpf::LD_IND_B   => reg[0] = unsafe {
-                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u8;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u8;
                 check_mem_load(x as u64, 1, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_H   => reg[0] = unsafe {
-                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u16;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u16;
                 check_mem_load(x as u64, 2, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_W   => reg[0] = unsafe {
-                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u32;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u32;
                 check_mem_load(x as u64, 4, insn_ptr)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_DW  => reg[0] = unsafe {
-                let x = (mem.start + reg[_src] + (insn.imm as u32) as u64) as *const u64;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u64;
                 check_mem_load(x as u64, 8, insn_ptr)?;
                 x.read_unaligned()
             },

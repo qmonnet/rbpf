@@ -481,6 +481,16 @@ impl JitCompiler {
         }
     }
 
+    // Compute the address for LD_IND_* into R11. As in the Linux kernel, the offset into the packet
+    // data is the 32-bit truncation of `src + imm`, sign-extended. (For LD_ABS_*, the signed 32-bit
+    // displacement `imm` in the load instruction has the same effect.)
+    fn emit_ld_ind_addr(&self, mem: &mut JitMemory, src: u8, imm: i32) {
+        self.emit_alu32(mem, 0x89, src, R11); // mov r11d, src32
+        self.emit_alu32_imm32(mem, 0x81, 0, R11, imm); // add r11d, imm
+        self.emit_alu64(mem, 0x63, R11, R11); // movsxd r11, r11d
+        self.emit_alu64(mem, 0x01, R10, R11); // add r11, r10 (mem)
+    }
+
     fn emit_local_call(&mut self, mem: &mut JitMemory, target_pc: isize) {
         self.emit_push(mem, map_register(6));
         self.emit_push(mem, map_register(7));
@@ -602,24 +612,20 @@ impl JitCompiler {
                 ebpf::LD_ABS_DW  =>
                     self.emit_load(mem, OperandSize::S64, R10, RAX, insn.imm),
                 ebpf::LD_IND_B   => {
-                    self.emit_mov(mem, R10, R11);                              // load mem into R11
-                    self.emit_alu64(mem, 0x01, src, R11);                      // add src to R11
-                    self.emit_load(mem, OperandSize::S8,  R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    self.emit_ld_ind_addr(mem, src, insn.imm);
+                    self.emit_load(mem, OperandSize::S8,  R11, RAX, 0); // ld R0, [R11]
                 }
                 ebpf::LD_IND_H   => {
-                    self.emit_mov(mem, R10, R11);                              // load mem into R11
-                    self.emit_alu64(mem, 0x01, src, R11);                      // add src to R11
-                    self.emit_load(mem, OperandSize::S16, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    self.emit_ld_ind_addr(mem, src, insn.imm);
+                    self.emit_load(mem, OperandSize::S16, R11, RAX, 0); // ld R0, [R11]
                 }
                 ebpf::LD_IND_W   => {
-                    self.emit_mov(mem, R10, R11);                              // load mem into R11
-                    self.emit_alu64(mem, 0x01, src, R11);                      // add src to R11
-                    self.emit_load(mem, OperandSize::S32, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    self.emit_ld_ind_addr(mem, src, insn.imm);
+                    self.emit_load(mem, OperandSize::S32, R11, RAX, 0); // ld R0, [R11]
                 }
                 ebpf::LD_IND_DW  => {
-                    self.emit_mov(mem, R10, R11);                              // load mem into R11
-                    self.emit_alu64(mem, 0x01, src, R11);                      // add src to R11
-                    self.emit_load(mem, OperandSize::S64, R11, RAX, insn.imm); // ld R0, mem[src+imm]
+                    self.emit_ld_ind_addr(mem, src, insn.imm);
+                    self.emit_load(mem, OperandSize::S64, R11, RAX, 0); // ld R0, [R11]
                 }
 
                 ebpf::LD_DW_IMM  => {

@@ -667,6 +667,70 @@ fn test_vm_err_ldindb_nomem() {
     // Memory check not implemented for JIT yet.
 }
 
+// Run a program using legacy packet loads on a 16-byte buffer, with both the interpreter and the
+// JIT, and check the result.
+fn check_ld_abs_ind(src: &str, expected: u64) {
+    let prog = assemble(src).unwrap();
+    #[rustfmt::skip]
+    let mem = &mut [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+    ];
+    #[cfg_attr(any(windows, miri), allow(unused_mut))]
+    let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program(mem).unwrap(), expected);
+
+    // JIT-compiled programs cannot run under Miri.
+    #[cfg(all(not(windows), not(miri)))]
+    {
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        vm.jit_compile().unwrap();
+        unsafe {
+            assert_eq!(vm.execute_program_jit(mem).unwrap(), expected);
+        }
+    }
+}
+
+// The LD_IND offset is the 32-bit truncation of src + imm: a source register set to -1 must not
+// overflow when computing the address (this used to panic in debug builds).
+#[test]
+fn test_vm_ldind_src_minus_one() {
+    check_ld_abs_ind(
+        "
+        mov r1, -1
+        ldindb r1, 1
+        exit",
+        0x00,
+    );
+}
+
+// The LD_IND immediate is a signed offset.
+#[test]
+fn test_vm_ldind_negative_imm() {
+    check_ld_abs_ind(
+        "
+        mov r1, 8
+        ldindb r1, -4
+        exit",
+        0x44,
+    );
+}
+
+// Only the lower 32 bits of src + imm are used as the LD_IND offset.
+#[test]
+fn test_vm_ldind_offset_truncated_to_32_bits() {
+    check_ld_abs_ind(
+        "
+        lddw r1, 0x100000004
+        ldindb r1, 1
+        exit",
+        0x55,
+    );
+}
+
 #[test]
 #[should_panic(expected = "Error: No program set, call prog_set() to load one")]
 fn test_vm_exec_no_program() {
