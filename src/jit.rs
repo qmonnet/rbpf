@@ -24,16 +24,18 @@ fn round_up_to_page(size: usize) -> usize {
     (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1)
 }
 
-// Native stack space allocated by the prologue. The eBPF stack takes STACK_SIZE bytes; we add 8
-// bytes of padding so that the stack is 16-byte aligned when the program calls a helper function,
-// as required by the System V ABI. With the return address of the host's call and the five
-// registers pushed by the prologue, plus the return address of the call to the program body, the
-// stack pointer would otherwise be 8 bytes off at helper calls.
-const NATIVE_STACK_ALLOC: i32 = ebpf::STACK_SIZE as i32 + 8;
+// Native stack space allocated by the prologue for the eBPF stack. The stack must be 16-byte
+// aligned when the program calls a helper function, as required by the System V ABI. This holds
+// because the return address of the host's call, the six registers pushed by the prologue, and
+// the return address of the call to the program body take 64 bytes in total, and STACK_SIZE is a
+// multiple of 16.
+const NATIVE_STACK_ALLOC: i32 = ebpf::STACK_SIZE as i32;
+const _: () = assert!(NATIVE_STACK_ALLOC % 16 == 0);
 
 // Special values for target_pc in struct Jump
 const TARGET_OFFSET: isize = ebpf::PROG_MAX_INSNS as isize;
 const TARGET_PC_EXIT: isize = TARGET_OFFSET + 1;
+const TARGET_PC_LD_ABS_IND_OOB: isize = TARGET_OFFSET + 2;
 
 #[derive(Copy, Clone)]
 enum OperandSize {
@@ -56,7 +58,7 @@ const R8: u8 = 8;
 const R9: u8 = 9;
 const R10: u8 = 10;
 const R11: u8 = 11;
-//const R12: u8 = 12;
+const R12: u8 = 12;
 const R13: u8 = 13;
 const R14: u8 = 14;
 const R15: u8 = 15;
@@ -75,7 +77,8 @@ const REGISTER_MAP: [u8; REGISTER_MAP_SIZE] = [
     R15, // 9  callee-saved
     RBP, // 10 stack pointer
          // R10 and R11 are used to compute store a constant pointer to mem and to compute offset for
-         // LD_ABS_* and LD_IND_* operations, so they are not mapped to any eBPF register.
+         // LD_ABS_* and LD_IND_* operations, and R12 holds the length of mem for bounds checks on
+         // these operations, so they are not mapped to any eBPF register.
 ];
 
 // Return the x86 register for the given eBPF register
@@ -488,14 +491,34 @@ impl JitCompiler {
         }
     }
 
-    // Compute the address for LD_IND_* into R11. As in the Linux kernel, the offset into the packet
-    // data is the 32-bit truncation of `src + imm`, sign-extended. (For LD_ABS_*, the signed 32-bit
-    // displacement `imm` in the load instruction has the same effect.)
-    fn emit_ld_ind_addr(&self, mem: &mut JitMemory, src: u8, imm: i32) {
-        self.emit_alu32(mem, 0x89, src, R11); // mov r11d, src32
-        self.emit_alu32_imm32(mem, 0x81, 0, R11, imm); // add r11d, imm
-        self.emit_alu64(mem, 0x63, R11, R11); // movsxd r11, r11d
+    // Load for LD_ABS_* (src is None) and LD_IND_*, into RAX (eBPF R0).
+    //
+    // As in the Linux kernel, the offset into the packet data is a signed 32-bit value: `imm` for
+    // LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*. If the access is not within
+    // the packet data, the program terminates and returns 0.
+    fn emit_ld_abs_ind(&mut self, mem: &mut JitMemory, size: OperandSize, src: Option<u8>, imm: i32) {
+        // Compute the offset in R11. 32-bit operations zero the upper half of the register.
+        match src {
+            Some(src) => {
+                self.emit_alu32(mem, 0x89, src, R11); // mov r11d, src32
+                self.emit_alu32_imm32(mem, 0x81, 0, R11, imm); // add r11d, imm
+            }
+            None => self.emit_alu32_imm32(mem, 0xc7, 0, R11, imm), // mov r11d, imm
+        }
+
+        // The offset must be non-negative.
+        self.emit_alu32(mem, 0x85, R11, R11); // test r11d, r11d
+        self.emit_jcc(mem, 0x88, TARGET_PC_LD_ABS_IND_OOB); // js
+
+        // The access must end within the packet data. The offset is less than 2^31 at this
+        // point, so adding the access size cannot overflow.
+        self.emit_mov(mem, R11, RCX);
+        self.emit_alu64_imm32(mem, 0x81, 0, RCX, size as i32 / 8); // add rcx, size in bytes
+        self.emit_cmp(mem, R12, RCX); // cmp rcx, r12 (mem_len)
+        self.emit_jcc(mem, 0x87, TARGET_PC_LD_ABS_IND_OOB); // ja
+
         self.emit_alu64(mem, 0x01, R10, R11); // add r11, r10 (mem)
+        self.emit_load(mem, size, R11, RAX, 0); // ld R0, [R11]
     }
 
     fn emit_local_call(&mut self, mem: &mut JitMemory, target_pc: isize) {
@@ -529,6 +552,7 @@ impl JitCompiler {
         self.emit_push(mem, R13);
         self.emit_push(mem, R14);
         self.emit_push(mem, R15);
+        self.emit_push(mem, R12);
 
         // RDI: mbuff
         // RSI: mbuff_len
@@ -537,8 +561,9 @@ impl JitCompiler {
         // R8:  mem_offset
         // R9:  mem_end_offset
 
-        // Save mem pointer for use with LD_ABS_* and LD_IND_* instructions
+        // Save mem pointer and length for use with LD_ABS_* and LD_IND_* instructions
         self.emit_mov(mem, RDX, R10);
+        self.emit_mov(mem, RCX, R12);
 
         // r1 is mapped to RDI, so preserve the ABI mbuff pointer while the
         // complete BPF value-register set is initialized below.
@@ -613,31 +638,15 @@ impl JitCompiler {
             let _ = match insn.opc {
 
                 // BPF_LD class
-                // R10 is a constant pointer to mem.
-                ebpf::LD_ABS_B   =>
-                    self.emit_load(mem, OperandSize::S8,  R10, RAX, insn.imm),
-                ebpf::LD_ABS_H   =>
-                    self.emit_load(mem, OperandSize::S16, R10, RAX, insn.imm),
-                ebpf::LD_ABS_W   =>
-                    self.emit_load(mem, OperandSize::S32, R10, RAX, insn.imm),
-                ebpf::LD_ABS_DW  =>
-                    self.emit_load(mem, OperandSize::S64, R10, RAX, insn.imm),
-                ebpf::LD_IND_B   => {
-                    self.emit_ld_ind_addr(mem, src, insn.imm);
-                    self.emit_load(mem, OperandSize::S8,  R11, RAX, 0); // ld R0, [R11]
-                }
-                ebpf::LD_IND_H   => {
-                    self.emit_ld_ind_addr(mem, src, insn.imm);
-                    self.emit_load(mem, OperandSize::S16, R11, RAX, 0); // ld R0, [R11]
-                }
-                ebpf::LD_IND_W   => {
-                    self.emit_ld_ind_addr(mem, src, insn.imm);
-                    self.emit_load(mem, OperandSize::S32, R11, RAX, 0); // ld R0, [R11]
-                }
-                ebpf::LD_IND_DW  => {
-                    self.emit_ld_ind_addr(mem, src, insn.imm);
-                    self.emit_load(mem, OperandSize::S64, R11, RAX, 0); // ld R0, [R11]
-                }
+                // R10 is a constant pointer to mem, R12 holds its length.
+                ebpf::LD_ABS_B   => self.emit_ld_abs_ind(mem, OperandSize::S8,  None, insn.imm),
+                ebpf::LD_ABS_H   => self.emit_ld_abs_ind(mem, OperandSize::S16, None, insn.imm),
+                ebpf::LD_ABS_W   => self.emit_ld_abs_ind(mem, OperandSize::S32, None, insn.imm),
+                ebpf::LD_ABS_DW  => self.emit_ld_abs_ind(mem, OperandSize::S64, None, insn.imm),
+                ebpf::LD_IND_B   => self.emit_ld_abs_ind(mem, OperandSize::S8,  Some(src), insn.imm),
+                ebpf::LD_IND_H   => self.emit_ld_abs_ind(mem, OperandSize::S16, Some(src), insn.imm),
+                ebpf::LD_IND_W   => self.emit_ld_abs_ind(mem, OperandSize::S32, Some(src), insn.imm),
+                ebpf::LD_IND_DW  => self.emit_ld_abs_ind(mem, OperandSize::S64, Some(src), insn.imm),
 
                 ebpf::LD_DW_IMM  => {
                     insn_ptr += 1;
@@ -1026,6 +1035,7 @@ impl JitCompiler {
         // Deallocate stack space
         self.emit_alu64_imm32(mem, 0x81, 0, RSP, NATIVE_STACK_ALLOC);
 
+        self.emit_pop(mem, R12);
         self.emit_pop(mem, R15);
         self.emit_pop(mem, R14);
         self.emit_pop(mem, R13);
@@ -1033,6 +1043,16 @@ impl JitCompiler {
         self.emit_pop(mem, RBP);
 
         self.emit1(mem, 0xc3); // ret
+
+        // Out-of-bounds LD_ABS_* or LD_IND_*: as in the Linux kernel, terminate the program and
+        // return 0. We may be in a local function, so restore the stack pointer as expected by the
+        // epilogue: RBP (eBPF R10, which programs cannot modify) still points to the top of the
+        // eBPF stack.
+        self.set_anchor(mem, TARGET_PC_LD_ABS_IND_OOB);
+        self.emit_alu32(mem, 0x31, RAX, RAX); // xor eax, eax
+        self.emit_mov(mem, map_register(10), RSP);
+        self.emit_alu64_imm32(mem, 0x81, 5, RSP, NATIVE_STACK_ALLOC); // sub rsp, NATIVE_STACK_ALLOC
+        self.emit_jmp(mem, TARGET_PC_EXIT);
 
         Ok(())
     }

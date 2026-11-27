@@ -694,8 +694,8 @@ on your own.
 
 * This crate is **under development** and the API may be subject to change.
 
-* The JIT compiler produces an unsafe program: memory access are not tested at
-  runtime (yet). Use with caution.
+* The JIT compiler produces an unsafe program: most memory access are not
+  checked at runtime (yet). Use with caution.
 
 * A small number of eBPF instructions have not been implemented yet. This
   should not be a problem for the majority of eBPF programs.

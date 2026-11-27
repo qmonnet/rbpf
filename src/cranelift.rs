@@ -1026,7 +1026,8 @@ impl CraneliftCompiler {
     /// Load for LD_ABS_* and LD_IND_*, from a signed 32-bit offset into the packet data.
     ///
     /// These instructions only read from the packet data, so we check the access against this
-    /// buffer only, and not against the other memory regions accessible to the program.
+    /// buffer only, and not against the other memory regions accessible to the program. As in the
+    /// Linux kernel, if the access is out of bounds, the program terminates and returns 0.
     fn ld_abs_ind_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, offset: Value) -> Value {
         let mem_start = bcx.use_var(self.mem_start);
         let mem_end = bcx.use_var(self.mem_end);
@@ -1044,8 +1045,17 @@ impl CraneliftCompiler {
             .ins()
             .icmp(IntCC::UnsignedLessThanOrEqual, end, mem_len);
         let valid = bcx.ins().band(offset_valid, end_valid);
-        bcx.ins().trapz(valid, TrapCode::HEAP_OUT_OF_BOUNDS);
 
+        let load_block = bcx.create_block();
+        let out_of_bounds_block = bcx.create_block();
+        bcx.ins()
+            .brif(valid, load_block, &[], out_of_bounds_block, &[]);
+
+        bcx.switch_to_block(out_of_bounds_block);
+        let zero = bcx.ins().iconst(I64, 0);
+        bcx.ins().return_(&[zero]);
+
+        bcx.switch_to_block(load_block);
         let addr = bcx.ins().iadd(mem_start, offset);
         let mut flags = MemFlags::new();
         flags.set_endianness(Endianness::Little);
