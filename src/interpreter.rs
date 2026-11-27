@@ -438,7 +438,7 @@ pub fn execute_program(
             ebpf::LSH64_REG  => reg[_dst] <<= reg[_src] & SHIFT_MASK_64,
             ebpf::RSH64_IMM  => reg[_dst] >>= insn.imm as u64 & SHIFT_MASK_64,
             ebpf::RSH64_REG  => reg[_dst] >>= reg[_src] & SHIFT_MASK_64,
-            ebpf::NEG64      => reg[_dst] = -(reg[_dst] as i64) as u64,
+            ebpf::NEG64      => reg[_dst] = (reg[_dst] as i64).wrapping_neg() as u64,
             ebpf::MOD64_IMM if insn.imm == 0 => (),
             ebpf::MOD64_IMM  => reg[_dst] %=  insn.imm as u64,
             ebpf::MOD64_REG if reg[_src] == 0 => (),
@@ -535,7 +535,7 @@ pub fn execute_program(
                         // that read or write to the stack, check_mem_load or check_mem_store will return an error.
                         reg[10] -= stacks[stack_frame_idx].get_stack_usage().stack_usage() as u64;
                         stack_frame_idx += 1;
-                        insn_ptr += insn.imm as usize;
+                        insn_ptr = (insn_ptr as isize + insn.imm as isize) as usize;
                     }
                     _ => {
                         Err(Error::other(
