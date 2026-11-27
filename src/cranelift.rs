@@ -920,6 +920,11 @@ impl CraneliftCompiler {
                 // Do not delegate the check to the verifier, since registered functions can be
                 // changed after the program has been verified.
                 ebpf::CALL => {
+                    if insn.src != 0 {
+                        Err(Error::other(format!(
+                            "[CRANELIFT] Error: eBPF-to-eBPF calls are not supported by the Cranelift backend (insn #{insn_ptr})"
+                        )))?;
+                    }
                     let func_ref = self
                         .helper_func_refs
                         .get(&(insn.imm as u32))

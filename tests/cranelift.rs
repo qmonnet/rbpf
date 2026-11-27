@@ -316,6 +316,28 @@ fn test_cranelift_err_call_unreg() {
     vm.cranelift_compile().unwrap();
 }
 
+// Local calls (eBPF-to-eBPF) are not supported, and must not be compiled as helper calls, even if
+// a helper with an id equal to the call offset is registered.
+#[test]
+#[should_panic(
+    expected = "[CRANELIFT] Error: eBPF-to-eBPF calls are not supported by the Cranelift backend (insn #0)"
+)]
+fn test_cranelift_err_local_call() {
+    let prog = assemble(
+        "
+        callx 1
+        exit
+        mov r0, 9
+        exit
+        ",
+    )
+    .unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    vm.register_helper(1, helpers::gather_bytes).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 9);
+    vm.cranelift_compile().unwrap();
+}
+
 #[test]
 fn test_cranelift_call_memfrob() {
     let prog = assemble(
