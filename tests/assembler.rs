@@ -474,6 +474,21 @@ fn test_store_reg() {
     );
 }
 
+// Test legacy atomic add (XADD) mnemonics.
+#[test]
+fn test_store_reg_xadd() {
+    assert_eq!(
+        asm("
+            stxxaddw [r1+2], r3
+            stxxadddw [r1+2], r3
+        "),
+        Ok(vec![
+            insn(ebpf::ST_W_XADD, 1, 3, 2, 0),
+            insn(ebpf::ST_DW_XADD, 1, 3, 2, 0)
+        ])
+    );
+}
+
 // Test all supported JumpConditional mnemonics.
 #[test]
 fn test_jump_conditional() {

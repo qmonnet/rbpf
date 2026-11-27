@@ -123,6 +123,10 @@ fn make_instruction_map() -> HashMap<String, (InstructionType, u8)> {
             );
         }
 
+        // Legacy atomic add (XADD), as printed by the disassembler.
+        entry("stxxaddw", StoreReg, ebpf::ST_W_XADD);
+        entry("stxxadddw", StoreReg, ebpf::ST_DW_XADD);
+
         // JumpConditional.
         for &(name, condition) in &jump_conditions {
             entry(name, JumpConditional, ebpf::BPF_JMP | condition);
