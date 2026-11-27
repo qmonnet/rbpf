@@ -1587,6 +1587,19 @@ fn test_vm_mod32_by_zero_upper_bits() {
     );
 }
 
+// 32-bit moves zero-extend the result: the upper 32 bits of the source register are not copied.
+#[test]
+fn test_vm_mov32_reg_zero_extends() {
+    check_vm_jit(
+        "
+        lddw r1, 0xffffffff00000001
+        mov32 r0, r1
+        exit
+        ",
+        0x1,
+    );
+}
+
 // Build a raw instruction, for programs too long to write by hand.
 fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> [u8; 8] {
     ebpf::Insn {
