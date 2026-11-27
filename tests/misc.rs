@@ -455,36 +455,7 @@ fn test_vm_jit_ldabsdw() {
     };
 }
 
-#[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
-fn test_vm_err_ldabsb_oob() {
-    let prog = &[
-        0x30, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, // ldabsb 51
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
-    ];
-    #[rustfmt::skip]
-    let mem = &mut [
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-    ];
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.execute_program(mem).unwrap();
 
-    // Memory check not implemented for JIT yet.
-}
-
-#[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
-fn test_vm_err_ldabsb_nomem() {
-    let prog = &[
-        0x30, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // ldabsb 3
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
-    ];
-    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    vm.execute_program().unwrap();
-
-    // Memory check not implemented for JIT yet.
-}
 
 // Legacy packet loads must only check the bytes they actually read: loads ending exactly at the
 // end of the buffer are valid, even when fewer than 8 bytes remain.
@@ -514,21 +485,6 @@ fn test_vm_ldabs_ldind_at_end_of_mem() {
     }
 }
 
-#[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #1),")]
-fn test_vm_err_ldabsh_past_end_of_mem() {
-    let prog = &[
-        0x28, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, // ldabsh 15
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
-    ];
-    #[rustfmt::skip]
-    let mem = &mut [
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-    ];
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.execute_program(mem).unwrap();
-}
 
 #[cfg(not(windows))]
 #[test]
@@ -634,38 +590,7 @@ fn test_vm_jit_ldinddw() {
     };
 }
 
-#[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #2),")]
-fn test_vm_err_ldindb_oob() {
-    let prog = &[
-        0xb7, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, // mov r1, 5
-        0x50, 0x10, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, // ldindb r1, 51
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
-    ];
-    #[rustfmt::skip]
-    let mem = &mut [
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-    ];
-    let vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    vm.execute_program(mem).unwrap();
 
-    // Memory check not implemented for JIT yet.
-}
-
-#[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #2),")]
-fn test_vm_err_ldindb_nomem() {
-    let prog = &[
-        0xb7, 0x01, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // mov r1, 3
-        0x50, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, // ldindb r1, 3
-        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
-    ];
-    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
-    vm.execute_program().unwrap();
-
-    // Memory check not implemented for JIT yet.
-}
 
 #[cfg(not(windows))]
 #[repr(align(16))]
@@ -773,17 +698,139 @@ fn test_vm_ldind_offset_truncated_to_32_bits() {
     );
 }
 
+
+// Run a program using legacy packet loads with no packet data, with both the interpreter and the
+// JIT, and check the result.
+fn check_ld_abs_ind_nomem(src: &str, expected: u64) {
+    let prog = assemble(src).unwrap();
+    #[cfg_attr(any(windows, miri), allow(unused_mut))]
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), expected);
+
+    // JIT-compiled programs cannot run under Miri.
+    #[cfg(all(not(windows), not(miri)))]
+    {
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        vm.jit_compile().unwrap();
+        unsafe {
+            assert_eq!(vm.execute_program_jit().unwrap(), expected);
+        }
+    }
+}
+
+// As in the Linux kernel, an out-of-bounds LD_ABS or LD_IND terminates the program, which returns
+// 0. In the following tests, the instruction after the load sets R0 to 1, so that we can tell
+// whether the program terminated on the load.
+
+#[test]
+fn test_vm_ldabsb_oob() {
+    check_ld_abs_ind(
+        "
+        ldabsb 51
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+#[test]
+fn test_vm_ldabsb_negative_offset() {
+    check_ld_abs_ind(
+        "
+        ldabsb -1
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+#[test]
+fn test_vm_ldabsb_nomem() {
+    check_ld_abs_ind_nomem(
+        "
+        ldabsb 3
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+// The load must fit entirely in the packet data, not only its first byte.
+#[test]
+fn test_vm_ldabsh_past_end_of_mem() {
+    check_ld_abs_ind(
+        "
+        ldabsh 15
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+#[test]
+fn test_vm_ldindb_oob() {
+    check_ld_abs_ind(
+        "
+        mov r1, 5
+        ldindb r1, 51
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+#[test]
+fn test_vm_ldindb_negative_offset() {
+    check_ld_abs_ind(
+        "
+        mov r1, 2
+        ldindb r1, -3
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+#[test]
+fn test_vm_ldindb_nomem() {
+    check_ld_abs_ind_nomem(
+        "
+        mov r1, 3
+        ldindb r1, 3
+        mov r0, 1
+        exit",
+        0,
+    );
+}
+
+// An out-of-bounds load in a local function terminates the whole program, not just the function.
+#[test]
+fn test_vm_ldabsb_oob_in_local_function() {
+    check_ld_abs_ind(
+        "
+        callx 2
+        mov r0, 1
+        exit
+        ldabsb 51
+        exit",
+        0,
+    );
+}
+
 // LD_IND only reads from the packet data: an offset reaching another memory region accessible to
 // the program (here, the metadata buffer) is out of bounds.
 #[test]
-#[should_panic(expected = "Error: out of bounds memory load (insn #4),")]
-fn test_vm_err_ldind_outside_mem() {
+fn test_vm_ldind_outside_mem() {
     let prog = assemble(
         "
         ldxdw r2, [r1+0]
         mov r3, r1
         sub r3, r2
         ldindb r3, 0
+        mov r0, 1
         exit",
     )
     .unwrap();
@@ -791,8 +838,22 @@ fn test_vm_err_ldind_outside_mem() {
     // The metadata buffer holds the address of the packet data, so that the program can compute
     // the offset from the packet data to the metadata buffer.
     let mut mbuff = (mem.as_ptr() as u64).to_le_bytes();
-    let vm = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
-    vm.execute_program(mem, &mut mbuff).unwrap();
+    #[cfg_attr(any(windows, miri), allow(unused_mut))]
+    let mut vm = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
+    assert_eq!(vm.execute_program(mem, &mut mbuff).unwrap(), 0);
+
+    // JIT-compiled programs cannot run under Miri.
+    #[cfg(all(not(windows), not(miri)))]
+    {
+        #[cfg(not(feature = "std"))]
+        let mut exec_mem = alloc_exec_memory();
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        vm.jit_compile().unwrap();
+        unsafe {
+            assert_eq!(vm.execute_program_jit(mem, &mut mbuff).unwrap(), 0);
+        }
+    }
 }
 
 #[test]

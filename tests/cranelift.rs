@@ -2322,6 +2322,112 @@ test_cranelift!(
     0x55
 );
 
+// As in the Linux kernel, an out-of-bounds LD_ABS or LD_IND terminates the program, which returns
+// 0. In the following tests, the instruction after the load sets R0 to 1, so that we can tell
+// whether the program terminated on the load.
+
+test_cranelift!(
+    test_cranelift_ldabsb_oob,
+    "
+    ldabsb 51
+    mov r0, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x0
+);
+
+test_cranelift!(
+    test_cranelift_ldabsb_negative_offset,
+    "
+    ldabsb -1
+    mov r0, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x0
+);
+
+test_cranelift!(
+    test_cranelift_ldabsb_nomem,
+    "
+    ldabsb 3
+    mov r0, 1
+    exit
+    ",
+    0x0
+);
+
+// The load must fit entirely in the packet data, not only its first byte.
+test_cranelift!(
+    test_cranelift_ldabsh_past_end_of_mem,
+    "
+    ldabsh 15
+    mov r0, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x0
+);
+
+test_cranelift!(
+    test_cranelift_ldindb_oob,
+    "
+    mov r1, 5
+    ldindb r1, 51
+    mov r0, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x0
+);
+
+test_cranelift!(
+    test_cranelift_ldindb_negative_offset,
+    "
+    mov r1, 2
+    ldindb r1, -3
+    mov r0, 1
+    exit
+    ",
+    ld_abs_ind_mem(),
+    0x0
+);
+
+test_cranelift!(
+    test_cranelift_ldindb_nomem,
+    "
+    mov r1, 3
+    ldindb r1, 3
+    mov r0, 1
+    exit
+    ",
+    0x0
+);
+
+// LD_IND only reads from the packet data: an offset reaching another memory region accessible to
+// the program (here, the metadata buffer) is out of bounds.
+#[test]
+fn test_cranelift_ldind_outside_mem() {
+    let prog = assemble(
+        "
+        ldxdw r2, [r1+0]
+        mov r3, r1
+        sub r3, r2
+        ldindb r3, 0
+        mov r0, 1
+        exit",
+    )
+    .unwrap();
+    let mem = &mut [0x11u8; 8];
+    // The metadata buffer holds the address of the packet data, so that the program can compute
+    // the offset from the packet data to the metadata buffer.
+    let mut mbuff = (mem.as_ptr() as u64).to_le_bytes();
+    let mut vm = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift(mem, &mut mbuff).unwrap(), 0);
+}
+
 #[test]
 fn test_cranelift_xadd_w() {
     use rbpf::ebpf::{self, Insn};
