@@ -1100,8 +1100,10 @@ impl JitCompiler {
 pub struct JitMemory<'a> {
     contents: &'a mut [u8],
     write_enabled: bool,
+    /// Length of the anonymous mapping backing `contents`, to unmap on drop. Zero if this
+    /// object does not own a mapping (size-counting pass).
     #[cfg(feature = "std")]
-    layout: std::alloc::Layout,
+    mapped_len: usize,
     offset: usize,
 }
 
@@ -1114,7 +1116,7 @@ impl<'a> JitMemory<'a> {
             contents,
             write_enabled: false,
             #[cfg(feature = "std")]
-            layout: unsafe { std::alloc::Layout::from_size_align_unchecked(0, 1) },
+            mapped_len: 0,
             offset: 0,
         }
     }
@@ -1126,36 +1128,36 @@ impl<'a> JitMemory<'a> {
         use_mbuff: bool,
         update_data_ptr: bool,
     ) -> Result<JitMemory<'a>, Error> {
-        let layout;
-
         // Pass 1: size-only, no writes.
         let mut counter = JitMemory::counter();
         let mut jit = JitCompiler::new();
         jit.jit_compile(&mut counter, prog, use_mbuff, update_data_ptr, helpers)?;
         let size = round_up_to_page(counter.offset.max(PAGE_SIZE));
 
-        let contents = unsafe {
-            // Create a layout with the proper size and alignment.
-            layout = std::alloc::Layout::from_size_align_unchecked(size, PAGE_SIZE);
-
-            // Allocate the region of memory.
-            let ptr = std::alloc::alloc(layout);
-            if ptr.is_null() {
-                return Err(Error::from(std::io::ErrorKind::OutOfMemory));
-            }
-
-            // Protect it.
-            libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
-
-            // Convert to a slice.
-            std::slice::from_raw_parts_mut(ptr, size)
+        // Use a dedicated anonymous mapping rather than memory from the global allocator: heap
+        // memory may not be made executable (for example, SELinux denies it unless execheap is
+        // allowed), and executable pages must not go back to the allocator once freed. The
+        // mapping is writable while we emit the code, and executable only afterwards (W^X).
+        let ptr = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                size,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                -1,
+                0,
+            )
         };
-        let contents: &'a mut [u8] = unsafe { mem::transmute(contents) };
+        if ptr == libc::MAP_FAILED {
+            return Err(Error::last_os_error());
+        }
+        let contents: &'a mut [u8] = unsafe { std::slice::from_raw_parts_mut(ptr.cast(), size) };
 
+        // From here, dropping mem (including on error) unmaps the region.
         let mut mem = JitMemory {
             contents,
             write_enabled: true,
-            layout,
+            mapped_len: size,
             offset: 0,
         };
 
@@ -1163,6 +1165,17 @@ impl<'a> JitMemory<'a> {
         let mut jit = JitCompiler::new();
         jit.jit_compile(&mut mem, prog, use_mbuff, update_data_ptr, helpers)?;
         jit.resolve_jumps(&mut mem)?;
+
+        // Make the code executable, and no longer writable.
+        let rc = unsafe { libc::mprotect(ptr, size, libc::PROT_READ | libc::PROT_EXEC) };
+        if rc != 0 {
+            let err = Error::last_os_error();
+            return Err(Error::new(
+                err.kind(),
+                format!("[JIT] Error: failed to make JIT memory executable: {err}"),
+            ));
+        }
+        mem.write_enabled = false;
 
         Ok(mem)
     }
@@ -1231,10 +1244,9 @@ impl IndexMut<usize> for JitMemory<'_> {
 #[cfg(feature = "std")]
 impl Drop for JitMemory<'_> {
     fn drop(&mut self) {
-        unsafe {
-            if self.layout.size() > 0 {
-                std::alloc::dealloc(self.contents.as_mut_ptr(), self.layout);
-            }
+        if self.mapped_len > 0 {
+            // Nothing sensible to do if this fails; the region is leaked at worst.
+            unsafe { libc::munmap(self.contents.as_mut_ptr().cast(), self.mapped_len) };
         }
     }
 }
