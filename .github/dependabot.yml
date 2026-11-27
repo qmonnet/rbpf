@@ -1,0 +1,40 @@
+# Dependabot configuration.
+# https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "quarterly"
+    # Set to 0 to disable version updates and keep security updates only.
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps"
+    groups:
+      # All security fixes in a single pull request.
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      # Cranelift crates are released together and must be bumped together.
+      cranelift:
+        applies-to: version-updates
+        patterns: ["cranelift-*"]
+      # Other minor and patch upgrades in a single pull request. Note that
+      # Dependabot classifies 0.x -> 0.y bumps as "minor", even though Cargo
+      # considers them incompatible. Major upgrades get their own pull
+      # requests.
+      cargo-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "quarterly"
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
