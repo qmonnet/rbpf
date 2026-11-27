@@ -136,9 +136,19 @@ pub fn execute_program(
         reg[1] = mem.start;
     }
 
-    // Address for LD_ABS_* and LD_IND_*, from the signed offset into the packet data. Wrapping
-    // arithmetic: the program controls the offset, and the bounds check rejects bogus addresses.
-    let ld_abs_ind_addr = |offset: i32| mem.start.wrapping_add(offset as i64 as u64);
+    // Address for LD_ABS_* and LD_IND_*, from the signed offset into the packet data. These
+    // instructions only read from the packet data: check the access against this buffer only, and
+    // not against the other memory regions accessible to the program.
+    let ld_abs_ind_addr = |offset: i32, len: u64, insn_ptr: usize| -> Result<u64, Error> {
+        if offset >= 0 && offset as u64 + len <= mem.len {
+            Ok(mem.start + offset as u64)
+        } else {
+            Err(Error::other(format!(
+                "Error: out of bounds memory load (insn #{:?}), packet offset {:#x}, size {:?}\nmem: {:#x}/{:#x}",
+                insn_ptr, offset, len, mem.start, mem.len
+            )))
+        }
+    };
 
     let check_mem_load = |addr: u64, len: usize, insn_ptr: usize| {
         check_mem(
@@ -198,43 +208,35 @@ pub fn execute_program(
             // As in the Linux kernel, the offset into the packet data is a signed 32-bit value:
             // `imm` for LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*.
             ebpf::LD_ABS_B   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr(insn.imm) as *const u8;
-                check_mem_load(x as u64, 1, insn_ptr)?;
+                let x = ld_abs_ind_addr(insn.imm, 1, insn_ptr)? as *const u8;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_H   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr(insn.imm) as *const u16;
-                check_mem_load(x as u64, 2, insn_ptr)?;
+                let x = ld_abs_ind_addr(insn.imm, 2, insn_ptr)? as *const u16;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_W   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr(insn.imm) as *const u32;
-                check_mem_load(x as u64, 4, insn_ptr)?;
+                let x = ld_abs_ind_addr(insn.imm, 4, insn_ptr)? as *const u32;
                 x.read_unaligned() as u64
             },
             ebpf::LD_ABS_DW  => reg[0] = unsafe {
-                let x = ld_abs_ind_addr(insn.imm) as *const u64;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                let x = ld_abs_ind_addr(insn.imm, 8, insn_ptr)? as *const u64;
                 x.read_unaligned()
             },
             ebpf::LD_IND_B   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u8;
-                check_mem_load(x as u64, 1, insn_ptr)?;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 1, insn_ptr)? as *const u8;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_H   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u16;
-                check_mem_load(x as u64, 2, insn_ptr)?;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 2, insn_ptr)? as *const u16;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_W   => reg[0] = unsafe {
-                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u32;
-                check_mem_load(x as u64, 4, insn_ptr)?;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 4, insn_ptr)? as *const u32;
                 x.read_unaligned() as u64
             },
             ebpf::LD_IND_DW  => reg[0] = unsafe {
-                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm)) as *const u64;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                let x = ld_abs_ind_addr((reg[_src] as i32).wrapping_add(insn.imm), 8, insn_ptr)? as *const u64;
                 x.read_unaligned()
             },
 

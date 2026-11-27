@@ -731,6 +731,28 @@ fn test_vm_ldind_offset_truncated_to_32_bits() {
     );
 }
 
+// LD_IND only reads from the packet data: an offset reaching another memory region accessible to
+// the program (here, the metadata buffer) is out of bounds.
+#[test]
+#[should_panic(expected = "Error: out of bounds memory load (insn #4),")]
+fn test_vm_err_ldind_outside_mem() {
+    let prog = assemble(
+        "
+        ldxdw r2, [r1+0]
+        mov r3, r1
+        sub r3, r2
+        ldindb r3, 0
+        exit",
+    )
+    .unwrap();
+    let mem = &mut [0x11u8; 8];
+    // The metadata buffer holds the address of the packet data, so that the program can compute
+    // the offset from the packet data to the metadata buffer.
+    let mut mbuff = (mem.as_ptr() as u64).to_le_bytes();
+    let vm = rbpf::EbpfVmMbuff::new(Some(&prog)).unwrap();
+    vm.execute_program(mem, &mut mbuff).unwrap();
+}
+
 #[test]
 #[should_panic(expected = "Error: No program set, call prog_set() to load one")]
 fn test_vm_exec_no_program() {
