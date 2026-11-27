@@ -1270,6 +1270,35 @@ fn test_stack_overflow() {
     vm.execute_program().unwrap();
 }
 
+thread_local! {
+    static STACK_USAGE_PCS: core::cell::RefCell<Vec<usize>> = const { core::cell::RefCell::new(Vec::new()) };
+}
+
+fn record_stack_usage_pc(_: &[u8], pc: usize, _: &mut dyn core::any::Any) -> u16 {
+    STACK_USAGE_PCS.with(|pcs| pcs.borrow_mut().push(pc));
+    0
+}
+
+// The stack usage calculator must only be called for the entry points of the program and of local
+// functions: not for the target of helper calls (where imm is the helper id), or for the second
+// half of LD_DW_IMM (its bytes are data). The default verifier rejects a non-zero opcode in the
+// second half of LD_DW_IMM, so we use a permissive one.
+#[test]
+fn test_stack_usage_calculator_skips_helper_calls() {
+    #[rustfmt::skip]
+    let prog = &[
+        0x85, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1 (helper)
+        0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // lddw r0, ... (first half)
+        0x85, 0x10, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // (second half, looks like a local call)
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_stack_usage_calculator(record_stack_usage_pc, Box::new(()))
+        .unwrap();
+    vm.set_program(prog).unwrap();
+    STACK_USAGE_PCS.with(|pcs| assert_eq!(*pcs.borrow(), vec![0]));
+}
 fn allowed_memory_insn(opc: u8, reg: u8, off: i16, imm: i32) -> [u8; 8] {
     let mut bytes = [0u8; 8];
     bytes[0] = opc;
