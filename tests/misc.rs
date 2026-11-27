@@ -393,7 +393,7 @@ fn test_vm_jit_ldabsh() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x4433);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x3344);
 
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
@@ -401,7 +401,7 @@ fn test_vm_jit_ldabsh() {
     vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x4433);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x3344);
     };
 }
 
@@ -418,7 +418,7 @@ fn test_vm_jit_ldabsw() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x66554433);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x33445566);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -426,7 +426,7 @@ fn test_vm_jit_ldabsw() {
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x66554433);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x33445566);
     };
 }
 
@@ -443,7 +443,7 @@ fn test_vm_jit_ldabsdw() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xaa99887766554433);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x33445566778899aa);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -451,7 +451,7 @@ fn test_vm_jit_ldabsdw() {
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xaa99887766554433);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x33445566778899aa);
     };
 }
 
@@ -468,11 +468,11 @@ fn test_vm_ldabs_ldind_at_end_of_mem() {
     ];
     let cases: &[([u8; 8], u64)] = &[
         ([0x30, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00], 0xff),       // ldabsb 15
-        ([0x28, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00], 0xffee),     // ldabsh 14
-        ([0x20, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00], 0xffeeddcc), // ldabsw 12
+        ([0x28, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00], 0xeeff),     // ldabsh 14
+        ([0x20, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00], 0xccddeeff), // ldabsw 12
         ([0x50, 0x10, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00], 0xff),       // ldindb r1, 10
-        ([0x48, 0x10, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00], 0xffee),     // ldindh r1, 9
-        ([0x40, 0x10, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00], 0xffeeddcc), // ldindw r1, 7
+        ([0x48, 0x10, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00], 0xeeff),     // ldindh r1, 9
+        ([0x40, 0x10, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00], 0xccddeeff), // ldindw r1, 7
     ];
     for (insn, expected) in cases {
         let mut prog = vec![
@@ -526,7 +526,7 @@ fn test_vm_jit_ldindh() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x9988);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x8899);
 
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
@@ -534,7 +534,7 @@ fn test_vm_jit_ldindh() {
     vm.set_jit_exec_memory(&mut exec_mem).unwrap();
     vm.jit_compile().unwrap();
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x9988);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x8899);
     };
 }
 
@@ -552,7 +552,7 @@ fn test_vm_jit_ldindw() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0x88776655);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x55667788);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -560,7 +560,7 @@ fn test_vm_jit_ldindw() {
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x88776655);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x55667788);
     };
 }
 
@@ -578,7 +578,7 @@ fn test_vm_jit_ldinddw() {
         0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
     ];
     let mut vm = rbpf::EbpfVmRaw::new(Some(prog)).unwrap();
-    assert_eq!(vm.execute_program(mem).unwrap(), 0xccbbaa9988776655);
+    assert_eq!(vm.execute_program(mem).unwrap(), 0x5566778899aabbcc);
     #[cfg(not(feature = "std"))]
     let mut exec_mem = alloc_exec_memory();
     #[cfg(not(feature = "std"))]
@@ -586,7 +586,7 @@ fn test_vm_jit_ldinddw() {
     vm.jit_compile().unwrap();
 
     unsafe {
-        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0xccbbaa9988776655);
+        assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x5566778899aabbcc);
     };
 }
 
