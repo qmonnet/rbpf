@@ -309,7 +309,11 @@ fn test_cranelift_call_memfrob() {
     .unwrap();
 
     let mut vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
-    vm.register_helper(1, helpers::memfrob).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(1, |a, b, c, d, e| unsafe {
+        helpers::memfrob(a, b, c, d, e)
+    })
+    .unwrap();
     let mem = &mut [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
     vm.cranelift_compile().unwrap();
     assert_eq!(
@@ -1775,7 +1779,11 @@ fn test_cranelift_stack2() {
 
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
     vm.register_helper(0, helpers::gather_bytes).unwrap();
-    vm.register_helper(1, helpers::memfrob).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(1, |a, b, c, d, e| unsafe {
+        helpers::memfrob(a, b, c, d, e)
+    })
+    .unwrap();
     vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift().unwrap(), 0x01020304);
 }
@@ -1850,7 +1858,9 @@ fn test_cranelift_string_stack() {
     .unwrap();
 
     let mut vm = rbpf::EbpfVmNoData::new(Some(&prog)).unwrap();
-    vm.register_helper(4, helpers::strcmp).unwrap();
+    // SAFETY: The test program only passes valid pointers to the helper.
+    vm.register_helper(4, |a, b, c, d, e| unsafe { helpers::strcmp(a, b, c, d, e) })
+        .unwrap();
     vm.cranelift_compile().unwrap();
     assert_eq!(vm.execute_program_cranelift().unwrap(), 0x0);
 }
