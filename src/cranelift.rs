@@ -56,7 +56,7 @@ pub(crate) struct CraneliftCompiler {
 }
 
 impl CraneliftCompiler {
-    pub(crate) fn new(helpers: HashMap<u32, ebpf::Helper>) -> Self {
+    pub(crate) fn new(helpers: HashMap<u32, ebpf::Helper>) -> Result<Self, Error> {
         let mut flag_builder = settings::builder();
 
         flag_builder.set("opt_level", "speed").unwrap();
@@ -65,9 +65,11 @@ impl CraneliftCompiler {
         flag_builder.enable("enable_probestack").unwrap();
         flag_builder.set("probestack_strategy", "inline").unwrap();
 
-        let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
-            panic!("host machine is not supported: {}", msg);
-        });
+        let isa_builder = cranelift_native::builder().map_err(|msg| {
+            Error::other(format!(
+                "[CRANELIFT] Error: host machine is not supported: {msg}"
+            ))
+        })?;
         let isa = isa_builder
             .finish(settings::Flags::new(flag_builder))
             .unwrap();
@@ -88,7 +90,7 @@ impl CraneliftCompiler {
             .try_into()
             .unwrap();
 
-        Self {
+        Ok(Self {
             isa,
             module,
             helpers,
@@ -103,7 +105,7 @@ impl CraneliftCompiler {
             mbuf_end: Variable::new(14),
             stack_start: Variable::new(15),
             stack_end: Variable::new(16),
-        }
+        })
     }
 
     pub(crate) fn compile_function(mut self, prog: &[u8]) -> Result<CraneliftProgram, Error> {
@@ -148,8 +150,14 @@ impl CraneliftCompiler {
             builder.finalize(self.module.target_config());
         }
 
-        self.module.define_function(func_id, &mut ctx).unwrap();
-        self.module.finalize_definitions().unwrap();
+        self.module
+            .define_function(func_id, &mut ctx)
+            .map_err(|e| Error::other(format!("[CRANELIFT] Error: cannot define function: {e}")))?;
+        self.module.finalize_definitions().map_err(|e| {
+            Error::other(format!(
+                "[CRANELIFT] Error: cannot finalize definitions: {e}"
+            ))
+        })?;
         self.module.clear_context(&mut ctx);
 
         Ok(CraneliftProgram::new(self.module, func_id))
@@ -600,7 +608,9 @@ impl CraneliftCompiler {
                         16 => I16,
                         32 => I32,
                         64 => I64,
-                        _ => unreachable!(),
+                        _ => Err(Error::other(format!(
+                            "[CRANELIFT] Error: unsupported argument for LE/BE (insn #{insn_ptr})"
+                        )))?,
                     };
 
                     // Even when no byte swap is needed, the value must be truncated to the
@@ -950,13 +960,17 @@ impl CraneliftCompiler {
                     // Helpers always return their result in r0.
                     bcx.def_var(self.registers[0], ret);
                 }
-                ebpf::TAIL_CALL => unimplemented!(),
+                ebpf::TAIL_CALL => Err(Error::other(format!(
+                    "[CRANELIFT] Error: TAIL_CALL is not supported (insn #{insn_ptr})"
+                )))?,
                 ebpf::EXIT => {
                     let ret = bcx.use_var(self.registers[0]);
                     bcx.ins().return_(&[ret]);
                     self.filled_blocks.insert(bcx.current_block().unwrap());
                 }
-                _ => unimplemented!("inst: {:?}", insn),
+                _ => Err(Error::other(format!(
+                    "[CRANELIFT] Error: unsupported instruction {insn:?} (insn #{insn_ptr})"
+                )))?,
             }
 
             insn_ptr += 1;
@@ -1217,7 +1231,7 @@ impl CraneliftCompiler {
                 | ebpf::JSET_REG32
                 | ebpf::EXIT
                 | ebpf::TAIL_CALL => {
-                    self.prepare_jump_blocks(bcx, insn_ptr, &insn);
+                    self.prepare_jump_blocks(bcx, insn_ptr, &insn)?;
                 }
                 _ => {}
             }
@@ -1228,12 +1242,21 @@ impl CraneliftCompiler {
         Ok(())
     }
 
-    fn prepare_jump_blocks(&mut self, bcx: &mut FunctionBuilder, insn_ptr: usize, insn: &Insn) {
-        let insn_ptr = insn_ptr as u32;
-        let next_pc: u32 = insn_ptr + 1;
+    fn prepare_jump_blocks(
+        &mut self,
+        bcx: &mut FunctionBuilder,
+        insn_ptr: usize,
+        insn: &Insn,
+    ) -> Result<(), Error> {
         let target_pc: u32 = (insn_ptr as isize + insn.off as isize + 1)
             .try_into()
-            .unwrap();
+            .map_err(|_| {
+                Error::other(format!(
+                    "[CRANELIFT] Error: jump out of code (insn #{insn_ptr})"
+                ))
+            })?;
+        let insn_ptr = insn_ptr as u32;
+        let next_pc: u32 = insn_ptr + 1;
 
         // This is the fallthrough block
         let fallthrough_block = *self
@@ -1250,6 +1273,7 @@ impl CraneliftCompiler {
         // Mark the blocks for this instruction
         self.insn_targets
             .insert(insn_ptr, (fallthrough_block, target_block));
+        Ok(())
     }
 }
 
