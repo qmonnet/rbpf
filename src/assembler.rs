@@ -147,7 +147,7 @@ fn insn(opc: u8, dst: i64, src: i64, off: i64, imm: i64) -> Result<Insn, String>
     if !(0..16).contains(&dst) {
         return Err(format!("Invalid destination register {dst}"));
     }
-    if dst < 0 || src >= 16 {
+    if !(0..16).contains(&src) {
         return Err(format!("Invalid source register {src}"));
     }
     if !(-32768..32768).contains(&off) {
