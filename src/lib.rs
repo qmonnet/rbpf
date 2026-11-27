@@ -659,7 +659,7 @@ impl<'a> EbpfVmMbuff<'a> {
             ))?,
         };
 
-        let compiler = CraneliftCompiler::new(self.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.helpers.clone())?;
         let program = compiler.compile_function(prog)?;
 
         self.cranelift_prog = Some(program);
@@ -1280,7 +1280,7 @@ impl<'a> EbpfVmFixedMbuff<'a> {
             ))?,
         };
 
-        let compiler = CraneliftCompiler::new(self.parent.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.parent.helpers.clone())?;
         let program = compiler.compile_function(prog)?;
 
         self.parent.cranelift_prog = Some(program);
@@ -1771,7 +1771,7 @@ impl<'a> EbpfVmRaw<'a> {
             ))?,
         };
 
-        let compiler = CraneliftCompiler::new(self.parent.helpers.clone());
+        let compiler = CraneliftCompiler::new(self.parent.helpers.clone())?;
         let program = compiler.compile_function(prog)?;
 
         self.parent.cranelift_prog = Some(program);

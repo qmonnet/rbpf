@@ -338,6 +338,25 @@ fn test_cranelift_err_local_call() {
     vm.cranelift_compile().unwrap();
 }
 
+// With a custom verifier, programs may run past their last instruction. Cranelift cannot compile
+// them, and must return an error rather than panic.
+#[test]
+#[should_panic(expected = "[CRANELIFT] Error: cannot define function")]
+fn test_cranelift_err_fall_off_end() {
+    let prog = assemble(
+        "
+        mov r0, 0
+        mov r1, 0
+        jeq r0, 1, -2
+        ",
+    )
+    .unwrap();
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(&prog).unwrap();
+    vm.cranelift_compile().unwrap();
+}
+
 #[test]
 fn test_cranelift_call_memfrob() {
     let prog = assemble(
