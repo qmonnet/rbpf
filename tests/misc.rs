@@ -1337,6 +1337,33 @@ fn test_vm_neg64_min() {
     );
 }
 
+// For 64-bit conditional jumps, the 32-bit immediate is sign-extended to 64 bits.
+#[test]
+fn test_vm_jmp64_imm_sign_extended() {
+    for (op, expected) in [
+        ("jeq", 1),
+        ("jge", 1),
+        ("jle", 1),
+        ("jne", 0),
+        ("jgt", 0),
+        ("jlt", 0),
+    ] {
+        check_vm_jit(
+            &format!(
+                "
+                mov r1, -1
+                mov r0, 0
+                {op} r1, -1, +1
+                exit
+                mov r0, 1
+                exit
+                "
+            ),
+            expected,
+        );
+    }
+}
+
 // Build a raw instruction, for programs too long to write by hand.
 fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> [u8; 8] {
     ebpf::Insn {
