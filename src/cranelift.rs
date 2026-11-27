@@ -5,7 +5,7 @@ use cranelift_codegen::{
     ir::{
         condcodes::IntCC,
         types::{I16, I32, I64, I8},
-        AbiParam, AtomicRmwOp, Block, Endianness, FuncRef, Function, InstBuilder, MemFlags,
+        AbiParam, AtomicRmwOp, Block, Endianness, FuncRef, Function, InstBuilder, MemFlagsData,
         Signature, SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
     },
     isa::OwnedTargetIsa,
@@ -145,7 +145,7 @@ impl CraneliftCompiler {
             self.translate_program(&mut builder, prog)?;
 
             builder.seal_all_blocks();
-            builder.finalize();
+            builder.finalize(self.module.target_config());
         }
 
         self.module.define_function(func_id, &mut ctx).unwrap();
@@ -228,7 +228,7 @@ impl CraneliftCompiler {
 
         // The ABI for eBPF specifies that R1 must contain either the memory, or mbuff pointer
         // If the mbuf length is non-zero, then we use that, otherwise we use the memory pointer
-        let mbuf_exists = bcx.ins().icmp_imm(IntCC::NotEqual, mbuf_len, 0);
+        let mbuf_exists = bcx.ins().icmp_imm_s(IntCC::NotEqual, mbuf_len, 0);
         let mem_or_mbuf = bcx.ins().select(mbuf_exists, mbuf_start, mem_start);
         bcx.def_var(self.registers[1], mem_or_mbuf);
 
@@ -294,7 +294,7 @@ impl CraneliftCompiler {
                     let is_ind = (insn.opc & BPF_IND) != 0;
                     let offset = if is_ind {
                         let src_reg = self.insn_src32(bcx, &insn);
-                        bcx.ins().iadd_imm(src_reg, insn.imm as i64)
+                        bcx.ins().iadd_imm_s(src_reg, insn.imm as i64)
                     } else {
                         bcx.ins().iconst(I32, insn.imm as u32 as i64)
                     };
@@ -984,8 +984,7 @@ impl CraneliftCompiler {
     fn reg_load(&mut self, bcx: &mut FunctionBuilder, ty: Type, base: Value, offset: i16) -> Value {
         self.insert_bounds_check(bcx, ty, base, offset);
 
-        let mut flags = MemFlags::new();
-        flags.set_endianness(Endianness::Little);
+        let flags = MemFlagsData::new().with_endianness(Endianness::Little);
 
         bcx.ins().load(ty, flags, base, offset as i32)
     }
@@ -999,8 +998,7 @@ impl CraneliftCompiler {
     ) {
         self.insert_bounds_check(bcx, ty, base, offset);
 
-        let mut flags = MemFlags::new();
-        flags.set_endianness(Endianness::Little);
+        let flags = MemFlagsData::new().with_endianness(Endianness::Little);
 
         bcx.ins().store(flags, val, base, offset as i32);
     }
@@ -1015,8 +1013,7 @@ impl CraneliftCompiler {
         val: Value,
     ) {
         self.insert_bounds_check(bcx, ty, base, offset);
-        let mut flags = MemFlags::new();
-        flags.set_endianness(Endianness::Little);
+        let flags = MemFlagsData::new().with_endianness(Endianness::Little);
         let off = bcx.ins().iconst(self.isa.pointer_type(), offset as i64);
         let addr = bcx.ins().iadd(base, off);
         let _old = bcx
@@ -1040,9 +1037,9 @@ impl CraneliftCompiler {
         // cannot overflow.
         let offset_valid = bcx
             .ins()
-            .icmp_imm(IntCC::SignedGreaterThanOrEqual, offset, 0);
+            .icmp_imm_s(IntCC::SignedGreaterThanOrEqual, offset, 0);
         let offset = bcx.ins().uextend(I64, offset);
-        let end = bcx.ins().iadd_imm(offset, ty.bytes() as i64);
+        let end = bcx.ins().iadd_imm_s(offset, ty.bytes() as i64);
         let end_valid = bcx
             .ins()
             .icmp(IntCC::UnsignedLessThanOrEqual, end, mem_len);
@@ -1060,8 +1057,7 @@ impl CraneliftCompiler {
         bcx.switch_to_block(load_block);
         let addr = bcx.ins().iadd(mem_start, offset);
         // Not all backends support big-endian loads: load as little-endian, and swap the bytes.
-        let mut flags = MemFlags::new();
-        flags.set_endianness(Endianness::Little);
+        let flags = MemFlagsData::new().with_endianness(Endianness::Little);
         let loaded = bcx.ins().load(ty, flags, addr, 0);
         if ty == I8 {
             loaded
@@ -1105,7 +1101,7 @@ impl CraneliftCompiler {
         // Check if it's a valid memory access
         let mem_start = bcx.use_var(self.mem_start);
         let mem_end = bcx.use_var(self.mem_end);
-        let has_mem = bcx.ins().icmp_imm(IntCC::NotEqual, mem_start, 0);
+        let has_mem = bcx.ins().icmp_imm_s(IntCC::NotEqual, mem_start, 0);
         let mem_start_valid =
             bcx.ins()
                 .icmp(IntCC::UnsignedGreaterThanOrEqual, start_addr, mem_start);
@@ -1119,7 +1115,7 @@ impl CraneliftCompiler {
         // Check if it's a valid mbuf access
         let mbuf_start = bcx.use_var(self.mbuf_start);
         let mbuf_end = bcx.use_var(self.mbuf_end);
-        let has_mbuf = bcx.ins().icmp_imm(IntCC::NotEqual, mbuf_start, 0);
+        let has_mbuf = bcx.ins().icmp_imm_s(IntCC::NotEqual, mbuf_start, 0);
         let mbuf_start_valid =
             bcx.ins()
                 .icmp(IntCC::UnsignedGreaterThanOrEqual, start_addr, mbuf_start);
