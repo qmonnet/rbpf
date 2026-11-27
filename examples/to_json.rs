@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 // Copyright 2017 6WIND S.A. <quentin.monnet@6wind.com>
 
-#[macro_use]
-extern crate json;
-
 extern crate elf;
 use elf::endian::AnyEndian;
 use elf::ElfBytes;
+use serde_json::json;
 use std::path::PathBuf;
 
 extern crate rbpf;
@@ -14,7 +12,7 @@ use rbpf::disassembler;
 
 // Turn a program into a JSON string.
 //
-// Relies on `json` crate.
+// Relies on `serde_json` crate.
 //
 // You may copy this function and adapt it according to your needs. For instance, you may want to:
 //
@@ -29,11 +27,11 @@ fn to_json(prog: &[u8]) -> String {
     let insns = disassembler::to_insn_vec(prog);
     let mut json_insns = vec![];
     for insn in insns {
-        json_insns.push(object!(
-            "opc"  => format!("{:#x}", insn.opc), // => insn.opc,
-            "dst"  => format!("{:#x}", insn.dst), // => insn.dst,
-            "src"  => format!("{:#x}", insn.src), // => insn.src,
-            "off"  => format!("{:#x}", insn.off), // => insn.off,
+        json_insns.push(json!({
+            "opc": format!("{:#x}", insn.opc), // : insn.opc,
+            "dst": format!("{:#x}", insn.dst), // : insn.dst,
+            "src": format!("{:#x}", insn.src), // : insn.src,
+            "off": format!("{:#x}", insn.off), // : insn.off,
             // Warning: for imm we use a i64 instead of a i32 (to have correct values for
             // `lddw` operation. If we print a number in the JSON this is not a problem, the
             // internal i64 has the same value with extended sign on 32 most significant bytes.
@@ -41,17 +39,15 @@ fn to_json(prog: &[u8]) -> String {
             // to prevent all other instructions to print spurious `ffffffff` prefix if the
             // number is negative. When values takes more than 32 bits with `lddw`, the cast
             // has no effect and the complete value is printed anyway.
-            "imm"  => format!("{:#x}", insn.imm as i32), // => insn.imm,
-            "desc" => insn.desc
-        ));
+            "imm": format!("{:#x}", insn.imm as i32), // : insn.imm,
+            "desc": insn.desc
+        }));
     }
-    json::stringify_pretty(
-        object!(
-        "size"  => json_insns.len(),
-        "insns" => json_insns
-        ),
-        4,
-    )
+    serde_json::to_string_pretty(&json!({
+        "size": json_insns.len(),
+        "insns": json_insns
+    }))
+    .expect("Failed to serialize JSON")
 }
 
 // Load a program from an object file, and prints it to standard output as a JSON string.
