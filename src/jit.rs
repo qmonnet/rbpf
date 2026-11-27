@@ -765,7 +765,7 @@ impl JitCompiler {
                 ebpf::XOR32_IMM  => self.emit_alu32_imm32(mem, 0x81, 6, dst, insn.imm),
                 ebpf::XOR32_REG  => self.emit_alu32(mem, 0x31, src, dst),
                 ebpf::MOV32_IMM  => self.emit_alu32_imm32(mem, 0xc7, 0, dst, insn.imm),
-                ebpf::MOV32_REG  => self.emit_mov(mem, src, dst),
+                ebpf::MOV32_REG  => self.emit_alu32(mem, 0x89, src, dst), // 32-bit mov, zero-extends
                 ebpf::ARSH32_IMM => self.emit_alu32_imm8(mem, 0xc1, 7, dst, insn.imm as i8),
                 ebpf::ARSH32_REG => {
                     self.emit_mov(mem, src, RCX);
