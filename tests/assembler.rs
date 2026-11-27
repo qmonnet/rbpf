@@ -686,3 +686,39 @@ fn test_error_operands_out_of_range() {
         Err("Failed to encode add: Invalid immediate -2147483649".to_string())
     );
 }
+
+// Numbers that do not fit in 64 bits are reported as errors. Without std, the parser does not
+// produce detailed error messages.
+#[test]
+fn test_error_integer_overflow() {
+    let expected = |_msg: &str| -> Result<Vec<ebpf::Insn>, String> {
+        #[cfg(feature = "std")]
+        return Err(_msg.to_string());
+        #[cfg(not(feature = "std"))]
+        return Err("unexpected parse".to_string());
+    };
+    assert_eq!(
+        asm("mov r0, 0x11112222333344445"),
+        expected("Parse error at line: 1, column: 9\ninteger out of range\n")
+    );
+    assert_eq!(
+        asm("mov r0, 99999999999999999999"),
+        expected("Parse error at line: 1, column: 9\ninteger out of range\n")
+    );
+    assert_eq!(
+        asm("mov r99999999999999999999, 1"),
+        expected("Parse error at line: 1, column: 5\nregister number out of range\n")
+    );
+}
+
+// The sign of the minimum 64-bit integer does not overflow.
+#[test]
+fn test_lddw_min_negative() {
+    assert_eq!(
+        asm("lddw r0, -0x8000000000000000"),
+        Ok(vec![
+            insn(ebpf::LD_DW_IMM, 0, 0, 0, 0),
+            insn(0, 0, 0, 0, i32::MIN)
+        ])
+    );
+}

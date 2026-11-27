@@ -6,8 +6,10 @@
 
 //! This module parses eBPF assembly language source code.
 
+use combine::error::StreamError;
 use combine::parser::char::{alpha_num, char, digit, hex_digit, spaces, string};
 use combine::stream::position::{self};
+use combine::stream::StreamErrorFor;
 #[cfg(feature = "std")]
 use combine::EasyParser;
 use combine::{
@@ -55,11 +57,20 @@ where
         Some('-') => -1,
         _ => 1,
     });
-    let hex = string("0x")
+    // Backtrack only if the "0x" prefix does not match, so that errors on the digits that follow
+    // are reported (instead of parsing "0" as a decimal number).
+    let hex = attempt(string("0x"))
         .with(many1(hex_digit()))
-        .map(|x: String| u64::from_str_radix(&x, 16).unwrap() as i64);
-    let dec = many1(digit()).map(|x: String| x.parse::<i64>().unwrap());
-    (sign, attempt(hex).or(dec)).map(|(s, x)| s * x)
+        .and_then(|x: String| {
+            u64::from_str_radix(&x, 16)
+                .map(|v| v as i64)
+                .map_err(|_| StreamErrorFor::<I>::message_static_message("integer out of range"))
+        });
+    let dec = many1(digit()).and_then(|x: String| {
+        x.parse::<i64>()
+            .map_err(|_| StreamErrorFor::<I>::message_static_message("integer out of range"))
+    });
+    (sign, hex.or(dec)).map(|(s, x): (i64, i64)| s.wrapping_mul(x))
 }
 
 fn register<I>() -> impl Parser<I, Output = i64>
@@ -67,9 +78,11 @@ where
     I: Stream<Token = char>,
     I::Error: ParseError<I::Token, I::Range, I::Position>,
 {
-    char('r')
-        .with(many1(digit()))
-        .map(|x: String| x.parse::<i64>().unwrap())
+    char('r').with(many1(digit())).and_then(|x: String| {
+        x.parse::<i64>().map_err(|_| {
+            StreamErrorFor::<I>::message_static_message("register number out of range")
+        })
+    })
 }
 
 fn operand<I>() -> impl Parser<I, Output = Operand>
