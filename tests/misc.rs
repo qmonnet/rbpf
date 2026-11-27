@@ -1536,6 +1536,28 @@ fn test_vm_jmp64_imm_sign_extended() {
     }
 }
 
+// For 32-bit operations, modulo by zero zeroes the upper 32 bits of the destination register.
+#[test]
+fn test_vm_mod32_by_zero_upper_bits() {
+    check_vm_jit(
+        "
+        lddw r0, 0x100000005
+        mod32 r0, 0
+        exit
+        ",
+        0x5,
+    );
+    check_vm_jit(
+        "
+        lddw r0, 0x100000005
+        mov32 r1, 0
+        mod32 r0, r1
+        exit
+        ",
+        0x5,
+    );
+}
+
 // Build a raw instruction, for programs too long to write by hand.
 fn insn(opc: u8, dst: u8, src: u8, off: i16, imm: i32) -> [u8; 8] {
     ebpf::Insn {

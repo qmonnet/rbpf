@@ -450,6 +450,17 @@ test_cranelift!(
     0x1
 );
 
+// For 32-bit operations, modulo by zero zeroes the upper 32 bits of the destination register.
+test_cranelift!(
+    test_cranelift_mod_by_zero_imm_upper_bits,
+    "
+    lddw r0, 0x100000005
+    mod32 r0, 0
+    exit
+    ",
+    0x5
+);
+
 test_cranelift!(
     test_cranelift_div64_by_zero_reg,
     "
@@ -492,6 +503,18 @@ test_cranelift!(
     exit
     ",
     0x1
+);
+
+// For 32-bit operations, modulo by zero zeroes the upper 32 bits of the destination register.
+test_cranelift!(
+    test_cranelift_mod_by_zero_reg_upper_bits,
+    "
+    lddw r0, 0x100000005
+    mov32 r1, 0
+    mod32 r0, r1
+    exit
+    ",
+    0x5
 );
 
 #[test]

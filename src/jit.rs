@@ -417,7 +417,12 @@ impl JitCompiler {
             return;
         }
         if modrm && !is_reg && imm == 0 {
-            // Modulo remainder of division by zero keeps destination register unchanged
+            // Modulo remainder of division by zero keeps destination register unchanged for
+            // 64-bit operations. For 32-bit operations, the upper 32 bits are zeroed: mov dst32,
+            // dst32 (zero-extends).
+            if !is64 {
+                self.emit_alu32(mem, 0x89, dst, dst);
+            }
             return;
         }
         if (div || modrm) && is_reg {
@@ -444,8 +449,22 @@ impl JitCompiler {
                 self.emit_jmp(mem, (pc + 1) as isize);
             }
             if modrm {
-                // Modulo by zero: keep destination register unchanged
-                self.emit_jcc(mem, 0x84, (pc + 1) as isize);
+                if is64 {
+                    // Modulo by zero: keep destination register unchanged
+                    self.emit_jcc(mem, 0x84, (pc + 1) as isize);
+                } else {
+                    // No modulo by 0: skip next instructions
+                    // Jump offset: emit_alu32 adds 2 to 3 bytes, emit_jmp adds 5
+                    let offset = match self.basix_rex_would_set_bits(0, dst, dst) {
+                        true => 3 + 5,
+                        false => 2 + 5,
+                    };
+                    self.emit_direct_jcc(mem, 0x85, offset);
+                    // Modulo by 0: zero the upper 32 bits of dst (mov dst32, dst32), then go to
+                    // next instruction
+                    self.emit_alu32(mem, 0x89, dst, dst);
+                    self.emit_jmp(mem, (pc + 1) as isize);
+                }
             }
         }
 

@@ -531,6 +531,10 @@ impl CraneliftCompiler {
                         let src = self.insn_dst32(bcx, &insn);
                         let res = bcx.ins().urem(src, imm);
                         self.set_dst32(bcx, &insn, res);
+                    } else {
+                        // Modulo by zero: keep the lower 32 bits, zero the upper 32 bits.
+                        let src = self.insn_dst32(bcx, &insn);
+                        self.set_dst32(bcx, &insn, src);
                     }
                 }
                 ebpf::MOD32_REG => {
