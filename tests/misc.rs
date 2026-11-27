@@ -1052,7 +1052,7 @@ fn test_vm_set_program_discards_compiled_code() {
 
 #[test]
 fn test_vm_bpf_to_bpf_call() {
-    let test_code = assemble(
+    check_vm_jit(
         "
         mov64 r1, 0x10
         mov64 r2, 0x1
@@ -1068,11 +1068,8 @@ fn test_vm_bpf_to_bpf_call() {
         add64 r0, r1
         exit
         ",
-    )
-    .unwrap();
-    let vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
-    let vm_res = vm.execute_program().unwrap();
-    assert_eq!(vm_res, 0x10);
+        0x10,
+    );
 }
 
 // A local call with a negative offset must not overflow when computing its target (this used to
@@ -1089,37 +1086,6 @@ fn test_vm_bpf_to_bpf_call_backward() {
         ",
         5,
     );
-}
-
-#[cfg(not(windows))]
-#[test]
-fn test_vm_jit_bpf_to_bpf_call() {
-    let test_code = assemble(
-        "
-        mov64 r1, 0x10
-        mov64 r2, 0x1
-        callx 0x4
-        mov64 r1, 0x1
-        mov64 r2, r0
-        callx 0x4
-        exit
-        mov64 r0, r1
-        sub64 r0, r2
-        exit
-        mov64 r0, r2
-        add64 r0, r1
-        exit
-        ",
-    )
-    .unwrap();
-    let mut vm = rbpf::EbpfVmNoData::new(Some(&test_code)).unwrap();
-    #[cfg(not(feature = "std"))]
-    let mut exec_mem = alloc_exec_memory();
-    #[cfg(not(feature = "std"))]
-    vm.set_jit_exec_memory(&mut exec_mem).unwrap();
-    vm.jit_compile().unwrap();
-    let vm_res = unsafe { vm.execute_program_jit().unwrap() };
-    assert_eq!(vm_res, 0x10);
 }
 
 // A conditional jump may fall through: it cannot be the last instruction.
