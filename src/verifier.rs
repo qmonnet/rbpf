@@ -302,6 +302,9 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
                         if dst_insn_ptr < 0 || dst_insn_ptr as usize >= (prog.len() / ebpf::INSN_SIZE) {
                             reject(format!("call out of code to #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
                         }
+                        if ebpf::get_insn(prog, dst_insn_ptr as usize).opc == 0 {
+                            reject(format!("call to middle of LD_DW at #{dst_insn_ptr:?} (insn #{insn_ptr:?})"))?;
+                        }
                     }
                     _ => { reject(format!("unsupported call type #{src:?} (insn #{insn_ptr:?})"))?; }
                 }

@@ -555,7 +555,9 @@ pub fn execute_program(
                 }
             }
 
-            _                => unreachable!()
+            _                => Err(Error::other(format!(
+                "Error: unknown eBPF opcode {:#x} (insn #{})", insn.opc, insn_ptr - 1
+            )))?,
         };
     }
 
