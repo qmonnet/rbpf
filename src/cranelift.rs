@@ -933,7 +933,8 @@ impl CraneliftCompiler {
 
                     let call = bcx.ins().call(func_ref, &[arg0, arg1, arg2, arg3, arg4]);
                     let ret = bcx.inst_results(call)[0];
-                    self.set_dst(bcx, &insn, ret);
+                    // Helpers always return their result in r0.
+                    bcx.def_var(self.registers[0], ret);
                 }
                 ebpf::TAIL_CALL => unimplemented!(),
                 ebpf::EXIT => {

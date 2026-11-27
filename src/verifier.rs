@@ -111,6 +111,18 @@ fn check_jmp_offset(prog: &[u8], insn_ptr: usize) -> Result<(), Error> {
     Ok(())
 }
 
+// Instructions not supported by rbpf (for example, ISA v4 instructions such as sdiv, smod or movsx)
+// reuse existing opcodes with non-zero values in fields that are otherwise reserved. Reject them
+// rather than silently executing them as the older instruction.
+fn check_alu_reserved(insn: &ebpf::Insn, insn_ptr: usize) -> Result<(), Error> {
+    if insn.off != 0 {
+        reject(format!(
+            "ALU instruction uses reserved offset field (insn #{insn_ptr:?})"
+        ))?;
+    }
+    Ok(())
+}
+
 fn check_registers(insn: &ebpf::Insn, store: bool, insn_ptr: usize) -> Result<(), Error> {
     if insn.src > 10 {
         reject(format!("invalid source register (insn #{insn_ptr:?})"))?;
@@ -132,6 +144,11 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
         let mut store = false;
+
+        let class = insn.opc & ebpf::BPF_CLS_MASK;
+        if class == ebpf::BPF_ALU || class == ebpf::BPF_ALU64 {
+            check_alu_reserved(&insn, insn_ptr)?;
+        }
 
         #[rustfmt::skip]
         #[allow(clippy::let_unit_value)] // assign, to avoid #[rustfmt::skip] on an expression
@@ -245,7 +262,12 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::ARSH64_REG => {},
 
             // BPF_JMP class
-            ebpf::JA         => { check_jmp_offset(prog, insn_ptr)?; },
+            ebpf::JA         => {
+                if insn.dst != 0 || insn.src != 0 || insn.imm != 0 {
+                    reject(format!("JA uses reserved fields (insn #{insn_ptr:?})"))?;
+                }
+                check_jmp_offset(prog, insn_ptr)?;
+            },
             ebpf::JEQ_IMM    => { check_jmp_offset(prog, insn_ptr)?; },
             ebpf::JEQ_REG    => { check_jmp_offset(prog, insn_ptr)?; },
             ebpf::JGT_IMM    => { check_jmp_offset(prog, insn_ptr)?; },
@@ -294,6 +316,9 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
             ebpf::JSLE_REG32 => { check_jmp_offset(prog, insn_ptr)?; },
 
             ebpf::CALL       => {
+                if insn.dst != 0 || insn.off != 0 {
+                    reject(format!("CALL uses reserved fields (insn #{insn_ptr:?})"))?;
+                }
                 let src = insn.src;
                 match src {
                     0 => {}
@@ -310,7 +335,11 @@ pub fn check(prog: &[u8]) -> Result<(), Error> {
                 }
             },
             ebpf::TAIL_CALL  => { reject(format!("TAIL_CALL is not supported (insn #{insn_ptr:?})"))?; },
-            ebpf::EXIT       => {},
+            ebpf::EXIT       => {
+                if insn.dst != 0 || insn.src != 0 || insn.off != 0 || insn.imm != 0 {
+                    reject(format!("EXIT uses reserved fields (insn #{insn_ptr:?})"))?;
+                }
+            },
 
             _                => {
                 reject(format!("unknown eBPF opcode {:#2x} (insn #{insn_ptr:?})", insn.opc))?;

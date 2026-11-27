@@ -1071,6 +1071,101 @@ fn test_verifier_err_call_lddw() {
     vm.execute_program().unwrap();
 }
 
+// Signed division (sdiv) reuses the opcode of the unsigned division, with off = 1. It is not
+// supported, and must not run as an unsigned division.
+#[test]
+#[should_panic(expected = "[Verifier] Error: ALU instruction uses reserved offset field (insn #2)")]
+fn test_verifier_err_sdiv() {
+    let prog = &[
+        0xb7, 0x00, 0x00, 0x00, 0xf6, 0xff, 0xff, 0xff, // mov64 r0, -10
+        0xb7, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, // mov64 r1, 2
+        0x3f, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // sdiv64 r0, r1 (div64 with off = 1)
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+// Sign-extending move (movsx) reuses the opcode of the move, with off = 8, 16 or 32. It is not
+// supported, and must not run as a plain move.
+#[test]
+#[should_panic(expected = "[Verifier] Error: ALU instruction uses reserved offset field (insn #1)")]
+fn test_verifier_err_movsx() {
+    let prog = &[
+        0xb7, 0x01, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, // mov64 r1, 0x80
+        0xbf, 0x10, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, // movsx64 r0, r1 (mov64 with off = 8)
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let vm = rbpf::EbpfVmNoData::new(Some(prog)).unwrap();
+    vm.execute_program().unwrap();
+}
+
+#[test]
+fn test_verifier_err_call_reserved_fields() {
+    let progs: [&[u8]; 2] = [
+        &[
+            0x85, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, dst = 1
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ],
+        &[
+            0x85, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, off = 1
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ],
+    ];
+    for prog in progs {
+        let err = format!("{:?}", rbpf::EbpfVmNoData::new(Some(prog)).err().unwrap());
+        assert!(
+            err.contains("[Verifier] Error: CALL uses reserved fields (insn #0)"),
+            "{err}"
+        );
+    }
+}
+
+#[test]
+fn test_verifier_err_exit_reserved_fields() {
+    let progs: [&[u8]; 4] = [
+        &[0x95, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // exit, dst = 1
+        &[0x95, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // exit, src = 1
+        &[0x95, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00], // exit, off = -1
+        &[0x95, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00], // exit, imm = 1
+    ];
+    for prog in progs {
+        let err = format!("{:?}", rbpf::EbpfVmNoData::new(Some(prog)).err().unwrap());
+        assert!(
+            err.contains("[Verifier] Error: EXIT uses reserved fields (insn #0)"),
+            "{err}"
+        );
+    }
+}
+
+#[test]
+fn test_verifier_err_ja_reserved_fields() {
+    let progs: [&[u8]; 3] = [
+        &[
+            0x05, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // ja +1, dst = 1
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ],
+        &[
+            0x05, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // ja +1, src = 1
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ],
+        &[
+            0x05, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, // ja +1, imm = 1
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ],
+    ];
+    for prog in progs {
+        let err = format!("{:?}", rbpf::EbpfVmNoData::new(Some(prog)).err().unwrap());
+        assert!(
+            err.contains("[Verifier] Error: JA uses reserved fields (insn #0)"),
+            "{err}"
+        );
+    }
+}
+
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
 fn test_verifier_err_other_type_call() {

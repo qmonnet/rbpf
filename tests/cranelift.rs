@@ -275,6 +275,28 @@ fn test_cranelift_call() {
     assert_eq!(vm.execute_program_cranelift().unwrap(), 0x0102030405);
 }
 
+fn helper_return_0x2a(_: u64, _: u64, _: u64, _: u64, _: u64) -> u64 {
+    0x2a
+}
+
+// The result of helper calls always goes to R0. The default verifier rejects a non-zero dst field,
+// but the backends must agree when users bypass it.
+#[test]
+fn test_cranelift_call_result_in_r0() {
+    let prog = &[
+        0xb7, 0x03, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, // mov r3, 7
+        0x85, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, dst=3 (result goes to r0)
+        0x0f, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // add r0, r3
+        0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+    ];
+    let mut vm = rbpf::EbpfVmNoData::new(None).unwrap();
+    vm.set_verifier(|_| Ok(())).unwrap();
+    vm.set_program(prog).unwrap();
+    vm.register_helper(1, helper_return_0x2a).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 0x31);
+    vm.cranelift_compile().unwrap();
+    assert_eq!(vm.execute_program_cranelift().unwrap(), 0x31);
+}
 #[test]
 #[should_panic(expected = "[CRANELIFT] Error: unknown helper function (id: 0x3f)")]
 fn test_cranelift_err_call_unreg() {
