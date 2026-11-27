@@ -1005,6 +1005,39 @@ fn test_vm_fixed_mbuff_failed_set_program() {
     }
 }
 
+// Loading a new program discards the code compiled for the previous one.
+#[test]
+fn test_vm_set_program_discards_compiled_code() {
+    let prog1 = assemble("mov r0, 1\nexit").unwrap();
+    let prog2 = assemble("mov r0, 2\nexit").unwrap();
+    // The executable memory must outlive the VM.
+    #[cfg(all(not(windows), not(miri), not(feature = "std")))]
+    let mut exec_mem = alloc_exec_memory();
+    #[cfg_attr(any(windows, miri), allow(unused_mut))]
+    let mut vm = rbpf::EbpfVmNoData::new(Some(&prog1)).unwrap();
+
+    // JIT-compiled programs cannot run under Miri.
+    #[cfg(all(not(windows), not(miri)))]
+    {
+        #[cfg(not(feature = "std"))]
+        vm.set_jit_exec_memory(&mut exec_mem).unwrap();
+        vm.jit_compile().unwrap();
+        vm.set_program(&prog2).unwrap();
+        assert!(unsafe { vm.execute_program_jit() }.is_err());
+    }
+
+    #[cfg(feature = "cranelift")]
+    {
+        vm.set_program(&prog1).unwrap();
+        vm.cranelift_compile().unwrap();
+        vm.set_program(&prog2).unwrap();
+        assert!(vm.execute_program_cranelift().is_err());
+    }
+
+    vm.set_program(&prog2).unwrap();
+    assert_eq!(vm.execute_program().unwrap(), 2);
+}
+
 #[test]
 fn test_vm_bpf_to_bpf_call() {
     let test_code = assemble(
