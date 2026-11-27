@@ -27,11 +27,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install toolchain (${{ matrix.toolchain }})
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-          components: clippy
+        env:
+          TOOLCHAIN: ${{ matrix.toolchain }}
+          COMPONENTS: clippy
+        # Set TOOLCHAIN and COMPONENTS in the step's environment before calling
+        run: &install_toolchain |
+          rustup toolchain install "$TOOLCHAIN" \
+              --profile minimal --component "$COMPONENTS"
+          rustup override set "$TOOLCHAIN"
 
       - name: Build with ${{ matrix.toolchain }}, ${{ matrix.features }}
         run: |
@@ -69,12 +72,11 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install toolchain (nightly)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+        env:
+          TOOLCHAIN: nightly
           # Miri builds its own sysroot, which requires the standard library sources.
-          components: miri, rust-src
+          COMPONENTS: miri,rust-src
+        run: *install_toolchain
 
       - name: Run interpreter tests with Miri (${{ matrix.miriflags }})
         env:
@@ -99,11 +101,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install toolchain (${{ matrix.toolchain }})
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - name: Install toolchain (nightly)
+        env:
+          TOOLCHAIN: nightly
+          # cargo-llvm-cov requires llvm-tools-preview.
+          COMPONENTS: llvm-tools-preview
+        run: *install_toolchain
 
       - name: Build plug-in
         run: |
@@ -146,7 +149,7 @@ jobs:
           cargo llvm-cov --lcov --all --all-features --all-targets > lcov.info
 
       - name: Upload coverage to coveralls
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: lcov.info
+          file: lcov.info
