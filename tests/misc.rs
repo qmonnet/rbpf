@@ -20,6 +20,11 @@ use rbpf::assembler::assemble;
 use rbpf::helpers;
 use rbpf::lib::Error;
 
+#[cfg(all(not(windows), not(feature = "std")))]
+mod exec_memory;
+#[cfg(all(not(windows), not(feature = "std")))]
+use exec_memory::alloc_exec_memory;
+
 // The following two examples have been compiled from C with the following command:
 //
 // ```bash
@@ -85,21 +90,6 @@ use rbpf::lib::Error;
 // from the ELF object file. This is easy to do, but requires the addition of two crates in the
 // Cargo.toml file (see comments above), so here we use just the hardcoded bytecode instructions
 // instead.
-
-#[cfg(all(not(windows),not(feature="std")))]
-fn alloc_exec_memory() -> Box<[u8]> {
-    let size = 4096;
-    let layout = std::alloc::Layout::from_size_align(size, 4096).unwrap();
-    unsafe {
-        let ptr = std::alloc::alloc(layout);
-        assert!(!ptr.is_null(), "Failed to allocate memory");
-
-        libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
-
-        let slice = std::slice::from_raw_parts_mut(ptr, size);
-        Box::from_raw(slice)
-    }
-}
 
 #[test]
 #[cfg(feature = "std")]
