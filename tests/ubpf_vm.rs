@@ -692,7 +692,7 @@ fn test_vm_mod_by_zero_reg() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
+#[should_panic(expected = "Error: out of bounds memory store (insn #0)")]
 fn test_vm_err_stack_out_of_bound() {
     let prog = assemble(
         "
@@ -2495,7 +2495,7 @@ fn test_vm_stdw() {
 // context address and the offset, and make the thread panic with "attempt to add with overflow".
 // Check that we panic with the expected out-of-bounds error.
 #[test]
-#[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
+#[should_panic(expected = "Error: out of bounds memory store (insn #0)")]
 fn test_vm_stdw_add_overflow() {
     let prog = assemble(
         "

@@ -166,6 +166,9 @@ pub fn execute_program(
         {
             stacks[stack_frame_idx].set_stack_usage(usage);
         }
+        // Index of the current instruction, for error messages: insn_ptr points to the next one
+        // from here.
+        let pc = insn_ptr;
         insn_ptr += 1;
         let _dst = insn.dst as usize;
         let _src = insn.src as usize;
@@ -236,72 +239,72 @@ pub fn execute_program(
             // BPF_LDX class
             ebpf::LD_B_REG   => reg[_dst] = unsafe {
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize);
-                check_mem_load(x as u64, 1, insn_ptr)?;
+                check_mem_load(x as u64, 1, pc)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_H_REG   => reg[_dst] = unsafe {
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u16;
-                check_mem_load(x as u64, 2, insn_ptr)?;
+                check_mem_load(x as u64, 2, pc)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_W_REG   => reg[_dst] = unsafe {
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u32;
-                check_mem_load(x as u64, 4, insn_ptr)?;
+                check_mem_load(x as u64, 4, pc)?;
                 x.read_unaligned() as u64
             },
             ebpf::LD_DW_REG  => reg[_dst] = unsafe {
                 let x = (reg[_src] as *const u8).wrapping_offset(insn.off as isize) as *const u64;
-                check_mem_load(x as u64, 8, insn_ptr)?;
+                check_mem_load(x as u64, 8, pc)?;
                 x.read_unaligned()
             },
 
             // BPF_ST class
             ebpf::ST_B_IMM   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize);
-                check_mem_store(x as u64, 1, insn_ptr)?;
+                check_mem_store(x as u64, 1, pc)?;
                 x.write_unaligned(insn.imm as u8);
             },
             ebpf::ST_H_IMM   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u16;
-                check_mem_store(x as u64, 2, insn_ptr)?;
+                check_mem_store(x as u64, 2, pc)?;
                 x.write_unaligned(insn.imm as u16);
             },
             ebpf::ST_W_IMM   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
-                check_mem_store(x as u64, 4, insn_ptr)?;
+                check_mem_store(x as u64, 4, pc)?;
                 x.write_unaligned(insn.imm as u32);
             },
             ebpf::ST_DW_IMM  => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
-                check_mem_store(x as u64, 8, insn_ptr)?;
+                check_mem_store(x as u64, 8, pc)?;
                 x.write_unaligned(insn.imm as u64);
             },
 
             // BPF_STX class
             ebpf::ST_B_REG   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize);
-                check_mem_store(x as u64, 1, insn_ptr)?;
+                check_mem_store(x as u64, 1, pc)?;
                 x.write_unaligned(reg[_src] as u8);
             },
             ebpf::ST_H_REG   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u16;
-                check_mem_store(x as u64, 2, insn_ptr)?;
+                check_mem_store(x as u64, 2, pc)?;
                 x.write_unaligned(reg[_src] as u16);
             },
             ebpf::ST_W_REG   => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
-                check_mem_store(x as u64, 4, insn_ptr)?;
+                check_mem_store(x as u64, 4, pc)?;
                 x.write_unaligned(reg[_src] as u32);
             },
             ebpf::ST_DW_REG  => unsafe {
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
-                check_mem_store(x as u64, 8, insn_ptr)?;
+                check_mem_store(x as u64, 8, pc)?;
                 x.write_unaligned(reg[_src]);
             },
             ebpf::ST_W_XADD  => unsafe {
                 // Semantics: *(u32 *)(dst + off) += (u32)src
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u32;
-                check_mem_store(x as u64, 4, insn_ptr)?;
+                check_mem_store(x as u64, 4, pc)?;
                 let add = reg[_src] as u32;
 
                 let addr = x as usize;
@@ -324,7 +327,7 @@ pub fn execute_program(
             ebpf::ST_DW_XADD => unsafe {
                 // Semantics: *(u64 *)(dst + off) += src
                 let x = (reg[_dst] as *mut u8).wrapping_offset(insn.off as isize) as *mut u64;
-                check_mem_store(x as u64, 8, insn_ptr)?;
+                check_mem_store(x as u64, 8, pc)?;
                 let add = reg[_src];
 
                 let addr = x as usize;

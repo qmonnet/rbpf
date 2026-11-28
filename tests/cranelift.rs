@@ -559,7 +559,7 @@ test_cranelift!(
 );
 
 #[test]
-// #[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
+// #[should_panic(expected = "Error: out of bounds memory store (insn #0)")]
 #[ignore = "We have stack OOB checks, but we don't yet catch the trap code and convert it into a panic"]
 fn test_cranelift_err_stack_out_of_bound() {
     let prog = [
