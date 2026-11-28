@@ -117,19 +117,7 @@ pub fn execute_program(
     let stack = MemRegion::from_mut_slice(&mut stack_buf);
 
     // R1 points to beginning of memory area, R10 to stack
-    let mut reg: [u64; 11] = [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        stack.start + stack.len,
-    ];
+    let mut reg: [u64; 11] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stack.start + stack.len];
     if mbuff.len != 0 {
         reg[1] = mbuff.start;
     } else if mem.len != 0 {
@@ -174,9 +162,10 @@ pub fn execute_program(
     while insn_ptr * ebpf::INSN_SIZE < prog.len() {
         let insn = ebpf::get_insn(prog, insn_ptr);
         if stack_frame_idx < MAX_CALL_DEPTH
-            && let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr) {
-                stacks[stack_frame_idx].set_stack_usage(usage);
-            }
+            && let Some(usage) = stack_usage.stack_usage_for_local_func(insn_ptr)
+        {
+            stacks[stack_frame_idx].set_stack_usage(usage);
+        }
         insn_ptr += 1;
         let _dst = insn.dst as usize;
         let _src = insn.src as usize;

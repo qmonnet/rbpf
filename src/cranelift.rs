@@ -3,10 +3,10 @@
 use cranelift_codegen::{
     entity::EntityRef,
     ir::{
-        condcodes::IntCC,
-        types::{I16, I32, I64, I8},
         AbiParam, AtomicRmwOp, Block, Endianness, FuncRef, Function, InstBuilder, MemFlagsData,
         Signature, SourceLoc, StackSlotData, StackSlotKind, TrapCode, Type, UserFuncName, Value,
+        condcodes::IntCC,
+        types::{I8, I16, I32, I64},
     },
     isa::OwnedTargetIsa,
     settings::{self, Configurable},
@@ -16,8 +16,8 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
 use crate::ebpf::{
-    self, Insn, BPF_ALU_OP_MASK, BPF_IND, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32,
-    BPF_JNE, BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, STACK_SIZE,
+    self, BPF_ALU_OP_MASK, BPF_IND, BPF_JEQ, BPF_JGE, BPF_JGT, BPF_JLE, BPF_JLT, BPF_JMP32,
+    BPF_JNE, BPF_JSET, BPF_JSGE, BPF_JSGT, BPF_JSLE, BPF_JSLT, BPF_X, Insn, STACK_SIZE,
 };
 use crate::lib::*;
 
@@ -1045,9 +1045,7 @@ impl CraneliftCompiler {
         let flags = MemFlagsData::new().with_endianness(Endianness::Little);
         let off = bcx.ins().iconst(self.isa.pointer_type(), offset as i64);
         let addr = bcx.ins().iadd(base, off);
-        let _old = bcx
-            .ins()
-            .atomic_rmw(ty, flags, AtomicRmwOp::Add, addr, val);
+        let _old = bcx.ins().atomic_rmw(ty, flags, AtomicRmwOp::Add, addr, val);
     }
 
     /// Load for LD_ABS_* and LD_IND_*, from a signed 32-bit offset into the packet data.
@@ -1069,9 +1067,7 @@ impl CraneliftCompiler {
             .icmp_imm_s(IntCC::SignedGreaterThanOrEqual, offset, 0);
         let offset = bcx.ins().uextend(I64, offset);
         let end = bcx.ins().iadd_imm_s(offset, ty.bytes() as i64);
-        let end_valid = bcx
-            .ins()
-            .icmp(IntCC::UnsignedLessThanOrEqual, end, mem_len);
+        let end_valid = bcx.ins().icmp(IntCC::UnsignedLessThanOrEqual, end, mem_len);
         let valid = bcx.ins().band(offset_valid, end_valid);
 
         let load_block = bcx.create_block();

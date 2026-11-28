@@ -7,9 +7,9 @@
 
 #![allow(clippy::single_match)]
 
-use crate::{ebpf, format, vec, Error, HashMap, Vec};
 #[cfg(not(feature = "std"))]
 use crate::ErrorKind;
+use crate::{Error, HashMap, Vec, ebpf, format, vec};
 use core::fmt::Error as FormatterError;
 use core::fmt::Formatter;
 use core::mem;
@@ -514,7 +514,13 @@ impl JitCompiler {
     // LD_ABS_*, and the 32-bit truncation of `src + imm` for LD_IND_*. If the access is not within
     // the packet data, the program terminates and returns 0. The data is read in network byte order
     // (big-endian) and converted to host order.
-    fn emit_ld_abs_ind(&mut self, mem: &mut JitMemory, size: OperandSize, src: Option<u8>, imm: i32) {
+    fn emit_ld_abs_ind(
+        &mut self,
+        mem: &mut JitMemory,
+        size: OperandSize,
+        src: Option<u8>,
+        imm: i32,
+    ) {
         // Compute the offset in R11. 32-bit operations zero the upper half of the register.
         match src {
             Some(src) => {
@@ -547,7 +553,10 @@ impl JitCompiler {
                 self.emit_alu32_imm8(mem, 0xc1, 0, RAX, 8); // rol ax, 8
             }
             OperandSize::S32 | OperandSize::S64 => {
-                let w = match size { OperandSize::S64 => 1, _ => 0 };
+                let w = match size {
+                    OperandSize::S64 => 1,
+                    _ => 0,
+                };
                 self.emit_basic_rex(mem, w, 0, RAX);
                 self.emit1(mem, 0x0f);
                 self.emit1(mem, 0xc8 | (RAX & 0b111)); // bswap eax / rax
@@ -563,8 +572,7 @@ impl JitCompiler {
         // Keep the stack 16-byte aligned for helper calls in the callee: together with the four
         // registers above, this compensates for the return address pushed by the call.
         self.emit_alu64_imm32(mem, 0x81, 5, RSP, 8); // sub rsp, 8
-        // 0xe8 is the opcode for a CALL
-        self.emit1(mem, 0xe8);
+        self.emit1(mem, 0xe8); // 0xe8 is the opcode for a CALL
         self.emit_jump_offset(mem, target_pc);
         self.emit_alu64_imm32(mem, 0x81, 0, RSP, 8); // add rsp, 8
         self.emit_pop(mem, map_register(9));
@@ -624,7 +632,6 @@ impl JitCompiler {
                 self.emit_alu64(mem, 0x01, RCX, R8); // add mem_len to mem (= mem_end)
                 self.emit_alu64(mem, 0x01, RDI, R9); // add mbuff to mem_end_offset
                 self.emit_store(mem, OperandSize::S64, R8, R9, 0); // store mem_end
-
             }
         }
 

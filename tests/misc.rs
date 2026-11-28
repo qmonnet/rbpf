@@ -500,8 +500,6 @@ fn test_vm_jit_ldabsdw() {
     };
 }
 
-
-
 #[cfg(not(windows))]
 #[test]
 fn test_vm_jit_ldindb() {
@@ -608,8 +606,6 @@ fn test_vm_jit_ldinddw() {
         assert_eq!(vm.execute_program_jit(mem).unwrap(), 0x5566778899aabbcc);
     };
 }
-
-
 
 #[cfg(not(windows))]
 #[repr(align(16))]
@@ -1231,6 +1227,7 @@ fn test_verifier_err_ja_reserved_fields() {
 #[test]
 #[should_panic(expected = "[Verifier] Error: unsupported call type #2 (insn #0)")]
 fn test_verifier_err_other_type_call() {
+    #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, src=2 (BTF ID call, unsupported)
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
@@ -1242,6 +1239,7 @@ fn test_verifier_err_other_type_call() {
 #[test]
 #[should_panic(expected = "Error: unsupported call type #2 (insn #0)")]
 fn test_vm_other_type_call() {
+    #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, src=2 (BTF ID call, unsupported)
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
@@ -1288,6 +1286,7 @@ fn test_vm_unknown_opcode() {
 #[test]
 #[should_panic(expected = "[JIT] Error: unexpected call type #2 (insn #0)")]
 fn test_vm_jit_other_type_call() {
+    #[rustfmt::skip]
     let prog = &[
         0x85, 0x20, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // call 1, src=2 (BTF ID call, unsupported)
         0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
