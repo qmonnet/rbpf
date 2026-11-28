@@ -360,9 +360,6 @@ pub fn execute_program(
             )))?,
 
             // BPF_ALU class
-            // TODO Check how overflow works in kernel. Should we &= U32MAX all src register value
-            // before we do the operation?
-            // Cf ((0x11 << 32) - (0x1 << 32)) as u32 VS ((0x11 << 32) as u32 - (0x1 << 32) as u32
             ebpf::ADD32_IMM  => reg[_dst] = (reg[_dst] as i32).wrapping_add(insn.imm)         as u32 as u64,
             ebpf::ADD32_REG  => reg[_dst] = (reg[_dst] as i32).wrapping_add(reg[_src] as i32) as u32 as u64,
             ebpf::SUB32_IMM  => reg[_dst] = (reg[_dst] as i32).wrapping_sub(insn.imm)         as u32 as u64,
@@ -445,7 +442,6 @@ pub fn execute_program(
             ebpf::ARSH64_REG => reg[_dst] = (reg[_dst] as i64 >> (reg[_src] as u64 & SHIFT_MASK_64)) as u64,
 
             // BPF_JMP class
-            // TODO: check this actually works as expected for signed / unsigned ops
             // J-EQ, J-NE, J-GT, J-GE, J-LT, J-LE: unsigned
             // JS-GT, JS-GE, JS-LT, JS-LE: signed
             // The immediate is always sign-extended to 64 bits (i32 `as u64` does it), even for
