@@ -4,19 +4,9 @@
 use rbpf::{assembler::assemble, EbpfVmNoData, EbpfVmRaw};
 
 #[cfg(not(feature = "std"))]
-fn alloc_exec_memory() -> Box<[u8]> {
-    let size = 4096;
-    let layout = std::alloc::Layout::from_size_align(size, 4096).unwrap();
-    unsafe {
-        let ptr = std::alloc::alloc(layout);
-        assert!(!ptr.is_null(), "Failed to allocate memory");
-
-        libc::mprotect(ptr.cast(), size, libc::PROT_EXEC | libc::PROT_WRITE);
-
-        let slice = std::slice::from_raw_parts_mut(ptr, size);
-        Box::from_raw(slice)
-    }
-}
+mod exec_memory;
+#[cfg(not(feature = "std"))]
+use exec_memory::alloc_exec_memory;
 
 fn read_register_program(reg: u8) -> Vec<u8> {
     assemble(&format!("mov64 r0, r{reg}\nexit")).unwrap()
