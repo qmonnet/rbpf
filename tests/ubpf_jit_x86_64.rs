@@ -920,7 +920,7 @@ fn test_jit_mod_reg_with_nonzero_imm() {
 
 // TODO SKIP: JIT disabled for this testcase (stack oob check not implemented)
 // #[test]
-// #[should_panic(expected = "Error: out of bounds memory store (insn #1)")]
+// #[should_panic(expected = "Error: out of bounds memory store (insn #0)")]
 // fn test_jit_err_stack_out_of_bound() {
 //     #[rustfmt::skip]
 //     let prog = &[

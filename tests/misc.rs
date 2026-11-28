@@ -1303,7 +1303,7 @@ fn test_vm_jit_other_type_call() {
 }
 
 #[test]
-#[should_panic(expected = "Error: out of bounds memory store (insn #8)")]
+#[should_panic(expected = "Error: out of bounds memory store (insn #7)")]
 fn test_stack_overflow() {
     // The stdw instruction is used to test the stack overflow.
     let test_code = assemble(
