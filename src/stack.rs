@@ -3,9 +3,9 @@
 use core::any::Any;
 
 use crate::{
+    StackUsageCalculator,
     ebpf::{self, LOCAL_FUNCTION_STACK_SIZE},
     lib::*,
-    StackUsageCalculator,
 };
 
 #[derive(Debug, Copy, Clone)]
